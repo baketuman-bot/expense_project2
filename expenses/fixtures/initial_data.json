@@ -1,0 +1,116 @@
+[
+  {
+    "model": "expenses.m_status",
+    "fields": {
+      "status_cd": "SUBMITTED",
+      "status_name": "申請中"
+    }
+  },
+  {
+    "model": "expenses.m_status",
+    "fields": {
+      "status_cd": "WAITING",
+      "status_name": "承認待ち"
+    }
+  },
+  {
+    "model": "expenses.m_status",
+    "fields": {
+      "status_cd": "APPROVED",
+      "status_name": "承認済"
+    }
+  },
+  {
+    "model": "expenses.m_status",
+    "fields": {
+      "status_cd": "REJECTED",
+      "status_name": "却下"
+    }
+  },
+  {
+    "model": "expenses.m_status",
+    "fields": {
+      "status_cd": "RETURNED",
+      "status_name": "差戻し"
+    }
+  },
+  {
+    "model": "expenses.m_bumon",
+    "fields": {
+      "bumon_cd": "SALES",
+      "bumon_name": "営業部"
+    }
+  },
+  {
+    "model": "expenses.m_bumon",
+    "fields": {
+      "bumon_cd": "ADMIN",
+      "bumon_name": "管理部"
+    }
+  },
+  {
+    "model": "expenses.m_post",
+    "pk": 1,
+    "fields": {
+      "post_name": "一般社員"
+    }
+  },
+  {
+    "model": "expenses.m_post",
+    "pk": 2,
+    "fields": {
+      "post_name": "部長"
+    }
+  },
+  {
+    "model": "expenses.m_user",
+    "pk": 1,
+    "fields": {
+      "username": "admin",
+      "password": "pbkdf2_sha256$390000$dummy$dummyhash",
+      "email": "admin@example.com",
+      "man_number": "E0001",
+      "user_name": "管理者",
+      "bumon_id": 2,
+      "post_id": 2,
+      "role": "final_approver",
+      "is_superuser": true,
+      "is_staff": true,
+      "is_active": true
+    }
+  },
+  {
+    "model": "expenses.m_user",
+    "pk": 2,
+    "fields": {
+      "username": "approver",
+      "password": "pbkdf2_sha256$390000$dummy$dummyhash",
+      "email": "approver@example.com",
+      "man_number": "E0002",
+      "user_name": "承認者",
+      "bumon_id": 1,
+      "post_id": 2,
+      "role": "approver",
+      "is_superuser": false,
+      "is_staff": true,
+      "is_active": true
+    }
+  },
+  {
+    "model": "expenses.m_user",
+    "pk": 3,
+    "fields": {
+      "username": "employee",
+      "password": "pbkdf2_sha256$390000$dummy$dummyhash",
+      "email": "employee@example.com",
+      "man_number": "E0003",
+      "user_name": "一般社員",
+      "bumon_id": 1,
+      "post_id": 1,
+      "role": "employee",
+      "is_superuser": false,
+      "is_staff": false,
+      "is_active": true
+    }
+  }
+]

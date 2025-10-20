@@ -1,0 +1,37 @@
+[
+  {
+    "model": "expenses.m_account",
+    "fields": {
+      "account_cd": "TRANSPORT",
+      "account_name": "交通費"
+    }
+  },
+  {
+    "model": "expenses.m_account",
+    "fields": {
+      "account_cd": "HOTEL",
+      "account_name": "宿泊費"
+    }
+  },
+  {
+    "model": "expenses.m_account",
+    "fields": {
+      "account_cd": "MEAL",
+      "account_name": "飲食費"
+    }
+  },
+  {
+    "model": "expenses.m_account",
+    "fields": {
+      "account_cd": "OFFICE",
+      "account_name": "消耗品費"
+    }
+  },
+  {
+    "model": "expenses.m_account",
+    "fields": {
+      "account_cd": "BOOK",
+      "account_name": "書籍費"
+    }
+  }
+]

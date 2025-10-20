@@ -1,0 +1,69 @@
+{% extends "expenses/base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">{{ user.user_name }}さん、ようこそ</h2>
+                    <p class="card-text">
+                        部門: {{ user.bumon_cd.bumon_name|default:"未設定" }}<br>
+                        役職: {{ user.post_cd.post_name|default:"未設定" }}<br>
+                        権限: {{ user.get_role_display }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">あなたの申請</h3>
+                    {% if your_expenses %}
+                        <ul class="list-group">
+                        {% for expense in your_expenses %}
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        申請日: {{ expense.created_at|date:"Y/m/d" }}<br>
+                                        金額: ¥{{ expense.total_amount|floatformat:0 }}
+                                    </div>
+                                    <span class="badge {% if expense.status_cd.status_cd == 'APPROVED' %}bg-success{% elif expense.status_cd.status_cd == 'REJECTED' %}bg-danger{% else %}bg-primary{% endif %}">
+                                        {{ expense.status_cd.status_name }}
+                                    </span>
+                                </div>
+                                <div class="mt-2">
+                                    <a href="{% url 'expenses:expense_detail' expense.expense_main_id %}" class="btn btn-sm btn-outline-primary">詳細</a>
+                                </div>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                        <div class="mt-3">
+                            <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-primary">全ての申請を見る</a>
+                        </div>
+                    {% else %}
+                        <p>申請はありません</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if user.role in 'approver,accountant,final_approver' %}
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">承認待ち</h3>
+                    <div class="text-center">
+                        <a href="{% url 'expenses:approval_list' %}" class="btn btn-primary">承認待ち一覧を見る</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

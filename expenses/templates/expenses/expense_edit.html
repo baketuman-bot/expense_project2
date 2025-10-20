@@ -1,0 +1,592 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+{% load form_tags %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">経費申請編集</h2>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="submission_id" value="{{ submission_id }}" />
+        {{ formset.management_form }}
+        
+        {% if error_message %}
+        <div class="alert alert-danger">
+            <strong>エラーがあります：</strong>
+            <p>{{ error_message }}</p>
+        </div>
+        {% endif %}
+
+        {% if formset.non_form_errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for e in formset.non_form_errors %}
+                    <li>{{ e }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% for formset_form in formset.forms %}
+            {% if formset_form.errors %}
+            <div class="alert alert-danger">
+                <strong>明細のエラー：</strong>
+                <ul>
+                    {% for field, errors in formset_form.errors.items %}
+                        {% for error in errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        {% endfor %}
+
+
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title mb-4">経費明細</h3>
+                
+                <div id="expense-details">
+                    {% for detail_form in formset %}
+                    <div class="expense-detail-form mb-4 border-bottom pb-3">
+                        {# 隠しフィールド（id等）を必ず送信 #}
+                        {% for hidden in detail_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    {{ detail_form.date.label_tag }}
+                                    {% if detail_form.date.errors %}
+                                        {{ detail_form.date|add_class:"form-control is-invalid" }}
+                                        {% for error in detail_form.date.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ detail_form.date|add_class:"form-control" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    {{ detail_form.amount.label_tag }}
+                                    {% if detail_form.amount.errors %}
+                                        {{ detail_form.amount|add_class:"form-control is-invalid" }}
+                                        {% for error in detail_form.amount.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ detail_form.amount|add_class:"form-control" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    {{ detail_form.purpose.label_tag }}
+                                    {% if detail_form.purpose.errors %}
+                                        {{ detail_form.purpose|add_class:"form-control is-invalid" }}
+                                        {% for error in detail_form.purpose.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ detail_form.purpose|add_class:"form-control" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    {{ detail_form.shiharaisaki.label_tag }}
+                                    {% if detail_form.shiharaisaki.errors %}
+                                        {{ detail_form.shiharaisaki|add_class:"form-control is-invalid" }}
+                                        {% for error in detail_form.shiharaisaki.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ detail_form.shiharaisaki|add_class:"form-control" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    {{ detail_form.account.label_tag }}
+                                    {% if detail_form.account.errors %}
+                                        {{ detail_form.account|add_class:"form-control is-invalid" }}
+                                        {% for error in detail_form.account.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ detail_form.account|add_class:"form-control" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    {{ detail_form.tekikaku_cd.label_tag }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">T</span>
+                                        {% if detail_form.tekikaku_cd.errors %}
+                                            {{ detail_form.tekikaku_cd|add_class:"form-control is-invalid" }}
+                                        {% else %}
+                                            {{ detail_form.tekikaku_cd|add_class:"form-control" }}
+                                        {% endif %}
+                                    </div>
+                                    {% if detail_form.tekikaku_cd.errors %}
+                                        {% for error in detail_form.tekikaku_cd.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% endif %}
+                                    <div class="form-text">登録番号がない場合は、なしと記載。</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    {{ detail_form.receipt.label_tag }}
+                                    <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
+                                        <div class="drop-zone__prompt">
+                                            <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
+                                            ここにファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択
+                                        </div>
+                                        <div class="drop-zone__hint text-muted small mt-1">対応形式: 画像（JPG/PNG/GIF/WebP）や PDF</div>
+                                        {% if detail_form.receipt.errors %}
+                                            {{ detail_form.receipt|add_class:"form-control file-input d-none is-invalid"|attr:"multiple:multiple"|attr:"accept:image/*,.pdf" }}
+                                        {% else %}
+                                            {{ detail_form.receipt|add_class:"form-control file-input d-none"|attr:"multiple:multiple"|attr:"accept:image/*,.pdf" }}
+                                        {% endif %}
+                                    </div>
+                                    {% if detail_form.receipt.errors %}
+                                        {% for error in detail_form.receipt.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% endif %}
+                                    {# 既存の添付一覧 #}
+                                    {% if detail_form.instance.pk and detail_form.instance.attachments.all %}
+                                        {% with atts=detail_form.instance.attachments.all %}
+                                            {% if atts|length > 0 %}
+                                            <div class="mt-3">
+                                                <div class="small text-muted mb-1">登録済みの添付（{{ atts|length }}件）</div>
+                                                <div class="row g-2">
+                                                    {% for a in atts %}
+                                                        <div class="col-6 col-md-4 col-lg-3">
+                                                            <div class="border rounded p-2 h-100 d-flex flex-column">
+                                                                <a href="{{ a.file.url }}" target="_blank" class="text-decoration-none d-block flex-grow-1">
+                                                                    {% if a.thumbnail %}
+                                                                        <img src="{{ a.thumbnail.url }}" alt="thumb" class="img-fluid mb-2"/>
+                                                                    {% elif a.file|is_image %}
+                                                                        <img src="{{ a.file.url }}" alt="image" class="img-fluid mb-2"/>
+                                                                    {% else %}
+                                                                        <div class="d-flex align-items-center justify-content-center bg-light mb-2" style="height: 120px;">
+                                                                            <i class="fas fa-file fa-2x text-secondary"></i>
+                                                                        </div>
+                                                                    {% endif %}
+                                                                    <div class="small text-truncate" title="{{ a.file.name }}">{{ a.file.name|slice:"-40:" }}</div>
+                                                                    <div class="small text-muted">ダウンロード</div>
+                                                                </a>
+                                                                <label class="mt-2 small">
+                                                                    <input type="checkbox" name="delete_attachments" value="{{ a.attachment_id }}" /> 削除
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                                <div class="form-text">チェックを付けた添付のみ削除します。チェックなしの添付は維持されます。</div>
+                                            </div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="text-center mt-3">
+                    <button type="button" id="add-detail" class="btn btn-outline-secondary">
+                        <i class="fas fa-plus"></i> 明細を追加
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 申請情報 -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h3 class="card-title mb-4">申請情報</h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="bumon_cd">負担部門</label>
+                            <select class="form-control" id="bumon_cd" name="bumon_cd">
+                                <option value="">選択してください</option>
+                                {% for bumon in bumons %}
+                                    {% with selected_cd=request.POST.bumon_cd|default:expense.bumon_cd.bumon_cd %}
+                                    <option value="{{ bumon.bumon_cd }}" {% if selected_cd == bumon.bumon_cd %}selected{% endif %}>
+                                        {{ bumon.bumon_name }} ({{ bumon.bumon_cd }})
+                                    </option>
+                                    {% endwith %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    {# 精算方法は T_Document には存在しないため削除 #}
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label for="memo">備考</label>
+                            <textarea class="form-control" id="memo" name="memo" rows="3" maxlength="200" placeholder="200文字以内で入力してください">{{ request.POST.memo|default:expense.memo }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# 承認者選択は汎用ワークフロー側に委譲するため削除 #}
+        {% if workflow_steps and workflow_steps|length > 0 %}
+        <div class="card mt-4">
+            <div class="card-body">
+                <h3 class="card-title mb-4">承認者選択</h3>
+                {% for s in workflow_steps %}
+                    <div class="mb-3">
+                        <label class="form-label">
+                            承認 {{ s.step_order }}（{{ s.approver_post_name|default:'役職未設定' }}）以上
+                        </label>
+                        {% if s.allowed_bumon_scope == 'keiri' %}
+                            <div class="form-text">経理ステップは自動で回付されます（選択不要）。</div>
+                        {% elif s.allowed_bumon_scope == 'others' %}
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-6">
+                                        <label class="form-label small">所属部署を選択</label>
+                                        <select class="form-select approver-group-select" name="approver_step_{{ s.step_id }}_group" data-step-id="{{ s.step_id }}">
+                                            <option value="">選択してください</option>
+                                            {% for g in groups %}
+                                                <option value="{{ g.group_cd }}" {% if s.selected_group_cd == g.group_cd %}selected{% endif %}>{{ g.group_name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">承認者を選択（役職条件適用）</label>
+                                        <select class="form-select approver-user-select" name="approver_step_{{ s.step_id }}" data-step-id="{{ s.step_id }}" data-selected="{{ s.selected }}">
+                                            <option value="">部署を選択してください</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-text">このステップは他部門から選択します。役職条件（{{ s.approver_post_name|default:'制限なし' }} 以上）が自動で適用されます。</div>
+                        {% else %}
+                            <select class="form-select" name="approver_step_{{ s.step_id }}">
+                                <option value="">選択してください</option>
+                                {% for c in s.candidates %}
+                                    <option value="{{ c.man_number }}" {% if s.selected == c.man_number %}selected{% endif %}>
+                                        {{ c.user_name }}（{{ c.post_name }}）
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if not s.candidates %}
+                                <div class="text-warning small mt-1">候補者が見つかりませんでした。</div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{% url 'expenses:expense_detail' expense.expense_main_id %}" class="btn btn-secondary me-2">キャンセル</a>
+            <button type="submit" name="action" value="save" class="btn btn-outline-primary me-2">下書きを保存</button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary">申請する</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<style>
+.drop-zone {
+    position: relative;
+    border: 3px dashed #6c757d;
+    border-radius: .75rem;
+    padding: 18px;
+    text-align: center;
+    color: #495057;
+    background-color: #f1f3f5;
+    cursor: pointer;
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s ease-in-out;
+}
+.drop-zone:hover {
+    border-color: #0d6efd;
+    background-color: #e9f2ff;
+}
+.drop-zone.dragover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+    color: #0d6efd;
+}
+.drop-zone:focus-visible {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 .25rem rgba(13,110,253,.25);
+}
+.drop-zone.selected {
+    border-color: #198754;
+    background-color: #eef7f1;
+}
+.drop-zone__prompt { font-size: .95rem; line-height: 1.4; }
+.drop-zone__thumb {
+    margin-top: 8px;
+    display: inline-block;
+    max-width: 100%;
+    font-size: .9rem;
+}
+.drop-zone .file-input { display: none !important; }
+.drop-zone__list {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.drop-zone__chip {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: .85rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ドロップゾーンのバインド
+function bindDropZones(context) {
+    const root = context || document;
+    const zones = root.querySelectorAll('[data-drop-zone]');
+    zones.forEach(zone => {
+        const input = zone.querySelector('input[type="file"].file-input');
+        if (!input) return;
+        const prompt = zone.querySelector('.drop-zone__prompt');
+        const listContainer = document.createElement('div');
+        listContainer.className = 'drop-zone__list';
+        zone.appendChild(listContainer);
+        const setFiles = files => {
+            if (!files || files.length === 0) return;
+            try {
+                if (window.DataTransfer) {
+                    const dt = new DataTransfer();
+                    Array.from(files).forEach(f => dt.items.add(f));
+                    input.files = dt.files;
+                } else {
+                    console.warn('DataTransfer 未対応のため、ドラッグ&ドロップはプレビューのみです。ファイル選択をクリックしてください。');
+                }
+                zone.classList.add('selected');
+                if (prompt) {
+                    prompt.innerHTML = `<span class=\"drop-zone__thumb\"><i class=\"fas fa-paperclip me-2\"></i>${files.length} 件選択済み</span>`;
+                }
+                listContainer.innerHTML = '';
+                Array.from(files).forEach(f => {
+                    const chip = document.createElement('span');
+                    chip.className = 'drop-zone__chip';
+                    chip.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
+                    listContainer.appendChild(chip);
+                });
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch (err) {
+                console.error('ファイル設定時にエラー:', err);
+            }
+        };
+        zone.addEventListener('click', () => input.click());
+        zone.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                input.click();
+            }
+        });
+        zone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); });
+        zone.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); setFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null); });
+        input.addEventListener('change', e => setFiles(e.target.files));
+    });
+}
+// 承認者リストを更新
+function updateApproverList(groupSelect, approverSelect) {
+    const groupCd = groupSelect.value;
+    if (!groupCd) {
+        approverSelect.innerHTML = '<option value="">組織を選択してください</option>';
+        return;
+    }
+    const url = `/get_group_members/${encodeURIComponent(groupCd)}/`;
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            let options = '<option value="">選択してください</option>';
+            if (data && Array.isArray(data.members)) {
+                data.members.forEach(member => {
+                    options += `<option value="${member.man_number}">${member.user_name}</option>`;
+                });
+            }
+            approverSelect.innerHTML = options;
+        })
+        .catch(() => {
+            approverSelect.innerHTML = '<option value="">エラーが発生しました</option>';
+        });
+}
+
+console.log('Script is loading...');
+
+// グローバル変数として定義
+let formCount = 1;
+
+function addExpenseDetail() {
+    console.log('addExpenseDetail function called');
+    
+    const detailsContainer = document.getElementById('expense-details');
+    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+    
+    if (!detailsContainer) {
+        console.error('detailsContainer not found');
+        return;
+    }
+    
+    if (!totalForms) {
+        console.error('totalForms not found');
+        return;
+    }
+    
+    // 既存のフォームを複製
+    const existingForm = detailsContainer.querySelector('.expense-detail-form');
+    if (!existingForm) {
+        console.error('既存のフォームが見つかりません');
+        return;
+    }
+    
+    const newForm = existingForm.cloneNode(true);
+    
+    // フォームのインデックスを更新
+    const updateFormIndex = (element, newIndex) => {
+        if (element.id) {
+            element.id = element.id.replace(/form-\d+-/, `form-${newIndex}-`);
+        }
+        if (element.name) {
+            element.name = element.name.replace(/form-\d+-/, `form-${newIndex}-`);
+        }
+        if (element.htmlFor) {
+            element.htmlFor = element.htmlFor.replace(/form-\d+-/, `form-${newIndex}-`);
+        }
+    };
+    
+    // 入力フィールドを更新
+    const inputs = newForm.querySelectorAll('input, select, textarea, label');
+    inputs.forEach(element => {
+        updateFormIndex(element, formCount);
+        if (element.type !== 'hidden' && element.type !== 'submit' && element.type !== 'button') {
+            element.value = '';
+        }
+        // 新規フォームなので、隠しIDは空にする
+        if (element.type === 'hidden' && /-id$/.test(element.name)) {
+            element.value = '';
+        }
+    });
+    
+    // セレクトボックスの選択をリセット
+    const selects = newForm.querySelectorAll('select');
+    selects.forEach(select => {
+        select.selectedIndex = 0;
+    });
+
+    detailsContainer.appendChild(newForm);
+    formCount++;
+    totalForms.value = formCount;
+    // 追加したフォームにもドロップゾーンを適用
+    bindDropZones(newForm);
+    
+    console.log('Added form, new count:', formCount);
+}
+
+// ページ読み込み完了後に実行
+window.addEventListener('load', function() {
+    console.log('Page loaded, initializing...');
+    
+    const addButton = document.getElementById('add-detail');
+    if (addButton) {
+        console.log('Add button found, attaching event listener');
+        addButton.onclick = function(e) {
+            e.preventDefault();
+            console.log('Button clicked via onclick');
+            addExpenseDetail();
+        };
+    } else {
+        console.error('Add button not found');
+    }
+    
+    // 初期フォーム数を取得
+    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+    if (totalForms) {
+        formCount = parseInt(totalForms.value) || 1;
+        console.log('Initial form count:', formCount);
+    }
+    // 既存フォームにドロップゾーンを適用
+    bindDropZones();
+    // 'others' 用の二段階セレクトをバインド
+    (function bindOthersApproverSelectors(){
+            const groupSelects = document.querySelectorAll('.approver-group-select');
+            groupSelects.forEach(sel => {
+            sel.addEventListener('change', function() {
+                const stepId = this.dataset.stepId;
+                const userSelect = document.querySelector(`select.approver-user-select[data-step-id="${stepId}"]`);
+                if (!userSelect) return;
+                    const groupCd = this.value;
+                    if (!groupCd) {
+                        userSelect.innerHTML = '<option value="">部署を選択してください</option>';
+                    return;
+                }
+                userSelect.innerHTML = '<option value="">読込中...</option>';
+                    fetch(`/api/approver_candidates/?step_id=${encodeURIComponent(stepId)}&group_cd=${encodeURIComponent(groupCd)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        let opts = '<option value="">選択してください</option>';
+                        const pre = userSelect.dataset.selected || '';
+                        if (data && Array.isArray(data.members)) {
+                            data.members.forEach(m => {
+                                const selected = pre && String(pre) === String(m.man_number) ? ' selected' : '';
+                                const post = m.post_name ? `（${m.post_name}）` : '';
+                                opts += `<option value="${m.man_number}"${selected}>${m.user_name}${post}</option>`;
+                            });
+                        }
+                        userSelect.innerHTML = opts;
+                    })
+                    .catch(() => {
+                        userSelect.innerHTML = '<option value="">取得に失敗しました</option>';
+                    });
+            });
+            if (sel.value) sel.dispatchEvent(new Event('change'));
+        });
+    })();
+    // 画面全体のデフォルトドロップを抑止（ブラウザがファイルを開くのを防ぐ）
+    ['dragover','drop'].forEach(type => {
+        window.addEventListener(type, function(e){
+            e.preventDefault();
+        });
+    });
+});
+</script>
+{% endblock %}

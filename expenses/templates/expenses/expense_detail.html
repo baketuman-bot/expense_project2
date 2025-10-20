@@ -1,0 +1,315 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+{% load expense_extras %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>申請詳細</h2>
+                <div>
+                    <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> 一覧に戻る
+                    </a>
+                </div>
+            </div>
+
+            <!-- エラーメッセージ -->
+            {% if error_message %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle"></i> {{ error_message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- 申請基本情報 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">申請情報</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">申請ID:</dt>
+                                <dd class="col-sm-8">{{ expense.expense_main_id }}</dd>
+                                
+                                <dt class="col-sm-4">申請者:</dt>
+                                <dd class="col-sm-8">{{ expense.applicant.user_name }}</dd>
+                                
+                                <dt class="col-sm-4">申請日時:</dt>
+                                <dd class="col-sm-8">{{ expense.created_at|date:"Y年m月d日 H:i" }}</dd>
+                                
+                                <dt class="col-sm-4">負担部門:</dt>
+                                <dd class="col-sm-8">{{ expense.bumon_cd.bumon_name|default:"-" }}</dd>
+                                
+                                {# 精算方法は T_Document には存在しないため非表示 #}
+                                
+                                <dt class="col-sm-4">備考:</dt>
+                                <dd class="col-sm-8">{{ expense.memo|default:"-" }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">ステータス:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge 
+                                        {% if expense.status_cd.status_cd == 'SUB' %}bg-warning
+                                        {% elif expense.status_cd.status_cd == 'APP' %}bg-success
+                                        {% elif expense.status_cd.status_cd == 'REJ' %}bg-danger
+                                        {% elif expense.status_cd.status_cd == 'RET' %}bg-info
+                                        {% elif expense.status_cd.status_cd == 'CAN' %}bg-dark
+                                        {% elif expense.status_cd.status_cd == 'FNS' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ expense.status_cd.status_name }}
+                                    </span>
+                                </dd>
+                                
+                                <dt class="col-sm-4">合計金額:</dt>
+                                <dd class="col-sm-8">
+                                    <strong class="text-primary">¥{{ expense.total_amount|floatformat:0 }}</strong>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 経費明細 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">経費明細</h5>
+                </div>
+                <div class="card-body">
+                    {% if expense.details.all %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>日付</th>
+                                        <th>金額</th>
+                                        <th>目的</th>
+                                        <th>取引先</th>
+                                        <th>勘定科目</th>
+                                        <th>登録番号</th>
+                                        <th>領収書</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detail in expense.details.all %}
+                                    <tr>
+                                        <td>{{ detail.date|date:"Y年m月d日" }}</td>
+                                        <td class="text-end">¥{{ detail.amount|floatformat:0 }}</td>
+                                        <td>{{ detail.purpose }}</td>
+                                        <td>{{ detail.shiharaisaki }}</td>
+                                        <td>{{ detail.account.account_name }}</td>
+                                        <td>{{ detail.tekikaku_cd|default:"なし" }}</td>
+                                        <td>
+                                            {% if detail.attachments.all %}
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    {% for att in detail.attachments.all %}
+                                                        {% with ext=att.file.name|lower %}
+                                                            {% if att.thumbnail %}
+                                                                <a href="{{ att.file.url }}" target="_blank">
+                                                                    <img src="{{ att.thumbnail.url }}" alt="添付" class="img-thumbnail" style="max-width: 110px;">
+                                                                </a>
+                                                            {% elif ext|slice:"-4:" == ".jpg" or ext|slice:"-5:" == ".jpeg" or ext|slice:"-4:" == ".png" or ext|slice:"-4:" == ".gif" or ext|slice:"-5:" == ".webp" %}
+                                                                <a href="{{ att.file.url }}" target="_blank">
+                                                                    <img src="{{ att.file.url }}" alt="添付" class="img-thumbnail" style="max-width: 110px;">
+                                                                </a>
+                                                            {% elif ext|slice:"-4:" == ".pdf" %}
+                                                                <a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                                    <i class="fas fa-file-pdf"></i> PDF
+                                                                </a>
+                                                            {% else %}
+                                                                <a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                                    <i class="fas fa-file"></i> 表示
+                                                                </a>
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                    {% endfor %}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">なし</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-primary">
+                                        <th colspan="1">合計</th>
+                                        <th class="text-end">¥{{ expense.total_amount|floatformat:0 }}</th>
+                                        <th colspan="5"></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">明細がありません。</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 承認履歴（ワークフローアクション） -->
+            {% if workflow_actions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">承認履歴</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for act in workflow_actions %}
+                        <div class="timeline-item mb-3">
+                            <div class="d-flex">
+                                <div class="timeline-marker me-3">
+                                    {% with cd=act.action_status.status_cd %}
+                                    <div class="timeline-marker-icon 
+                                        {% if cd == 'APP' %}bg-success
+                                        {% elif cd == 'REJ' %}bg-danger
+                                        {% elif cd == 'RET' %}bg-info
+                                        {% elif cd == 'CAN' %}bg-dark
+                                        {% elif cd == 'SUB' %}bg-warning
+                                        {% elif cd == 'FNS' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                    </div>
+                                    {% endwith %}
+                                </div>
+                                <div class="timeline-content flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">{{ act.action_status.action_name|default:act.action_status.status_name }}</h6>
+                                            <p class="mb-1 text-muted small">
+                                                実行者: {{ act.approver_man_number.user_name }} | 
+                                                {{ act.actioned_at|date:"Y年m月d日 H:i" }}
+                                                {% if act.step %}
+                                                <span class="ms-2">(Step {{ act.step.step_order }})</span>
+                                                {% endif %}
+                                            </p>
+                                            {% if act.comment %}
+                                                <p class="mb-0">{{ act.comment }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- アクションボタン -->
+            <div class="text-center">
+                <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary me-2">
+                    <i class="fas fa-list"></i> 一覧に戻る
+                </a>
+                {% if expense.status_cd.status_cd == 'DRA' and expense.applicant == request.user %}
+                <a href="{% url 'expenses:expense_edit' expense.expense_main_id %}" class="btn btn-primary me-2">
+                    <i class="fas fa-edit"></i> 下書きを編集
+                </a>
+                {% endif %}
+                {% if expense.status_cd.status_cd == 'SUB' and expense.applicant == request.user %}
+                <a href="{% url 'expenses:expense_edit' expense.expense_main_id %}" class="btn btn-warning me-2">
+                    <i class="fas fa-edit"></i> 修正
+                </a>
+                <button type="button" class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                    <i class="fas fa-times"></i> 取り消し
+                </button>
+                {% endif %}
+                {% if expense.status_cd.status_cd == 'RET' and expense.applicant == request.user %}
+                <a href="{% url 'expenses:expense_edit' expense.expense_main_id %}" class="btn btn-warning me-2">
+                    <i class="fas fa-edit"></i> 修正
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- 取り消し確認モーダル -->
+            {% if expense.status_cd.status_cd == 'SUB' and expense.applicant == request.user %}
+            <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="cancelModalLabel">申請の取り消し</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>この申請を取り消しますか？</p>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>注意：</strong> 取り消し後は元に戻すことができません。
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times"></i> キャンセル
+                            </button>
+                            <form method="post" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" name="cancel_expense" class="btn btn-danger">
+                                    <i class="fas fa-trash"></i> 取り消し実行
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline {
+    position: relative;
+    padding-left: 0;
+}
+
+.timeline-item {
+    position: relative;
+}
+
+.timeline-marker {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.timeline-marker-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-content {
+    border-left: 2px solid #dee2e6;
+    padding-left: 20px;
+    margin-left: -10px;
+}
+
+.timeline-item:last-child .timeline-content {
+    border-left: none;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-top: none;
+}
+
+.table tfoot th {
+    background-color: #e3f2fd;
+    font-weight: bold;
+}
+
+.badge {
+    font-size: 0.875em;
+}
+</style>
+{% endblock %}

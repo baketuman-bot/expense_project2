@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>経費精算システム</title>
+    <!--下記の5.3.3/dist/の次のテーマ名を変える 全部小文字 sandstone flatly lumen spacelab cyborg litera -->
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/sandstone/bootstrap.min.css" rel="stylesheet">
+    {# 画面ごとの追加<head>要素（meta等） #}
+    {% block extra_head %}{% endblock %}
+    {# 画面ごとの追加CSS #}
+    {% block extra_css %}{% endblock %}
+    <style>
+            :root {
+                /* サイドとメインで色分け（同系色） */
+                --sidebar-bg: #cde1f9; /* サイド: 明るめの薄いブルー */
+                --main-bg:    #e7eef7; /* メイン: 同系で少し濃い */
+            }
+            body {
+                /* ページ全体の地の色はサイドと合わせる */
+                background-color: var(--sidebar-bg) !important;
+            }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 0;
+            box-shadow: 0 2px 5px 0 rgba(0,0,0,.05);
+            width: 280px;
+                background-color: var(--sidebar-bg);
+        }
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: 100vh;
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .main-content {
+            margin-left: 280px;
+            padding: 20px;
+            background-color: var(--main-bg);
+            min-height: 100vh; /* 画面全体を覆う */
+        }
+        /* サイドバー非表示ページ用 */
+        .no-sidebar .main-content {
+            margin-left: 0;
+        }
+        .nav-link {
+            color: #333;
+            padding: 0.8rem 1rem;
+            border-radius: 4px;
+            margin: 0.2rem 1rem;
+        }
+        .nav-link:hover {
+            background-color: #e9ecef;
+            color: #0d6efd;
+        }
+        .nav-link.active {
+            background-color: #e9ecef;
+            color: #0d6efd;
+        }
+        .sidebar-header {
+            padding: 1.25rem 1rem;
+            background-color: #3f7bd9; /* 単一色・少し濃い青 */
+            color: #ffffff;
+            margin: 12px;
+            margin-bottom: 1rem;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 16px rgba(33, 37, 41, 0.05);
+        }
+        .sidebar-header a {
+            color: #ffffff;
+            text-decoration: none;
+        }
+        .sidebar-header .brand-heading {
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            display: inline-block;
+            padding: 0;
+            border-radius: 0;
+            box-shadow: none;
+            color: inherit; /* 背景とテキストのカラーを統一 */
+        }
+        .user-info {
+            padding: 1rem;
+            border-top: 1px solid #dee2e6;
+            margin-top: auto;
+        }
+        .user-info form {
+            display: flex;
+            justify-content: center;
+        }
+        .user-info .btn-logout {
+            width: 140px; /* ボタン幅を小さく */
+            /* 非ホバー時の配色（淡い危険色トーン） */
+            background-color: var(--bs-danger-bg-subtle);
+            color: var(--bs-danger-text-emphasis);
+            border-color: var(--bs-danger-border-subtle);
+        }
+        .user-info .btn-logout:hover,
+        .user-info .btn-logout:focus {
+            /* ホバー時ははっきりした危険色に */
+            background-color: var(--bs-danger);
+            color: #fff;
+            border-color: var(--bs-danger);
+        }
+    </style>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    {% block sidebar %}
+    {% if user.is_authenticated %}
+    <nav class="sidebar">
+        <div class="sidebar-sticky">
+            <div class="sidebar-header">
+                <h4 class="mb-0 brand-heading">経費精算システム</h4>
+            </div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'expenses:home' %}">
+                        <span class="me-2">🏠</span>トップに戻る
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'expenses:expense_list' %}">
+                        <span class="me-2">📋</span>経費一覧
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'expenses:expense_create' %}">
+                        <span class="me-2">📝</span>経費申請
+                    </a>
+                </li>
+                {% if user.role in 'approver,accountant,final_approver' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'expenses:approval_list' %}">
+                        <span class="me-2">✓</span>承認待ち
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="user-info mt-auto text-center">
+                <div class="mb-2">{{ user.user_name }}</div>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm btn-logout">ログアウト</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    {% endblock %}
+
+    <main class="main-content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

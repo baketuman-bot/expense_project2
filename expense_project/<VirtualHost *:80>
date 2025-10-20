@@ -1,0 +1,32 @@
+<VirtualHost *:80>
+    ServerName 192.168.0.128
+    ServerAdmin hayashida.daiji@idc-com.co.jp
+
+    WSGIDaemonProcess expense_project2 python-home=/home/idc_user/expense_project2/venv python-path=/home/idc_user/expense_project2
+    WSGIProcessGroup expense_project2
+    WSGIScriptAlias / /home/idc_user/expense_project2/expense_project/wsgi.py
+
+    <Directory /home/idc_user/expense_project2/expense_project>
+        <Files wsgi.py>
+            Require all granted
+        </Files>
+    </Directory>
+
+    Alias /static /home/idc_user/expense_project2/static
+    <Directory /home/idc_user/expense_project2/static>
+        Require all granted
+    </Directory>
+
+    Alias /media /home/idc_user/expense_project2/media
+    <Directory /home/idc_user/expense_project2/media>
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/expense_project2_error.log
+    CustomLog ${APACHE_LOG_DIR}/expense_project2_access.log combined
+</VirtualHost>
+
+[wsl2]
+networkingMode=mirrored
+dnsTunneling=true
+autoProxy=true
