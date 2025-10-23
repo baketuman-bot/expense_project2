@@ -1,12 +1,16 @@
 from pathlib import Path
+import os
 import pymysql
+import dj_database_url
+
 pymysql.install_as_MySQLdb()
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-your-secret-key'
-DEBUG = True
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-your-secret-key')
+# Render など本番では DEBUG を環境変数で制御（'True'/'true'/'1' で有効）
+DEBUG = os.environ.get('DEBUG', '').lower() in {'1', 'true', 'yes'}
 
 STATIC_URL = "/static/"  # 既にあればOK
 MEDIA_URL = "/media/"
@@ -34,6 +38,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -70,24 +75,35 @@ WSGI_APPLICATION = 'expense_project.wsgi.application'
 #    }
 #}
 
-# ローカル開発はMySQL (localhost) を使用
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'expense_db',         # 1.2で作成したデータベース名
-        'USER': 'ex_user',        # 1.3で作成したユーザー名
-        'PASSWORD': 'Django3592',         # 1.3で設定したパスワード
-        'HOST': '192.168.0.128',            # MySQLサーバーのホスト名 (通常はlocalhost)
-#        'HOST': '172.16.100.149',  
-#        'HOST': '192.168.1.63',
-        'PORT': '3306',                 # MySQLサーバーのポート番号 (通常は3306)
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-        },
-    }
-}
+"""
+DATABASES 設定:
+- Render など本番: 環境変数 DATABASE_URL を優先（conn_max_age/SSL 必須）
+- ローカル開発: 環境変数がなければ既存の MySQL 設定を使用
+"""
 
+if os.environ.get('DATABASE_URL'):
+    # Render の fromDatabase で注入される接続文字列を利用
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+    }
+else:
+    # ローカル開発はMySQL (既存設定) を使用
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'expense_db',
+            'USER': 'ex_user',
+            'PASSWORD': 'Django3592',
+            'HOST': '192.168.0.128',
+            'PORT': '3306',
+            'OPTIONS': {
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+                'charset': 'utf8mb4',
+            },
+            # 接続の永続化（ローカルでも有効にしておく）
+            'CONN_MAX_AGE': 60,
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = []
 
