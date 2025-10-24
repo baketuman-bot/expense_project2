@@ -83,12 +83,16 @@ DATABASES 設定:
 - ローカル開発: 環境変数がなければ既存の MySQL 設定を使用
 """
 
-if os.environ.get('DATABASE_URL'):
+db_url_env = os.environ.get('DATABASE_URL')
+if db_url_env:
     # Render の fromDatabase で注入される接続文字列を利用
     try:
         import dj_database_url  # type: ignore
+        # sqlite のときは sslmode を付与しない
+        scheme = db_url_env.split(':', 1)[0].lower()
+        require_ssl = scheme not in {'sqlite', 'file'}
         DATABASES = {
-            'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+            'default': dj_database_url.config(conn_max_age=600, ssl_require=require_ssl)
         }
     except Exception as e:
         # 依存関係が未インストールの場合は明示的に失敗させる

@@ -105,6 +105,9 @@ class Migration(migrations.Migration):
                 ('account_cd', models.CharField(default='DEFAULT', max_length=20, primary_key=True, serialize=False, verbose_name='勘定科目コード')),
                 ('account_name', models.CharField(max_length=100, verbose_name='勘定科目名')),
             ],
+            options={
+                'db_table': 'm_account',
+            },
         ),
         migrations.CreateModel(
             name='M_Bumon',
@@ -112,6 +115,9 @@ class Migration(migrations.Migration):
                 ('bumon_cd', models.CharField(default='DEFAULT', max_length=15, primary_key=True, serialize=False, verbose_name='部門コード')),
                 ('bumon_name', models.CharField(max_length=100, verbose_name='部門名')),
             ],
+            options={
+                'db_table': 'm_bumon',
+            },
         ),
         migrations.CreateModel(
             name='M_Group',
@@ -132,6 +138,9 @@ class Migration(migrations.Migration):
                 ('post_cd', models.CharField(default='DEFAULT', max_length=15, primary_key=True, serialize=False, verbose_name='役職コード')),
                 ('post_name', models.CharField(max_length=100, verbose_name='役職名')),
             ],
+            options={
+                'db_table': 'm_post',
+            },
         ),
         migrations.CreateModel(
             name='M_Status',
@@ -139,6 +148,9 @@ class Migration(migrations.Migration):
                 ('status_cd', models.CharField(default='DEFAULT', max_length=20, primary_key=True, serialize=False, verbose_name='ステータスコード')),
                 ('status_name', models.CharField(max_length=50, verbose_name='ステータス名')),
             ],
+            options={
+                'db_table': 'm_status',
+            },
         ),
         migrations.CreateModel(
             name='M_User',
@@ -166,36 +178,10 @@ class Migration(migrations.Migration):
                 'verbose_name': 'user',
                 'verbose_name_plural': 'users',
                 'abstract': False,
+                'db_table': 'm_user',
             },
             managers=[
                 ('objects', django.contrib.auth.models.UserManager()),
-            ],
-        ),
-        migrations.CreateModel(
-            name='T_ExpenseMain',
-            fields=[
-                ('expense_main_id', models.AutoField(primary_key=True, serialize=False, verbose_name='申請ID')),
-                ('total_amount', models.DecimalField(decimal_places=2, max_digits=10, verbose_name='合計金額')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='申請日時')),
-                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='更新日時')),
-                ('applicant', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL, verbose_name='申請者')),
-                ('approver_man_number_1', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='primary_approvals', to=settings.AUTH_USER_MODEL, verbose_name='承認者1')),
-                ('approver_man_number_2', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='secondary_approvals', to=settings.AUTH_USER_MODEL, verbose_name='承認者2')),
-                ('status_cd', models.ForeignKey(default='SUBMITTED', on_delete=django.db.models.deletion.PROTECT, to='expenses.m_status', verbose_name='ステータス')),
-                ('bumon_cd', models.ForeignKey(blank=True, db_column='bumon_cd', null=True, on_delete=django.db.models.deletion.PROTECT, to='expenses.m_bumon', verbose_name='負担部門')),
-                ('memo', models.TextField(blank=True, max_length=200, null=True, verbose_name='備考')),
-                ('pay_kbn', models.CharField(blank=True, max_length=4, null=True, verbose_name='精算方法')),
-            ],
-        ),
-        migrations.CreateModel(
-            name='T_ApprovalLog',
-            fields=[
-                ('approval_id', models.AutoField(primary_key=True, serialize=False, verbose_name='承認ID')),
-                ('comment', models.TextField(blank=True, null=True, verbose_name='コメント')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='承認日時')),
-                ('man_number', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL, verbose_name='承認者')),
-                ('status_cd', models.ForeignKey(default='SUBMITTED', on_delete=django.db.models.deletion.PROTECT, to='expenses.m_status', verbose_name='ステータス')),
-                ('expense_main', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='approval_logs', to='expenses.t_expensemain', verbose_name='経費申請')),
             ],
         ),
         migrations.CreateModel(
@@ -216,21 +202,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='T_ExpenseDetail',
-            fields=[
-                ('expense_detail_id', models.AutoField(primary_key=True, serialize=False, verbose_name='明細ID')),
-                ('date', models.DateField(verbose_name='日付')),
-                ('amount', models.DecimalField(decimal_places=2, max_digits=10, verbose_name='金額')),
-                ('purpose', models.CharField(max_length=255, verbose_name='目的')),
-                ('receipt', models.FileField(blank=True, null=True, upload_to=expenses.models.receipt_upload_path, verbose_name='領収書')),
-                ('receipt_thumbnail', models.ImageField(blank=True, null=True, upload_to=expenses.models.thumbnail_upload_path, verbose_name='サムネイル')),
-                ('vendor', models.CharField(blank=True, max_length=255, null=True, verbose_name='取引先')),
-                ('account', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='expenses.m_account', verbose_name='勘定科目')),
-                ('expense_main', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='details', to='expenses.t_expensemain', verbose_name='経費申請')),
-                ('tekikakusha_cd', models.CharField(blank=True, max_length=15, null=True, verbose_name='登録番号')),
-            ],
-        ),
-        migrations.CreateModel(
             name='M_Item',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -245,54 +216,6 @@ class Migration(migrations.Migration):
                 'db_table': 'm_item',
                 'constraints': [models.UniqueConstraint(fields=('data_kbn', 'key'), name='uq_m_item_data_kbn_key')],
             },
-        ),
-        migrations.RunPython(
-            code=disable_fk_checks,
-            reverse_code=enable_fk_checks,
-        ),
-        migrations.RunPython(
-            code=rename_tables_if_needed,
-            reverse_code=django.db.migrations.operations.special.RunPython.noop,
-        ),
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.AlterModelTable(
-                    name='m_account',
-                    table='m_account',
-                ),
-                migrations.AlterModelTable(
-                    name='m_bumon',
-                    table='m_bumon',
-                ),
-                migrations.AlterModelTable(
-                    name='m_post',
-                    table='m_post',
-                ),
-                migrations.AlterModelTable(
-                    name='m_status',
-                    table='m_status',
-                ),
-                migrations.AlterModelTable(
-                    name='m_user',
-                    table='m_user',
-                ),
-                migrations.AlterModelTable(
-                    name='t_expensemain',
-                    table='t_expense_main',
-                ),
-                migrations.AlterModelTable(
-                    name='t_expensedetail',
-                    table='t_expense_detail',
-                ),
-                migrations.AlterModelTable(
-                    name='t_approvallog',
-                    table='t_approval_log',
-                ),
-            ],
-        ),
-        migrations.RunPython(
-            code=enable_fk_checks,
-            reverse_code=disable_fk_checks,
         ),
         migrations.CreateModel(
             name='M_WorkflowTemplate',
@@ -368,19 +291,19 @@ class Migration(migrations.Migration):
             options={
                 'verbose_name': 'ワークフローインスタンス',
                 'verbose_name_plural': 'ワークフローインスタンス',
-                'db_table': 'workflow_instances',
+                'db_table': 't_workflow_instances',
             },
         ),
         migrations.CreateModel(
             name='T_WorkflowAction',
             fields=[
                 ('action_id', models.AutoField(primary_key=True, serialize=False, verbose_name='アクションID')),
-                ('action', models.CharField(choices=[('approved', '承認'), ('rejected', '却下'), ('returned', '差戻し')], max_length=8, verbose_name='操作')),
                 ('comment', models.TextField(blank=True, null=True, verbose_name='コメント')),
                 ('actioned_at', models.DateTimeField(default=django.utils.timezone.now, verbose_name='処理日時')),
                 ('approver_man_number', models.ForeignKey(db_column='approver_man_number', on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL, to_field='man_number', verbose_name='承認者社員番号')),
                 ('step', models.ForeignKey(db_column='step_id', on_delete=django.db.models.deletion.PROTECT, related_name='actions', to='expenses.m_workflowstep', verbose_name='対象ステップ')),
                 ('instance', models.ForeignKey(db_column='instance_id', on_delete=django.db.models.deletion.PROTECT, related_name='actions', to='expenses.t_workflowinstance', verbose_name='ワークフローインスタンス')),
+                ('action_status', models.ForeignKey(blank=True, db_column='action', db_constraint=False, null=True, on_delete=django.db.models.deletion.PROTECT, to='expenses.m_status', verbose_name='操作')),
             ],
             options={
                 'verbose_name': 'ワークフローアクション',
@@ -408,33 +331,7 @@ class Migration(migrations.Migration):
                 'managed': False,
             },
         ),
-        migrations.CreateModel(
-            name='T_DocumentApprover',
-            fields=[
-                ('id', models.BigAutoField(primary_key=True, serialize=False, verbose_name='ID')),
-                ('document_id', models.ForeignKey(db_column='document_id', db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='document_approvers', to='expenses.t_expensemain', verbose_name='文書')),
-                ('step_id', models.ForeignKey(db_column='step_id', db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='document_approvers', to='expenses.m_workflowstep', verbose_name='ステップ')),
-                ('man_number', models.ForeignKey(db_column='man_number', db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='document_approvals', to=settings.AUTH_USER_MODEL, to_field='man_number', verbose_name='承認者')),
-                ('step_order', models.IntegerField(verbose_name='ステップ順')),
-                ('status', models.CharField(default='pending', max_length=20, verbose_name='ステータス')),
-                ('approved_at', models.DateTimeField(blank=True, null=True, verbose_name='承認日時')),
-                ('remarks', models.TextField(blank=True, null=True, verbose_name='備考')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='作成日時')),
-            ],
-            options={
-                'verbose_name': '文書承認者',
-                'verbose_name_plural': '文書承認者',
-                'db_table': 't_document_approvers',
-            },
-        ),
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.AlterModelTable(
-                    name='t_workflowinstance',
-                    table='t_workflow_instances',
-                ),
-            ],
-        ),
+        # 既に作成時から 't_workflow_instances' なのでテーブル名変更は不要
         migrations.RunPython(
             code=reorder_columns_mysql,
             reverse_code=django.db.migrations.operations.special.RunPython.noop,
@@ -489,6 +386,25 @@ class Migration(migrations.Migration):
                 'db_table': 't_documentcontents',
             },
         ),
+        migrations.CreateModel(
+            name='T_DocumentApprover',
+            fields=[
+                ('id', models.BigAutoField(primary_key=True, serialize=False, verbose_name='ID')),
+                ('document_id', models.ForeignKey(db_column='document_id', db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='document_approvers', to='expenses.t_document', verbose_name='文書')),
+                ('step_id', models.ForeignKey(db_column='step_id', db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='document_approvers', to='expenses.m_workflowstep', verbose_name='ステップ')),
+                ('man_number', models.ForeignKey(db_column='man_number', db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='document_approvals', to=settings.AUTH_USER_MODEL, to_field='man_number', verbose_name='承認者')),
+                ('step_order', models.IntegerField(verbose_name='ステップ順')),
+                ('status', models.CharField(default='pending', max_length=20, verbose_name='ステータス')),
+                ('approved_at', models.DateTimeField(blank=True, null=True, verbose_name='承認日時')),
+                ('remarks', models.TextField(blank=True, null=True, verbose_name='備考')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='作成日時')),
+            ],
+            options={
+                'verbose_name': '文書承認者',
+                'verbose_name_plural': '文書承認者',
+                'db_table': 't_document_approvers',
+            },
+        ),
         migrations.AlterField(
             model_name='t_workflowinstance',
             name='document_id',
@@ -498,15 +414,6 @@ class Migration(migrations.Migration):
             model_name='t_documentapprover',
             name='document_id',
             field=models.ForeignKey(db_column='document_id', db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='document_approvers', to='expenses.t_document', verbose_name='文書'),
-        ),
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.AlterField(
-                    model_name='t_approvallog',
-                    name='expense_main',
-                    field=models.ForeignKey(db_column='expense_main_id', db_constraint=False, on_delete=django.db.models.deletion.CASCADE, related_name='approval_logs', to='expenses.t_document', verbose_name='文書'),
-                ),
-            ],
         ),
         migrations.AlterField(
             model_name='t_documentcontent',
@@ -528,61 +435,11 @@ class Migration(migrations.Migration):
             name='step_order',
             field=models.IntegerField(blank=True, db_column='step_order', null=True, verbose_name='現在ステップ順'),
         ),
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.AddField(
-                    model_name='m_status',
-                    name='action_name',
-                    field=models.CharField(blank=True, max_length=50, null=True, verbose_name='アクション名'),
-                ),
-            ],
-        ),
-        migrations.SeparateDatabaseAndState(
-            state_operations=[
-                migrations.RemoveField(
-                    model_name='t_expensemain',
-                    name='applicant',
-                ),
-                migrations.RemoveField(
-                    model_name='t_expensemain',
-                    name='approver_man_number_1',
-                ),
-                migrations.RemoveField(
-                    model_name='t_expensemain',
-                    name='approver_man_number_2',
-                ),
-                migrations.RemoveField(
-                    model_name='t_expensemain',
-                    name='bumon_cd',
-                ),
-                migrations.RemoveField(
-                    model_name='t_expensemain',
-                    name='status_cd',
-                ),
-                migrations.DeleteModel(
-                    name='T_ExpenseDetail',
-                ),
-                migrations.DeleteModel(
-                    name='T_ExpenseMain',
-                ),
-            ],
-        ),
-        migrations.RemoveField(
-            model_name='t_workflowaction',
-            name='action',
-        ),
+        # 最終スキーマ: m_status に action_name を持たせる
         migrations.AddField(
-            model_name='t_workflowaction',
-            name='action_status',
-            field=models.ForeignKey(blank=True, db_column='action', db_constraint=False, null=True, on_delete=django.db.models.deletion.PROTECT, to='expenses.m_status', verbose_name='操作'),
-        ),
-        migrations.AlterField(
-            model_name='t_workflowinstance',
-            name='status',
-            field=models.ForeignKey(blank=True, db_column='status', db_constraint=False, null=True, on_delete=django.db.models.deletion.PROTECT, to='expenses.m_status', verbose_name='ステータス'),
-        ),
-        migrations.DeleteModel(
-            name='T_ApprovalLog',
+            model_name='m_status',
+            name='action_name',
+            field=models.CharField(blank=True, max_length=50, null=True, verbose_name='アクション名'),
         ),
         migrations.CreateModel(
             name='T_DocumentAttachment',
