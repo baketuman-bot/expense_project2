@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('expenses', '0020_alter_t_documentcontent_receipt_and_more'),
+        ('expenses', '0021a_fix_workflowinstance_table'),
     ]
 
     operations = [
