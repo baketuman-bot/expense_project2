@@ -1,9 +1,11 @@
 from pathlib import Path
 import os
-import pymysql
-import dj_database_url
-
-pymysql.install_as_MySQLdb()
+"""PyMySQL は MySQL 環境でのみ必要。Render(PostgreSQL)では未インストールでも起動できるようにする。"""
+try:  # optional for local MySQL
+    import pymysql  # type: ignore
+    pymysql.install_as_MySQLdb()
+except Exception:
+    pass
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,9 +85,16 @@ DATABASES 設定:
 
 if os.environ.get('DATABASE_URL'):
     # Render の fromDatabase で注入される接続文字列を利用
-    DATABASES = {
-        'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
-    }
+    try:
+        import dj_database_url  # type: ignore
+        DATABASES = {
+            'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+        }
+    except Exception as e:
+        # 依存関係が未インストールの場合は明示的に失敗させる
+        raise RuntimeError(
+            "DATABASE_URL が設定されていますが dj-database-url がインストールされていません。requirements に追加してください。"
+        ) from e
 else:
     # ローカル開発はMySQL (既存設定) を使用
     DATABASES = {
@@ -105,6 +114,13 @@ else:
         }
     }
 
+# 共通のDBオプション（接続の永続化とリクエストトランザクション）
+if 'default' in globals().get('DATABASES', {}):
+    _db = DATABASES['default']
+    # 既に設定済みでなければデフォルト値を補完
+    _db.setdefault('CONN_MAX_AGE', 600 if os.environ.get('DATABASE_URL') else 60)
+    _db.setdefault('ATOMIC_REQUESTS', True)
+
 AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = 'ja'
@@ -114,6 +130,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = str(BASE_DIR / 'static')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # カスタムユーザー
@@ -133,3 +150,13 @@ DEFAULT_FROM_EMAIL = 'noreply@example.com'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'expenses:home'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Render / 逆プロキシ配下のHTTPS検知とホスト/CSRF設定
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+_render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+_render_url = os.environ.get('RENDER_EXTERNAL_URL')
+if _render_host:
+    CSRF_TRUSTED_ORIGINS = [f"https://{_render_host}"]
+elif _render_url:
+    CSRF_TRUSTED_ORIGINS = [_render_url]

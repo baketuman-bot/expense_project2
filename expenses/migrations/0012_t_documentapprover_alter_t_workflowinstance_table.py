@@ -10,48 +10,24 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunSQL(
-                    sql=(
-                        """
-                        CREATE TABLE IF NOT EXISTS `t_document_approvers` (
-                          `id` bigint NOT NULL AUTO_INCREMENT,
-                          `document_id` bigint NOT NULL,
-                          `step_id` bigint NOT NULL,
-                          `man_number` bigint NOT NULL,
-                          `step_order` int NOT NULL,
-                          `status` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
-                          `approved_at` datetime DEFAULT NULL,
-                          `remarks` text COLLATE utf8mb4_unicode_ci,
-                          `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-                          PRIMARY KEY (`id`)
-                        )
-                        """
-                    ),
-                    reverse_sql="DROP TABLE IF EXISTS `t_document_approvers`",
-                ),
+        # ベンダー非依存のCreateModelでテーブルを作成（MySQL専用SQLを排除）
+        migrations.CreateModel(
+            name='T_DocumentApprover',
+            fields=[
+                ('id', models.BigAutoField(primary_key=True, serialize=False, verbose_name='ID')),
+                ('document_id', models.BigIntegerField(db_index=True, verbose_name='文書ID')),
+                ('step_id', models.BigIntegerField(verbose_name='ステップID')),
+                ('man_number', models.BigIntegerField(verbose_name='社員番号')),
+                ('step_order', models.IntegerField(verbose_name='ステップ順')),
+                ('status', models.CharField(default='pending', max_length=20, verbose_name='ステータス')),
+                ('approved_at', models.DateTimeField(blank=True, null=True, verbose_name='承認日時')),
+                ('remarks', models.TextField(blank=True, null=True, verbose_name='備考')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='作成日時')),
             ],
-            state_operations=[
-                migrations.CreateModel(
-                    name='T_DocumentApprover',
-                    fields=[
-                        ('id', models.BigAutoField(primary_key=True, serialize=False, verbose_name='ID')),
-                        ('document_id', models.BigIntegerField(db_index=True, verbose_name='文書ID')),
-                        ('step_id', models.BigIntegerField(verbose_name='ステップID')),
-                        ('man_number', models.BigIntegerField(verbose_name='社員番号')),
-                        ('step_order', models.IntegerField(verbose_name='ステップ順')),
-                        ('status', models.CharField(default='pending', max_length=20, verbose_name='ステータス')),
-                        ('approved_at', models.DateTimeField(blank=True, null=True, verbose_name='承認日時')),
-                        ('remarks', models.TextField(blank=True, null=True, verbose_name='備考')),
-                        ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='作成日時')),
-                    ],
-                    options={
-                        'verbose_name': '文書承認者',
-                        'verbose_name_plural': '文書承認者',
-                        'db_table': 't_document_approvers',
-                    },
-                ),
-            ],
+            options={
+                'verbose_name': '文書承認者',
+                'verbose_name_plural': '文書承認者',
+                'db_table': 't_document_approvers',
+            },
         ),
     ]
