@@ -4,13 +4,28 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def rename_workflow_instances_table(apps, schema_editor):
+    conn = schema_editor.connection
+    vendor = conn.vendor
+    existing = set(conn.introspection.table_names())
+    old = 'workflow_instances'
+    new = 't_workflow_instances'
+    if old in existing and new not in existing:
+        with conn.cursor() as cursor:
+            if vendor == 'mysql':
+                cursor.execute("RENAME TABLE `workflow_instances` TO `t_workflow_instances`;")
+            else:
+                cursor.execute('ALTER TABLE "workflow_instances" RENAME TO "t_workflow_instances";')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('expenses', '0021a_fix_workflowinstance_table'),
+        ('expenses', '0020_alter_t_documentcontent_receipt_and_more'),
     ]
 
     operations = [
+        migrations.RunPython(code=rename_workflow_instances_table, reverse_code=migrations.RunPython.noop),
         migrations.AddField(
             model_name='t_workflowinstance',
             name='step',
