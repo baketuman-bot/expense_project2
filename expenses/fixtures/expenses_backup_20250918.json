@@ -1,0 +1,5564 @@
+[
+{
+  "model": "expenses.m_group",
+  "pk": "001000000000000",
+  "fields": {
+    "group_name": "役員",
+    "upper_group_cd": ""
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "002000000000000",
+  "fields": {
+    "group_name": "その他",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "003000000000000",
+  "fields": {
+    "group_name": "管理統括",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "003000010000000",
+  "fields": {
+    "group_name": "管理統括総務部",
+    "upper_group_cd": "003000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "003000020000000",
+  "fields": {
+    "group_name": "管理統括人事部",
+    "upper_group_cd": "003000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "003000060000000",
+  "fields": {
+    "group_name": "管理統括技術管理部",
+    "upper_group_cd": "003000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "201000000000000",
+  "fields": {
+    "group_name": "内部監査室",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "302000000000000",
+  "fields": {
+    "group_name": "経理統括",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "302000010000000",
+  "fields": {
+    "group_name": "経理統括資金管理部",
+    "upper_group_cd": "302000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "302000020000000",
+  "fields": {
+    "group_name": "経理統括会計管理部",
+    "upper_group_cd": "302000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "501000000000000",
+  "fields": {
+    "group_name": "品質保証本部",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "501000011000000",
+  "fields": {
+    "group_name": "品質保証本部デバイス品質保証部",
+    "upper_group_cd": "501000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "501000012000000",
+  "fields": {
+    "group_name": "品質保証本部パワ－品質保証部",
+    "upper_group_cd": "501000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "501000020000000",
+  "fields": {
+    "group_name": "品質保証本部品質企画部",
+    "upper_group_cd": "501000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "652000000000000",
+  "fields": {
+    "group_name": "新規事業化プロジェクト",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "652000010000000",
+  "fields": {
+    "group_name": "新規事業化プロジェクトシステム電源開発研究所",
+    "upper_group_cd": "652000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "652000020000000",
+  "fields": {
+    "group_name": "新規事業化プロジェクト特販部",
+    "upper_group_cd": "652000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "701002000000000",
+  "fields": {
+    "group_name": "事業管理統括",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "701002010000000",
+  "fields": {
+    "group_name": "事業管理統括営業管理部",
+    "upper_group_cd": "701002000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01000000000000",
+  "fields": {
+    "group_name": "パワー事業本部",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01000005000000",
+  "fields": {
+    "group_name": "パワー事業本部生産管理部",
+    "upper_group_cd": "A01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01000010000000",
+  "fields": {
+    "group_name": "パワー事業本部生産技術部",
+    "upper_group_cd": "A01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01000010001000",
+  "fields": {
+    "group_name": "パワー事業本部生産技術部生産技術課",
+    "upper_group_cd": "A01000010000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01000010002000",
+  "fields": {
+    "group_name": "パワー事業本部生産技術部製造技術課",
+    "upper_group_cd": "A01000010000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01005000000000",
+  "fields": {
+    "group_name": "パワー事業本部営業統括",
+    "upper_group_cd": "A01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01005001000000",
+  "fields": {
+    "group_name": "パワー事業本部営業統括営業部",
+    "upper_group_cd": "A01005000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010000000000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括",
+    "upper_group_cd": "A01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010001000000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括設計部",
+    "upper_group_cd": "A01010000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010001001000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括設計部設計１課",
+    "upper_group_cd": "A01010001000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010001002000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括設計部設計２課",
+    "upper_group_cd": "A01010001000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010001003000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括設計部テスト設計課",
+    "upper_group_cd": "A01010001000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010001004000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括設計部実装設計課",
+    "upper_group_cd": "A01010001000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010005000000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括マーケティング部",
+    "upper_group_cd": "A01010000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010005001000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括マーケティング部応用技術課",
+    "upper_group_cd": "A01010005000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010005002000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括マーケティング部原価管理課",
+    "upper_group_cd": "A01010005000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "A01010010000000",
+  "fields": {
+    "group_name": "パワー事業本部設計購買統括購買部",
+    "upper_group_cd": "A01010000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01000000000000",
+  "fields": {
+    "group_name": "デバイス事業本部",
+    "upper_group_cd": "001000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01000005000000",
+  "fields": {
+    "group_name": "デバイス事業本部購買部",
+    "upper_group_cd": "D01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01000010000000",
+  "fields": {
+    "group_name": "デバイス事業本部生産管理部",
+    "upper_group_cd": "D01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01000015000000",
+  "fields": {
+    "group_name": "デバイス事業本部生産技術部",
+    "upper_group_cd": "D01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01000015001000",
+  "fields": {
+    "group_name": "デバイス事業本部生産技術部生産技術課",
+    "upper_group_cd": "D01000015000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01000015002000",
+  "fields": {
+    "group_name": "デバイス事業本部生産技術部製造技術課",
+    "upper_group_cd": "D01000015000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01005000000000",
+  "fields": {
+    "group_name": "デバイス事業本部設計営業統括",
+    "upper_group_cd": "D01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01005001000000",
+  "fields": {
+    "group_name": "デバイス事業本部設計営業統括営業部",
+    "upper_group_cd": "D01005000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01005005000000",
+  "fields": {
+    "group_name": "デバイス事業本部設計営業統括設計部",
+    "upper_group_cd": "D01005000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01005005001000",
+  "fields": {
+    "group_name": "デバイス事業本部設計営業統括設計部設計１課",
+    "upper_group_cd": "D01005005000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "D01005005002000",
+  "fields": {
+    "group_name": "デバイス事業本部設計営業統括設計部設計２課",
+    "upper_group_cd": "D01005005000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "Y01010000000000",
+  "fields": {
+    "group_name": "ISAHAYA ELECTRONICS SALES ASIA LIMITED",
+    "upper_group_cd": "Y01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "Y01030000000000",
+  "fields": {
+    "group_name": "ISAHAYA ELECTRONICS TECH. (SHENZHEN) CO.",
+    "upper_group_cd": "Y01000000000000"
+  }
+},
+{
+  "model": "expenses.m_group",
+  "pk": "Y01040000000000",
+  "fields": {
+    "group_name": "ISAHAYA ELECTRONICS PHILIPPINES INC.",
+    "upper_group_cd": "Y01000000000000"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "11000",
+  "fields": {
+    "bumon_name": "貝津共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "11400",
+  "fields": {
+    "bumon_name": "貝津物流（変動費）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "11430",
+  "fields": {
+    "bumon_name": "香港物流（変動費）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "12000",
+  "fields": {
+    "bumon_name": "IMI共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "13000",
+  "fields": {
+    "bumon_name": "深圳SS共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "19100",
+  "fields": {
+    "bumon_name": "生産管理部_D生産"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "19400",
+  "fields": {
+    "bumon_name": "生産技術部_D"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "19700",
+  "fields": {
+    "bumon_name": "デバイス設計"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "21000",
+  "fields": {
+    "bumon_name": "ＨＩＣ共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "21101",
+  "fields": {
+    "bumon_name": "津久葉ラボ共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "21102",
+  "fields": {
+    "bumon_name": "HIC製品"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "21200",
+  "fields": {
+    "bumon_name": "製造技術_P_試作"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "21210",
+  "fields": {
+    "bumon_name": "製造技術_P_量産"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "21300",
+  "fields": {
+    "bumon_name": "中国輸出（HIC）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "21410",
+  "fields": {
+    "bumon_name": "PWMD物流（変動費）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "22102",
+  "fields": {
+    "bumon_name": "システム製品"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "23000",
+  "fields": {
+    "bumon_name": "フィリピンHIC共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "23101",
+  "fields": {
+    "bumon_name": "フィリピンHIC製品共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "23102",
+  "fields": {
+    "bumon_name": "フィリピンHIC"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "23200",
+  "fields": {
+    "bumon_name": "フィリピンHIC製造間接"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "25101",
+  "fields": {
+    "bumon_name": "深圳HIC製品共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "25102",
+  "fields": {
+    "bumon_name": "深圳HIC"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "25200",
+  "fields": {
+    "bumon_name": "深圳HIC製造間接"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "25301",
+  "fields": {
+    "bumon_name": "深圳システム"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29100",
+  "fields": {
+    "bumon_name": "応用技術"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29200",
+  "fields": {
+    "bumon_name": "実装設計課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29210",
+  "fields": {
+    "bumon_name": "パワー設計部_2課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29220",
+  "fields": {
+    "bumon_name": "テスト設計課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29300",
+  "fields": {
+    "bumon_name": "パワー設計部_1課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29320",
+  "fields": {
+    "bumon_name": "パワー設計部_3課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29400",
+  "fields": {
+    "bumon_name": "生産技術_P_試作"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29410",
+  "fields": {
+    "bumon_name": "生産技術_P_量産"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29500",
+  "fields": {
+    "bumon_name": "原価管理_P"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29610",
+  "fields": {
+    "bumon_name": "PM助成金開発事業"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29620",
+  "fields": {
+    "bumon_name": "PM助成金開発事業2"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29630",
+  "fields": {
+    "bumon_name": "PM助成金開発事業3"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29640",
+  "fields": {
+    "bumon_name": "PM助成金開発事業4"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29650",
+  "fields": {
+    "bumon_name": "PM助成金開発事業5"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29660",
+  "fields": {
+    "bumon_name": "PM助成金開発事業6"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29700",
+  "fields": {
+    "bumon_name": "システム電源開発研究所"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "29800",
+  "fields": {
+    "bumon_name": "開発担当"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "31000",
+  "fields": {
+    "bumon_name": "深圳共通(製造共通)"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "31100",
+  "fields": {
+    "bumon_name": "深圳共通(管理共通)"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "31300",
+  "fields": {
+    "bumon_name": "深圳品保G"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "61100",
+  "fields": {
+    "bumon_name": "関連会社収入アイコック"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "73200",
+  "fields": {
+    "bumon_name": "パワー事業本部"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "73300",
+  "fields": {
+    "bumon_name": "生産統括"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "73600",
+  "fields": {
+    "bumon_name": "デバイス事業本部"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "90100",
+  "fields": {
+    "bumon_name": "購買共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "90110",
+  "fields": {
+    "bumon_name": "購買部_P"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "90120",
+  "fields": {
+    "bumon_name": "購買部_D"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "90200",
+  "fields": {
+    "bumon_name": "品質保証_P"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "90210",
+  "fields": {
+    "bumon_name": "品質保証_D"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "90220",
+  "fields": {
+    "bumon_name": "品質保証企画"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91000",
+  "fields": {
+    "bumon_name": "営業部_D"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91030",
+  "fields": {
+    "bumon_name": "香港物流センター"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91050",
+  "fields": {
+    "bumon_name": "貝津物流センター"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91110",
+  "fields": {
+    "bumon_name": "営業部_P"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91120",
+  "fields": {
+    "bumon_name": "特販部_D"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91300",
+  "fields": {
+    "bumon_name": "営業管理部"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91500",
+  "fields": {
+    "bumon_name": "出向共通(海外販社)"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91600",
+  "fields": {
+    "bumon_name": "特販部_P"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91700",
+  "fields": {
+    "bumon_name": "生産管理部_D出荷"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91710",
+  "fields": {
+    "bumon_name": "生産管理部_P"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "91900",
+  "fields": {
+    "bumon_name": "営業部共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92000",
+  "fields": {
+    "bumon_name": "社長室"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92020",
+  "fields": {
+    "bumon_name": "監査役室"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92030",
+  "fields": {
+    "bumon_name": "顧問室"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92040",
+  "fields": {
+    "bumon_name": "秘書室"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92100",
+  "fields": {
+    "bumon_name": "総務課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92110",
+  "fields": {
+    "bumon_name": "人事部"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92120",
+  "fields": {
+    "bumon_name": "人事部（補助金）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92130",
+  "fields": {
+    "bumon_name": "システム(総務）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92140",
+  "fields": {
+    "bumon_name": "法務課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92200",
+  "fields": {
+    "bumon_name": "総務（一過性）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92210",
+  "fields": {
+    "bumon_name": "経理統括"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92400",
+  "fields": {
+    "bumon_name": "CG推進課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92410",
+  "fields": {
+    "bumon_name": "広報関連（総務）"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92500",
+  "fields": {
+    "bumon_name": "株式上場費用"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92600",
+  "fields": {
+    "bumon_name": "知財課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92700",
+  "fields": {
+    "bumon_name": "環境課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "92900",
+  "fields": {
+    "bumon_name": "情報システム課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "93200",
+  "fields": {
+    "bumon_name": "輸管課"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "93400",
+  "fields": {
+    "bumon_name": "内部監査室"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "97400",
+  "fields": {
+    "bumon_name": "全社共通"
+  }
+},
+{
+  "model": "expenses.m_bumon",
+  "pk": "99000",
+  "fields": {
+    "bumon_name": "BS共通"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "004",
+  "fields": {
+    "post_name": "社長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "010",
+  "fields": {
+    "post_name": "常務取締役本部長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "021",
+  "fields": {
+    "post_name": "取締役本部長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "022",
+  "fields": {
+    "post_name": "取締役統括"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "029",
+  "fields": {
+    "post_name": "取締役"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "030",
+  "fields": {
+    "post_name": "社外取締役"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "032",
+  "fields": {
+    "post_name": "総経理"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "033",
+  "fields": {
+    "post_name": "副総経理"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "046",
+  "fields": {
+    "post_name": "統括"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "054",
+  "fields": {
+    "post_name": "0"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "055",
+  "fields": {
+    "post_name": "IEPI社長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "062",
+  "fields": {
+    "post_name": "子会社社長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "071",
+  "fields": {
+    "post_name": "室長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "077",
+  "fields": {
+    "post_name": "副統括"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "079",
+  "fields": {
+    "post_name": "部長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "081",
+  "fields": {
+    "post_name": "担当部長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "089",
+  "fields": {
+    "post_name": "副部長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "094",
+  "fields": {
+    "post_name": "課長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "096",
+  "fields": {
+    "post_name": "担当課長"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "100",
+  "fields": {
+    "post_name": "チームリーダー"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "101",
+  "fields": {
+    "post_name": "一般社員"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "106",
+  "fields": {
+    "post_name": "プロジェクトマネージャー"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "112",
+  "fields": {
+    "post_name": "社外監査役"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "113",
+  "fields": {
+    "post_name": "専任"
+  }
+},
+{
+  "model": "expenses.m_post",
+  "pk": "115",
+  "fields": {
+    "post_name": "出向"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "1",
+  "fields": {
+    "status_name": "下書き"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "2",
+  "fields": {
+    "status_name": " 提出者作成済み"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "3",
+  "fields": {
+    "status_name": " 承認者1承認済み"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "4",
+  "fields": {
+    "status_name": " 承認者1却下"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "5",
+  "fields": {
+    "status_name": " 承認者2承認済み"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "6",
+  "fields": {
+    "status_name": " 承認者2却下"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "7",
+  "fields": {
+    "status_name": " 経理承認済み"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "APPROVED",
+  "fields": {
+    "status_name": "承認済"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "CANCELED",
+  "fields": {
+    "status_name": "取消"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "DRAFT",
+  "fields": {
+    "status_name": "下書き"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "REJECTED",
+  "fields": {
+    "status_name": "却下"
+  }
+},
+{
+  "model": "expenses.m_status",
+  "pk": "SUBMITTED",
+  "fields": {
+    "status_name": "申請中"
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 1,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$YL6ekoSxLt8ZsgH6ZYD1sw$LOFUXNUUepSwupm6GrNd/2/t+oAXC/F/VAHsB28Q01A=",
+    "last_login": "2025-09-18T12:52:58.882Z",
+    "is_superuser": true,
+    "username": "idc_user",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-18T12:52:33.379Z",
+    "man_number": "105202",
+    "user_name": "林田 大司",
+    "bumon_cd": "92210",
+    "post_cd": "046",
+    "role": "approver",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 83063,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松田 弘幸",
+    "first_name": "弘幸",
+    "last_name": "松田",
+    "email": "matudahr@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-08T05:52:24Z",
+    "man_number": "83063",
+    "user_name": "松田 弘幸",
+    "bumon_cd": "92210",
+    "post_cd": "113",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 84135,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "今村 猪佐美",
+    "first_name": "猪佐美",
+    "last_name": "今村",
+    "email": "imamurai@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-03T05:52:24Z",
+    "man_number": "84135",
+    "user_name": "今村 猪佐美",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 84191,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "井上 康志",
+    "first_name": "康志",
+    "last_name": "井上",
+    "email": "inoueyas@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-17T05:52:24Z",
+    "man_number": "84191",
+    "user_name": "井上 康志",
+    "bumon_cd": "92210",
+    "post_cd": "055",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 85224,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "野田 孝博",
+    "first_name": "孝博",
+    "last_name": "野田",
+    "email": "nodataka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-26T05:52:24Z",
+    "man_number": "85224",
+    "user_name": "野田 孝博",
+    "bumon_cd": "92210",
+    "post_cd": "100",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 85229,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "田浦 浩二",
+    "first_name": "浩二",
+    "last_name": "田浦",
+    "email": "taurakj@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-11T05:52:24Z",
+    "man_number": "85229",
+    "user_name": "田浦 浩二",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 85236,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "船津 幸裕",
+    "first_name": "幸裕",
+    "last_name": "船津",
+    "email": "funatuym@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-16T05:52:24Z",
+    "man_number": "85236",
+    "user_name": "船津 幸裕",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 85243,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "栗木 実",
+    "first_name": "実",
+    "last_name": "栗木",
+    "email": "kuriki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-03T05:52:24Z",
+    "man_number": "85243",
+    "user_name": "栗木 実",
+    "bumon_cd": "92210",
+    "post_cd": "113",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 87309,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "釜崎 智",
+    "first_name": "智",
+    "last_name": "釜崎",
+    "email": "kamasaki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-09T05:52:24Z",
+    "man_number": "87309",
+    "user_name": "釜崎 智",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 88334,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "石村 和寛",
+    "first_name": "和寛",
+    "last_name": "石村",
+    "email": "ishimukz@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-24T05:52:24Z",
+    "man_number": "88334",
+    "user_name": "石村 和寛",
+    "bumon_cd": "92210",
+    "post_cd": "046",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 89355,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "近藤 賢治",
+    "first_name": "賢治",
+    "last_name": "近藤",
+    "email": "kondoukn@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-02T05:52:24Z",
+    "man_number": "89355",
+    "user_name": "近藤 賢治",
+    "bumon_cd": "92210",
+    "post_cd": "077",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 89356,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "酒田 耕吉",
+    "first_name": "耕吉",
+    "last_name": "酒田",
+    "email": "sakatakk@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-27T05:52:24Z",
+    "man_number": "89356",
+    "user_name": "酒田 耕吉",
+    "bumon_cd": "92210",
+    "post_cd": "089",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 89357,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "坂井 一億",
+    "first_name": "一億",
+    "last_name": "坂井",
+    "email": "sakaiiti@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-10T05:52:24Z",
+    "man_number": "89357",
+    "user_name": "坂井 一億",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 89360,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山下 敦",
+    "first_name": "敦",
+    "last_name": "山下",
+    "email": "yamasiat@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-18T05:52:24Z",
+    "man_number": "89360",
+    "user_name": "山下 敦",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 89363,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "蒲池 晴希",
+    "first_name": "晴希",
+    "last_name": "蒲池",
+    "email": "kamachi.haruki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-02T05:52:24Z",
+    "man_number": "89363",
+    "user_name": "蒲池 晴希",
+    "bumon_cd": "92210",
+    "post_cd": "113",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 89367,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "柿田 和彦",
+    "first_name": "和彦",
+    "last_name": "柿田",
+    "email": "kakita@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-23T05:52:24Z",
+    "man_number": "89367",
+    "user_name": "柿田 和彦",
+    "bumon_cd": "92210",
+    "post_cd": "100",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 89373,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "田原 陽一",
+    "first_name": "陽一",
+    "last_name": "田原",
+    "email": "taharayi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-13T05:52:24Z",
+    "man_number": "89373",
+    "user_name": "田原 陽一",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 90454,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "小島 啓",
+    "first_name": "啓",
+    "last_name": "小島",
+    "email": "kojimak@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-29T05:52:24Z",
+    "man_number": "90454",
+    "user_name": "小島 啓",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 91552,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "牛水 孝治",
+    "first_name": "孝治",
+    "last_name": "牛水",
+    "email": "ushimizu@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-04T05:52:24Z",
+    "man_number": "91552",
+    "user_name": "牛水 孝治",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 91720,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松田 利恵",
+    "first_name": "利恵",
+    "last_name": "松田",
+    "email": "matudare@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-26T05:52:24Z",
+    "man_number": "91720",
+    "user_name": "松田 利恵",
+    "bumon_cd": "92210",
+    "post_cd": "081",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 92007,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "中村 輝義",
+    "first_name": "輝義",
+    "last_name": "中村",
+    "email": "nakamuty@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-14T05:52:24Z",
+    "man_number": "92007",
+    "user_name": "中村 輝義",
+    "bumon_cd": "92210",
+    "post_cd": "115",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 92017,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "井上 祐二",
+    "first_name": "祐二",
+    "last_name": "井上",
+    "email": "inoue.yuuji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-01T05:52:24Z",
+    "man_number": "92017",
+    "user_name": "井上 祐二",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 92020,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "瀬上 昭夫",
+    "first_name": "昭夫",
+    "last_name": "瀬上",
+    "email": "segamiak@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-17T05:52:24Z",
+    "man_number": "92020",
+    "user_name": "瀬上 昭夫",
+    "bumon_cd": "92210",
+    "post_cd": "004",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 92021,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "島田 広宣",
+    "first_name": "広宣",
+    "last_name": "島田",
+    "email": "simadahr@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-11T05:52:24Z",
+    "man_number": "92021",
+    "user_name": "島田 広宣",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 93025,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "鬼塚 大作",
+    "first_name": "大作",
+    "last_name": "鬼塚",
+    "email": "onitsuka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-01T05:52:24Z",
+    "man_number": "93025",
+    "user_name": "鬼塚 大作",
+    "bumon_cd": "92210",
+    "post_cd": "113",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 93026,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松藤 秀久",
+    "first_name": "秀久",
+    "last_name": "松藤",
+    "email": "hidehisa.matsufuji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-21T05:52:24Z",
+    "man_number": "93026",
+    "user_name": "松藤 秀久",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 94047,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "田本 正則",
+    "first_name": "正則",
+    "last_name": "田本",
+    "email": "tamotoms@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-27T05:52:24Z",
+    "man_number": "94047",
+    "user_name": "田本 正則",
+    "bumon_cd": "92210",
+    "post_cd": "046",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 94053,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "川原 勝",
+    "first_name": "勝",
+    "last_name": "川原",
+    "email": "kawahara@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-23T05:52:24Z",
+    "man_number": "94053",
+    "user_name": "川原 勝",
+    "bumon_cd": "92210",
+    "post_cd": "081",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 94054,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "森田 秀紀",
+    "first_name": "秀紀",
+    "last_name": "森田",
+    "email": "moritahd@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-17T05:52:24Z",
+    "man_number": "94054",
+    "user_name": "森田 秀紀",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 94055,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "谷口 和之",
+    "first_name": "和之",
+    "last_name": "谷口",
+    "email": "k.taniguchi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-26T05:52:24Z",
+    "man_number": "94055",
+    "user_name": "谷口 和之",
+    "bumon_cd": "92210",
+    "post_cd": "046",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 94761,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "植木 貴子",
+    "first_name": "貴子",
+    "last_name": "植木",
+    "email": "uekitk@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-10T05:52:24Z",
+    "man_number": "94761",
+    "user_name": "植木 貴子",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 95057,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "水嶋 一史",
+    "first_name": "一史",
+    "last_name": "水嶋",
+    "email": "mizushkz@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-15T05:52:24Z",
+    "man_number": "95057",
+    "user_name": "水嶋 一史",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 95063,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "荒木 拡晴",
+    "first_name": "拡晴",
+    "last_name": "荒木",
+    "email": "arakihr@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-03T05:52:24Z",
+    "man_number": "95063",
+    "user_name": "荒木 拡晴",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 96074,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "扇山 浩二",
+    "first_name": "浩二",
+    "last_name": "扇山",
+    "email": "ohgiyaku@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-20T05:52:24Z",
+    "man_number": "96074",
+    "user_name": "扇山 浩二",
+    "bumon_cd": "92210",
+    "post_cd": "096",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 97083,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山辺 真也",
+    "first_name": "真也",
+    "last_name": "山辺",
+    "email": "yamabe@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-18T05:52:24Z",
+    "man_number": "97083",
+    "user_name": "山辺 真也",
+    "bumon_cd": "92210",
+    "post_cd": "010",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 97084,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山口 章祐",
+    "first_name": "章祐",
+    "last_name": "山口",
+    "email": "yamaguak@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-29T05:52:24Z",
+    "man_number": "97084",
+    "user_name": "山口 章祐",
+    "bumon_cd": "92210",
+    "post_cd": "046",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 97085,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "徳永 秀昭",
+    "first_name": "秀昭",
+    "last_name": "徳永",
+    "email": "tokunahd@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-14T05:52:24Z",
+    "man_number": "97085",
+    "user_name": "徳永 秀昭",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 97087,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山下 裕史",
+    "first_name": "裕史",
+    "last_name": "山下",
+    "email": "yamasihr@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-13T05:52:24Z",
+    "man_number": "97087",
+    "user_name": "山下 裕史",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 97088,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "木本 貴幸",
+    "first_name": "貴幸",
+    "last_name": "木本",
+    "email": "kimoto@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-07T05:52:24Z",
+    "man_number": "97088",
+    "user_name": "木本 貴幸",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 97783,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "大川 香織",
+    "first_name": "香織",
+    "last_name": "大川",
+    "email": "o.okako@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-05T05:52:24Z",
+    "man_number": "97783",
+    "user_name": "大川 香織",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 99109,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "安達 幸喜",
+    "first_name": "幸喜",
+    "last_name": "安達",
+    "email": "adachi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-29T05:52:24Z",
+    "man_number": "99109",
+    "user_name": "安達 幸喜",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 99794,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "辻丸 美紀",
+    "first_name": "美紀",
+    "last_name": "辻丸",
+    "email": "tsujimaru.miki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-11T05:52:24Z",
+    "man_number": "99794",
+    "user_name": "辻丸 美紀",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 100132,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "高橋 晴大",
+    "first_name": "晴大",
+    "last_name": "高橋",
+    "email": "takahashi.haruo@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-13T05:52:24Z",
+    "man_number": "100132",
+    "user_name": "高橋 晴大",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 100137,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "橋口 智徳",
+    "first_name": "智徳",
+    "last_name": "橋口",
+    "email": "hashiguchi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-12T05:52:24Z",
+    "man_number": "100137",
+    "user_name": "橋口 智徳",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 101146,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "伊藤 哲哉",
+    "first_name": "哲哉",
+    "last_name": "伊藤",
+    "email": "itou.tetsuya@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-31T05:52:24Z",
+    "man_number": "101146",
+    "user_name": "伊藤 哲哉",
+    "bumon_cd": "92210",
+    "post_cd": "113",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 102154,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "鶴野 真",
+    "first_name": "真",
+    "last_name": "鶴野",
+    "email": "tsuruno@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-25T05:52:24Z",
+    "man_number": "102154",
+    "user_name": "鶴野 真",
+    "bumon_cd": "92210",
+    "post_cd": "081",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 102155,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "小森 功",
+    "first_name": "功",
+    "last_name": "小森",
+    "email": "komori@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-24T05:52:24Z",
+    "man_number": "102155",
+    "user_name": "小森 功",
+    "bumon_cd": "92210",
+    "post_cd": "081",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 102810,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "西廣 敦子",
+    "first_name": "敦子",
+    "last_name": "西廣",
+    "email": "nishihiro-a@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-22T05:52:24Z",
+    "man_number": "102810",
+    "user_name": "西廣 敦子",
+    "bumon_cd": "92210",
+    "post_cd": "096",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 103161,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "武次 顕弘",
+    "first_name": "顕弘",
+    "last_name": "武次",
+    "email": "taketsugu.akihiro@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-19T05:52:24Z",
+    "man_number": "103161",
+    "user_name": "武次 顕弘",
+    "bumon_cd": "92210",
+    "post_cd": "021",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 103165,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松尾 哲也",
+    "first_name": "哲也",
+    "last_name": "松尾",
+    "email": "matsuot@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-20T05:52:24Z",
+    "man_number": "103165",
+    "user_name": "松尾 哲也",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 103166,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "並川 享介",
+    "first_name": "享介",
+    "last_name": "並川",
+    "email": "namikawa@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-16T05:52:24Z",
+    "man_number": "103166",
+    "user_name": "並川 享介",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 104173,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "中村 寿伸",
+    "first_name": "寿伸",
+    "last_name": "中村",
+    "email": "nakamura.toshinobu@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-15T05:52:24Z",
+    "man_number": "104173",
+    "user_name": "中村 寿伸",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 104174,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "畢 克駿",
+    "first_name": "克駿",
+    "last_name": "畢",
+    "email": "hitu@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-15T05:52:24Z",
+    "man_number": "104174",
+    "user_name": "畢 克駿",
+    "bumon_cd": "92210",
+    "post_cd": "115",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 104186,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "今井 徳司",
+    "first_name": "徳司",
+    "last_name": "今井",
+    "email": "imai.tokuji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-02T05:52:24Z",
+    "man_number": "104186",
+    "user_name": "今井 徳司",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 105188,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山中 悠揮",
+    "first_name": "悠揮",
+    "last_name": "山中",
+    "email": "y.yamanaka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-19T05:52:24Z",
+    "man_number": "105188",
+    "user_name": "山中 悠揮",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 105189,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松岡 宏則",
+    "first_name": "宏則",
+    "last_name": "松岡",
+    "email": "matsuoka.hironori@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-21T05:52:24Z",
+    "man_number": "105189",
+    "user_name": "松岡 宏則",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 105194,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "淵山 護礼",
+    "first_name": "護礼",
+    "last_name": "淵山",
+    "email": "fuchiyama.morihiro@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-20T05:52:24Z",
+    "man_number": "105194",
+    "user_name": "淵山 護礼",
+    "bumon_cd": "92210",
+    "post_cd": "021",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 105201,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$NJFW3tWF8SxC7AmiLDzauP$kLSCe501nygd+9vuf7fpQe9EeoDuc/1GDfsVpcWh/NQ=",
+    "last_login": "2025-09-18T13:00:44.885Z",
+    "is_superuser": true,
+    "username": "daijiman",
+    "first_name": "大司",
+    "last_name": "林田",
+    "email": "hayashida.daiji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-28T05:52:24Z",
+    "man_number": "105201",
+    "user_name": "林田 大司",
+    "bumon_cd": "92210",
+    "post_cd": "046",
+    "role": "approver",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 105210,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "土橋 謙太郎",
+    "first_name": "謙太郎",
+    "last_name": "土橋",
+    "email": "tsuchihashikn@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-05T05:52:24Z",
+    "man_number": "105210",
+    "user_name": "土橋 謙太郎",
+    "bumon_cd": "92210",
+    "post_cd": "113",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 106219,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "服部 慎一郎",
+    "first_name": "慎一郎",
+    "last_name": "服部",
+    "email": "sin_hattori@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-06T05:52:24Z",
+    "man_number": "106219",
+    "user_name": "服部 慎一郎",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 106231,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "岡村 英之",
+    "first_name": "英之",
+    "last_name": "岡村",
+    "email": "okamura.hideyuki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-06T05:52:24Z",
+    "man_number": "106231",
+    "user_name": "岡村 英之",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 106837,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松谷 佳世",
+    "first_name": "佳世",
+    "last_name": "松谷",
+    "email": "matsutani@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-23T05:52:24Z",
+    "man_number": "106837",
+    "user_name": "松谷 佳世",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 107240,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "林 健司",
+    "first_name": "健司",
+    "last_name": "林",
+    "email": "hayashi.kenji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-08T05:52:24Z",
+    "man_number": "107240",
+    "user_name": "林 健司",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 107244,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "清水 健太",
+    "first_name": "健太",
+    "last_name": "清水",
+    "email": "k-shimizu@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-12T05:52:24Z",
+    "man_number": "107244",
+    "user_name": "清水 健太",
+    "bumon_cd": "92210",
+    "post_cd": "115",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 107840,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "平尾 摩希子",
+    "first_name": "摩希子",
+    "last_name": "平尾",
+    "email": "hirao@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-13T05:52:24Z",
+    "man_number": "107840",
+    "user_name": "平尾 摩希子",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 107857,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "伊野 晴美",
+    "first_name": "晴美",
+    "last_name": "伊野",
+    "email": "ino@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-31T05:52:24Z",
+    "man_number": "107857",
+    "user_name": "伊野 晴美",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 108267,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "上戸 繁",
+    "first_name": "繁",
+    "last_name": "上戸",
+    "email": "kamitos@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-20T05:52:24Z",
+    "man_number": "108267",
+    "user_name": "上戸 繁",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 108268,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "平 浩二",
+    "first_name": "浩二",
+    "last_name": "平",
+    "email": "taira.kouji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-10T05:52:24Z",
+    "man_number": "108268",
+    "user_name": "平 浩二",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 108862,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "谷 礼子",
+    "first_name": "礼子",
+    "last_name": "谷",
+    "email": "tani.reiko@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-17T05:52:24Z",
+    "man_number": "108862",
+    "user_name": "谷 礼子",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 108863,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "甲田 亜以子",
+    "first_name": "亜以子",
+    "last_name": "甲田",
+    "email": "kota.aiko@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-08T05:52:24Z",
+    "man_number": "108863",
+    "user_name": "甲田 亜以子",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 109270,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "木下 慎也",
+    "first_name": "慎也",
+    "last_name": "木下",
+    "email": "kinoshita.shinya@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-06T05:52:24Z",
+    "man_number": "109270",
+    "user_name": "木下 慎也",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 109272,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "西村 謙一",
+    "first_name": "謙一",
+    "last_name": "西村",
+    "email": "nishimura.kenichi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-04T05:52:24Z",
+    "man_number": "109272",
+    "user_name": "西村 謙一",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 109279,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "立石 勝弘",
+    "first_name": "勝弘",
+    "last_name": "立石",
+    "email": "tateishi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-15T05:52:24Z",
+    "man_number": "109279",
+    "user_name": "立石 勝弘",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 109865,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "小柳 愛梨",
+    "first_name": "愛梨",
+    "last_name": "小柳",
+    "email": "koyanagi.airi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-30T05:52:24Z",
+    "man_number": "109865",
+    "user_name": "小柳 愛梨",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 109867,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "枡谷 恵美",
+    "first_name": "恵美",
+    "last_name": "枡谷",
+    "email": "masutani-emi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-14T05:52:24Z",
+    "man_number": "109867",
+    "user_name": "枡谷 恵美",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 109869,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "近藤 あや子",
+    "first_name": "あや子",
+    "last_name": "近藤",
+    "email": "kondoua@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-09T05:52:24Z",
+    "man_number": "109869",
+    "user_name": "近藤 あや子",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 110530,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "東 良信",
+    "first_name": "良信",
+    "last_name": "東",
+    "email": "y-higashi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-29T05:52:24Z",
+    "man_number": "110530",
+    "user_name": "東 良信",
+    "bumon_cd": "92210",
+    "post_cd": "112",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 110873,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "井嵜 真依",
+    "first_name": "真依",
+    "last_name": "井嵜",
+    "email": "mai_izaki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-30T05:52:24Z",
+    "man_number": "110873",
+    "user_name": "井嵜 真依",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 111284,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "太田 雄司",
+    "first_name": "雄司",
+    "last_name": "太田",
+    "email": "ohta@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-27T05:52:24Z",
+    "man_number": "111284",
+    "user_name": "太田 雄司",
+    "bumon_cd": "92210",
+    "post_cd": "106",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 111289,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "水本 貴士",
+    "first_name": "貴士",
+    "last_name": "水本",
+    "email": "mizumoto@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-16T05:52:24Z",
+    "man_number": "111289",
+    "user_name": "水本 貴士",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 111290,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "吉田 直登",
+    "first_name": "直登",
+    "last_name": "吉田",
+    "email": "n_yoshida@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-23T05:52:24Z",
+    "man_number": "111290",
+    "user_name": "吉田 直登",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 111878,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "斉藤 有佳",
+    "first_name": "有佳",
+    "last_name": "斉藤",
+    "email": "saito.yuka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-01T05:52:24Z",
+    "man_number": "111878",
+    "user_name": "斉藤 有佳",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 111879,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "谷口 由香利",
+    "first_name": "由香利",
+    "last_name": "谷口",
+    "email": "taniguchi.yukari@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-18T05:52:24Z",
+    "man_number": "111879",
+    "user_name": "谷口 由香利",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 112295,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "木下 誠二",
+    "first_name": "誠二",
+    "last_name": "木下",
+    "email": "kinoshita.seiji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-11T05:52:24Z",
+    "man_number": "112295",
+    "user_name": "木下 誠二",
+    "bumon_cd": "92210",
+    "post_cd": "115",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 112405,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山下 俊夫",
+    "first_name": "俊夫",
+    "last_name": "山下",
+    "email": "#NAME?",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-30T05:52:24Z",
+    "man_number": "112405",
+    "user_name": "山下 俊夫",
+    "bumon_cd": "92210",
+    "post_cd": "112",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 113302,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "上野 孝太",
+    "first_name": "孝太",
+    "last_name": "上野",
+    "email": "k_ueno@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-12T05:52:24Z",
+    "man_number": "113302",
+    "user_name": "上野 孝太",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 113304,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "高橋 達也",
+    "first_name": "達也",
+    "last_name": "高橋",
+    "email": "takahasit1@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-12T05:52:24Z",
+    "man_number": "113304",
+    "user_name": "高橋 達也",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 113308,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "島津 健",
+    "first_name": "健",
+    "last_name": "島津",
+    "email": "shimazu.ken@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-12T05:52:24Z",
+    "man_number": "113308",
+    "user_name": "島津 健",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 113311,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松崎 秀明",
+    "first_name": "秀明",
+    "last_name": "松崎",
+    "email": "matsu@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-22T05:52:24Z",
+    "man_number": "113311",
+    "user_name": "松崎 秀明",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 113885,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "Lee Lai Ming Phyllis",
+    "first_name": "Phyllis",
+    "last_name": "Lee Lai Ming",
+    "email": "#NAME?",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-16T05:52:24Z",
+    "man_number": "113885",
+    "user_name": "Lee Lai Ming Phyllis",
+    "bumon_cd": "92210",
+    "post_cd": "115",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 113886,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "小柳 律子",
+    "first_name": "律子",
+    "last_name": "小柳",
+    "email": "koyanagi.r@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-31T05:52:24Z",
+    "man_number": "113886",
+    "user_name": "小柳 律子",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 114316,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "小川 諒恭",
+    "first_name": "諒恭",
+    "last_name": "小川",
+    "email": "R-ogawa@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-21T05:52:24Z",
+    "man_number": "114316",
+    "user_name": "小川 諒恭",
+    "bumon_cd": "92210",
+    "post_cd": "096",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 114317,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "古賀 聡樹",
+    "first_name": "聡樹",
+    "last_name": "古賀",
+    "email": "t-koga@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-10T05:52:24Z",
+    "man_number": "114317",
+    "user_name": "古賀 聡樹",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 114320,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "平田 泰明",
+    "first_name": "泰明",
+    "last_name": "平田",
+    "email": "hirata@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-12T05:52:24Z",
+    "man_number": "114320",
+    "user_name": "平田 泰明",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 114321,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "上戸 毅博",
+    "first_name": "毅博",
+    "last_name": "上戸",
+    "email": "#NAME?",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-21T05:52:24Z",
+    "man_number": "114321",
+    "user_name": "上戸 毅博",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 114322,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "上田 眞琴",
+    "first_name": "眞琴",
+    "last_name": "上田",
+    "email": "ueda.makoto@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-11T05:52:24Z",
+    "man_number": "114322",
+    "user_name": "上田 眞琴",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 114890,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "出口 幸",
+    "first_name": "幸",
+    "last_name": "出口",
+    "email": "deguchi.miyuki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-23T05:52:24Z",
+    "man_number": "114890",
+    "user_name": "出口 幸",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 114891,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "近藤 恵子",
+    "first_name": "恵子",
+    "last_name": "近藤",
+    "email": "keiko_kondou@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-25T05:52:24Z",
+    "man_number": "114891",
+    "user_name": "近藤 恵子",
+    "bumon_cd": "92210",
+    "post_cd": "100",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 115327,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松本 正吾",
+    "first_name": "正吾",
+    "last_name": "松本",
+    "email": "matsumoto.s@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-26T05:52:24Z",
+    "man_number": "115327",
+    "user_name": "松本 正吾",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 115329,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "木原 ダニエル",
+    "first_name": "ダニエル",
+    "last_name": "木原",
+    "email": "daniel-kihara@iesa.com.hk",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-23T05:52:24Z",
+    "man_number": "115329",
+    "user_name": "木原 ダニエル",
+    "bumon_cd": "92210",
+    "post_cd": "032",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 116333,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "芦塚 晃平",
+    "first_name": "晃平",
+    "last_name": "芦塚",
+    "email": "kohe.ashizuka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-28T05:52:24Z",
+    "man_number": "116333",
+    "user_name": "芦塚 晃平",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 116338,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "井嵜 敬慎",
+    "first_name": "敬慎",
+    "last_name": "井嵜",
+    "email": "keishin-izaki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-01T05:52:24Z",
+    "man_number": "116338",
+    "user_name": "井嵜 敬慎",
+    "bumon_cd": "92210",
+    "post_cd": "077",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 116339,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "毎熊 良太",
+    "first_name": "良太",
+    "last_name": "毎熊",
+    "email": "maiguma.ryota@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-19T05:52:24Z",
+    "man_number": "116339",
+    "user_name": "毎熊 良太",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 116340,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "永田 憲吾",
+    "first_name": "憲吾",
+    "last_name": "永田",
+    "email": "nagatak@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-31T05:52:24Z",
+    "man_number": "116340",
+    "user_name": "永田 憲吾",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 116341,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "福永 剛",
+    "first_name": "剛",
+    "last_name": "福永",
+    "email": "fukunagat@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-18T05:52:24Z",
+    "man_number": "116341",
+    "user_name": "福永 剛",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117344,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "大石 樹矢",
+    "first_name": "樹矢",
+    "last_name": "大石",
+    "email": "tatsuya.oishi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-16T05:52:24Z",
+    "man_number": "117344",
+    "user_name": "大石 樹矢",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117346,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "手束 翔",
+    "first_name": "翔",
+    "last_name": "手束",
+    "email": "s_tezuka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-22T05:52:24Z",
+    "man_number": "117346",
+    "user_name": "手束 翔",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117348,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "金田 憧己",
+    "first_name": "憧己",
+    "last_name": "金田",
+    "email": "kaneda@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-10T05:52:24Z",
+    "man_number": "117348",
+    "user_name": "金田 憧己",
+    "bumon_cd": "92210",
+    "post_cd": "115",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117350,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "中尾 祥吾",
+    "first_name": "祥吾",
+    "last_name": "中尾",
+    "email": "nakao.shogo@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-27T05:52:24Z",
+    "man_number": "117350",
+    "user_name": "中尾 祥吾",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117352,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "柿山 誠之",
+    "first_name": "誠之",
+    "last_name": "柿山",
+    "email": "kakiyama.nobuyuki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-08T05:52:24Z",
+    "man_number": "117352",
+    "user_name": "柿山 誠之",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117353,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "氏家 真剛",
+    "first_name": "真剛",
+    "last_name": "氏家",
+    "email": "ujiie@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-22T05:52:24Z",
+    "man_number": "117353",
+    "user_name": "氏家 真剛",
+    "bumon_cd": "92210",
+    "post_cd": "081",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117354,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "高谷 洋二",
+    "first_name": "洋二",
+    "last_name": "高谷",
+    "email": "takatani.youji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-04-04T05:52:24Z",
+    "man_number": "117354",
+    "user_name": "高谷 洋二",
+    "bumon_cd": "92210",
+    "post_cd": "113",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117357,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "中里 雅則",
+    "first_name": "雅則",
+    "last_name": "中里",
+    "email": "masanori.nakazato@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-28T05:52:24Z",
+    "man_number": "117357",
+    "user_name": "中里 雅則",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 117901,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "越智 美那子",
+    "first_name": "美那子",
+    "last_name": "越智",
+    "email": "ochi.m@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-18T05:52:24Z",
+    "man_number": "117901",
+    "user_name": "越智 美那子",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118358,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "有谷 圭祐",
+    "first_name": "圭祐",
+    "last_name": "有谷",
+    "email": "aritani@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-30T05:52:24Z",
+    "man_number": "118358",
+    "user_name": "有谷 圭祐",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118359,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "今井 博基",
+    "first_name": "博基",
+    "last_name": "今井",
+    "email": "imaihiroki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-06T05:52:24Z",
+    "man_number": "118359",
+    "user_name": "今井 博基",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118362,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "久原 秀範",
+    "first_name": "秀範",
+    "last_name": "久原",
+    "email": "kubara@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-25T05:52:24Z",
+    "man_number": "118362",
+    "user_name": "久原 秀範",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118364,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "吉永 隆祐",
+    "first_name": "隆祐",
+    "last_name": "吉永",
+    "email": "yoshinagaryusuke@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-24T05:52:24Z",
+    "man_number": "118364",
+    "user_name": "吉永 隆祐",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118369,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "萩 哲哉",
+    "first_name": "哲哉",
+    "last_name": "萩",
+    "email": "t.hagi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-30T05:52:24Z",
+    "man_number": "118369",
+    "user_name": "萩 哲哉",
+    "bumon_cd": "92210",
+    "post_cd": "071",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118370,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "Mohan Shyam",
+    "first_name": "Shyam",
+    "last_name": "Mohan",
+    "email": "mohan@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-07T05:52:24Z",
+    "man_number": "118370",
+    "user_name": "Mohan Shyam",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118371,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "後田 隆彦",
+    "first_name": "隆彦",
+    "last_name": "後田",
+    "email": "ushiroda.takahiko@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-04T05:52:24Z",
+    "man_number": "118371",
+    "user_name": "後田 隆彦",
+    "bumon_cd": "92210",
+    "post_cd": "094",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 118958,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "塚原 由美",
+    "first_name": "由美",
+    "last_name": "塚原",
+    "email": "yumi.tsukahara@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-20T05:52:24Z",
+    "man_number": "118958",
+    "user_name": "塚原 由美",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 119374,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "野中 翔太",
+    "first_name": "翔太",
+    "last_name": "野中",
+    "email": "nonaka.shota@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-05T05:52:24Z",
+    "man_number": "119374",
+    "user_name": "野中 翔太",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 119375,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松田 啓希",
+    "first_name": "啓希",
+    "last_name": "松田",
+    "email": "hiroki-matsuda@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-24T05:52:24Z",
+    "man_number": "119375",
+    "user_name": "松田 啓希",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 119376,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "水島 卓也",
+    "first_name": "卓也",
+    "last_name": "水島",
+    "email": "mizushima.takuya@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-28T05:52:24Z",
+    "man_number": "119376",
+    "user_name": "水島 卓也",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 119377,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "吉岡 拓郎",
+    "first_name": "拓郎",
+    "last_name": "吉岡",
+    "email": "tyoshioka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-20T05:52:24Z",
+    "man_number": "119377",
+    "user_name": "吉岡 拓郎",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 119378,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "里 一希",
+    "first_name": "一希",
+    "last_name": "里",
+    "email": "kazuki_sato@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-03T05:52:24Z",
+    "man_number": "119378",
+    "user_name": "里 一希",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 119379,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "濵田 宗志",
+    "first_name": "宗志",
+    "last_name": "濵田",
+    "email": "#NAME?",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-07T05:52:24Z",
+    "man_number": "119379",
+    "user_name": "濵田 宗志",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 119381,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "殷 海涛",
+    "first_name": "海涛",
+    "last_name": "殷",
+    "email": "inkaitou@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-09T05:52:24Z",
+    "man_number": "119381",
+    "user_name": "殷 海涛",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 120384,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "中田 和樹",
+    "first_name": "和樹",
+    "last_name": "中田",
+    "email": "nakata.kazuki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-29T05:52:24Z",
+    "man_number": "120384",
+    "user_name": "中田 和樹",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 120385,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "樋口 幸平",
+    "first_name": "幸平",
+    "last_name": "樋口",
+    "email": "kohei.higuchi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-10T05:52:24Z",
+    "man_number": "120385",
+    "user_name": "樋口 幸平",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 120386,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "福島 有貴",
+    "first_name": "有貴",
+    "last_name": "福島",
+    "email": "fukushima.y@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-14T05:52:24Z",
+    "man_number": "120386",
+    "user_name": "福島 有貴",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 120388,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "渡辺 勝義",
+    "first_name": "勝義",
+    "last_name": "渡辺",
+    "email": "watanakt@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-25T05:52:24Z",
+    "man_number": "120388",
+    "user_name": "渡辺 勝義",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 120389,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "高月 昭",
+    "first_name": "昭",
+    "last_name": "高月",
+    "email": "takatuki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-09-25T05:52:24Z",
+    "man_number": "120389",
+    "user_name": "高月 昭",
+    "bumon_cd": "92210",
+    "post_cd": "046",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 120502,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山本 理央",
+    "first_name": "理央",
+    "last_name": "山本",
+    "email": "r.yamamoto@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-17T05:52:24Z",
+    "man_number": "120502",
+    "user_name": "山本 理央",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 120503,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "井田 胡桃",
+    "first_name": "胡桃",
+    "last_name": "井田",
+    "email": "ida.kurumi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-05T05:52:24Z",
+    "man_number": "120503",
+    "user_name": "井田 胡桃",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 121391,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "相川 開誠",
+    "first_name": "開誠",
+    "last_name": "相川",
+    "email": "k.aikawa@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-27T05:52:24Z",
+    "man_number": "121391",
+    "user_name": "相川 開誠",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 121392,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "西川 洋一",
+    "first_name": "洋一",
+    "last_name": "西川",
+    "email": "nishikawa.yoichi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-03T05:52:24Z",
+    "man_number": "121392",
+    "user_name": "西川 洋一",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 121393,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "新原 拓郎",
+    "first_name": "拓郎",
+    "last_name": "新原",
+    "email": "niihara.takurou@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-02T05:52:24Z",
+    "man_number": "121393",
+    "user_name": "新原 拓郎",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 121504,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "泉 那実",
+    "first_name": "那実",
+    "last_name": "泉",
+    "email": "izumin@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-03T05:52:24Z",
+    "man_number": "121504",
+    "user_name": "泉 那実",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 121505,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "嵜山 尚子",
+    "first_name": "尚子",
+    "last_name": "嵜山",
+    "email": "sakiyama.naoko@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-02T05:52:24Z",
+    "man_number": "121505",
+    "user_name": "嵜山 尚子",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 121960,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "岩岡 文子",
+    "first_name": "文子",
+    "last_name": "岩岡",
+    "email": "iwaoka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-07T05:52:24Z",
+    "man_number": "121960",
+    "user_name": "岩岡 文子",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 121961,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山口 和美",
+    "first_name": "和美",
+    "last_name": "山口",
+    "email": "yamaguka@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-11T05:52:24Z",
+    "man_number": "121961",
+    "user_name": "山口 和美",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122394,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "末永 雄大",
+    "first_name": "雄大",
+    "last_name": "末永",
+    "email": "y.suenaga@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-08T05:52:24Z",
+    "man_number": "122394",
+    "user_name": "末永 雄大",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122395,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "大門 隆哉",
+    "first_name": "隆哉",
+    "last_name": "大門",
+    "email": "daimon@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-19T05:52:24Z",
+    "man_number": "122395",
+    "user_name": "大門 隆哉",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122397,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "林田 滉平",
+    "first_name": "滉平",
+    "last_name": "林田",
+    "email": "kohei.hayashida@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-09T05:52:24Z",
+    "man_number": "122397",
+    "user_name": "林田 滉平",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122399,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "藤原 周平",
+    "first_name": "周平",
+    "last_name": "藤原",
+    "email": "fujiwara.shuhei@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-15T05:52:24Z",
+    "man_number": "122399",
+    "user_name": "藤原 周平",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122401,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "川上 誠一郎",
+    "first_name": "誠一郎",
+    "last_name": "川上",
+    "email": "kawakami.seiichiro@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-24T05:52:24Z",
+    "man_number": "122401",
+    "user_name": "川上 誠一郎",
+    "bumon_cd": "92210",
+    "post_cd": "100",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122402,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "本田 弘幸",
+    "first_name": "弘幸",
+    "last_name": "本田",
+    "email": "honda.hiroyuki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-18T05:52:24Z",
+    "man_number": "122402",
+    "user_name": "本田 弘幸",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122403,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "浦崎 真也",
+    "first_name": "真也",
+    "last_name": "浦崎",
+    "email": "s.urasaki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-05T05:52:24Z",
+    "man_number": "122403",
+    "user_name": "浦崎 真也",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122404,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "藤原 照久",
+    "first_name": "照久",
+    "last_name": "藤原",
+    "email": "fujihara.teruhisa@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-10-19T05:52:24Z",
+    "man_number": "122404",
+    "user_name": "藤原 照久",
+    "bumon_cd": "92210",
+    "post_cd": "079",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122405,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "杉本 茂",
+    "first_name": "茂",
+    "last_name": "杉本",
+    "email": "sugimoto.shigeru@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-09T05:52:24Z",
+    "man_number": "122405",
+    "user_name": "杉本 茂",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122406,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "宮崎 健二",
+    "first_name": "健二",
+    "last_name": "宮崎",
+    "email": "miyazakn@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-01T05:52:24Z",
+    "man_number": "122406",
+    "user_name": "宮崎 健二",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 122407,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "竹下 浩司",
+    "first_name": "浩司",
+    "last_name": "竹下",
+    "email": "#NAME?",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-14T05:52:24Z",
+    "man_number": "122407",
+    "user_name": "竹下 浩司",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123002,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "堀内 圭一郎",
+    "first_name": "圭一郎",
+    "last_name": "堀内",
+    "email": "horikei@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-17T05:52:24Z",
+    "man_number": "123002",
+    "user_name": "堀内 圭一郎",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123004,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "宮﨑 凌",
+    "first_name": "凌",
+    "last_name": "宮﨑",
+    "email": "rmiyazaki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-03T05:52:24Z",
+    "man_number": "123004",
+    "user_name": "宮﨑 凌",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123005,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "彌吉 修明",
+    "first_name": "修明",
+    "last_name": "彌吉",
+    "email": "yayoshi.naoaki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-18T05:52:24Z",
+    "man_number": "123005",
+    "user_name": "彌吉 修明",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123006,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "吉田 周平",
+    "first_name": "周平",
+    "last_name": "吉田",
+    "email": "shuheiyoshida@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-22T05:52:24Z",
+    "man_number": "123006",
+    "user_name": "吉田 周平",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123007,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "吉井 海都",
+    "first_name": "海都",
+    "last_name": "吉井",
+    "email": "yoshii.kaito@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-19T05:52:24Z",
+    "man_number": "123007",
+    "user_name": "吉井 海都",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123008,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "渡辺 心平",
+    "first_name": "心平",
+    "last_name": "渡辺",
+    "email": "watanabe.shimpei@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-26T05:52:24Z",
+    "man_number": "123008",
+    "user_name": "渡辺 心平",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123009,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "川浪 碧美",
+    "first_name": "碧美",
+    "last_name": "川浪",
+    "email": "kawanami.m@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-22T05:52:24Z",
+    "man_number": "123009",
+    "user_name": "川浪 碧美",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123010,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山道 香奈芽",
+    "first_name": "香奈芽",
+    "last_name": "山道",
+    "email": "yamamichi.kaname@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-16T05:52:24Z",
+    "man_number": "123010",
+    "user_name": "山道 香奈芽",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123011,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山下 雅弥",
+    "first_name": "雅弥",
+    "last_name": "山下",
+    "email": "yamashita.masaya@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-14T05:52:24Z",
+    "man_number": "123011",
+    "user_name": "山下 雅弥",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123012,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "府木 瑠那",
+    "first_name": "瑠那",
+    "last_name": "府木",
+    "email": "fukiruna@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-13T05:52:24Z",
+    "man_number": "123012",
+    "user_name": "府木 瑠那",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123013,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "森 澄美果",
+    "first_name": "澄美果",
+    "last_name": "森",
+    "email": "mori.sumika@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-08T05:52:24Z",
+    "man_number": "123013",
+    "user_name": "森 澄美果",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123014,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "手塚 智三郎",
+    "first_name": "智三郎",
+    "last_name": "手塚",
+    "email": "#NAME?",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-28T05:52:24Z",
+    "man_number": "123014",
+    "user_name": "手塚 智三郎",
+    "bumon_cd": "92210",
+    "post_cd": "112",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123016,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "下田 雅典",
+    "first_name": "雅典",
+    "last_name": "下田",
+    "email": "m.shimoda@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-05T05:52:24Z",
+    "man_number": "123016",
+    "user_name": "下田 雅典",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123017,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山田 祐菜",
+    "first_name": "祐菜",
+    "last_name": "山田",
+    "email": "yuunayamada@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-15T05:52:24Z",
+    "man_number": "123017",
+    "user_name": "山田 祐菜",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123019,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "松本 智美",
+    "first_name": "智美",
+    "last_name": "松本",
+    "email": "matsutom@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-27T05:52:24Z",
+    "man_number": "123019",
+    "user_name": "松本 智美",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123020,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "赤瀬 馨",
+    "first_name": "馨",
+    "last_name": "赤瀬",
+    "email": "akase.kaoru@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-28T05:52:24Z",
+    "man_number": "123020",
+    "user_name": "赤瀬 馨",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123021,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "久間 好春",
+    "first_name": "好春",
+    "last_name": "久間",
+    "email": "kyuuma.yoshiharu@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-24T05:52:24Z",
+    "man_number": "123021",
+    "user_name": "久間 好春",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123022,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "長森 元志",
+    "first_name": "元志",
+    "last_name": "長森",
+    "email": "nagamori@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-01T05:52:24Z",
+    "man_number": "123022",
+    "user_name": "長森 元志",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123023,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "森山 千春",
+    "first_name": "千春",
+    "last_name": "森山",
+    "email": "0",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-09T05:52:24Z",
+    "man_number": "123023",
+    "user_name": "森山 千春",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123024,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "内山 由紀",
+    "first_name": "由紀",
+    "last_name": "内山",
+    "email": "yuki-uchiyama@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-14T05:52:24Z",
+    "man_number": "123024",
+    "user_name": "内山 由紀",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 123025,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "土井 正紀",
+    "first_name": "正紀",
+    "last_name": "土井",
+    "email": "0",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-26T05:52:24Z",
+    "man_number": "123025",
+    "user_name": "土井 正紀",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124027,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "柴原 大貴",
+    "first_name": "大貴",
+    "last_name": "柴原",
+    "email": "shibahara.daiki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-04T05:52:24Z",
+    "man_number": "124027",
+    "user_name": "柴原 大貴",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124028,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "馮 嵩文",
+    "first_name": "嵩文",
+    "last_name": "馮",
+    "email": "songwen.feng@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-11T05:52:24Z",
+    "man_number": "124028",
+    "user_name": "馮 嵩文",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124029,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "山口 幸輝",
+    "first_name": "幸輝",
+    "last_name": "山口",
+    "email": "yamaguchi.koki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-12T05:52:24Z",
+    "man_number": "124029",
+    "user_name": "山口 幸輝",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124030,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "江藤 さくら",
+    "first_name": "さくら",
+    "last_name": "江藤",
+    "email": "eto.sakura@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-15T05:52:24Z",
+    "man_number": "124030",
+    "user_name": "江藤 さくら",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124031,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "磯本 謙信",
+    "first_name": "謙信",
+    "last_name": "磯本",
+    "email": "isomoto.kenshin@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-04T05:52:24Z",
+    "man_number": "124031",
+    "user_name": "磯本 謙信",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124032,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "内田 雄貴",
+    "first_name": "雄貴",
+    "last_name": "内田",
+    "email": "uchida.yuki@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-13T05:52:24Z",
+    "man_number": "124032",
+    "user_name": "内田 雄貴",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124034,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "村上 弘吉",
+    "first_name": "弘吉",
+    "last_name": "村上",
+    "email": "murakami.koukichi@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-06T05:52:24Z",
+    "man_number": "124034",
+    "user_name": "村上 弘吉",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 124035,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "牟田 佑二",
+    "first_name": "佑二",
+    "last_name": "牟田",
+    "email": "muta.yuji@idc-com.co.jp",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-04T05:52:24Z",
+    "man_number": "124035",
+    "user_name": "牟田 佑二",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 125045,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "白尾 亮真",
+    "first_name": "亮真",
+    "last_name": "白尾",
+    "email": "0",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-07T05:52:24Z",
+    "man_number": "125045",
+    "user_name": "白尾 亮真",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 125046,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "岩本 悦希",
+    "first_name": "悦希",
+    "last_name": "岩本",
+    "email": "0",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-08T05:52:24Z",
+    "man_number": "125046",
+    "user_name": "岩本 悦希",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 125047,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "白石 大治郎",
+    "first_name": "大治郎",
+    "last_name": "白石",
+    "email": "0",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-06T05:52:24Z",
+    "man_number": "125047",
+    "user_name": "白石 大治郎",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "expenses.m_user",
+  "pk": 125052,
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$UJpkxIP6bp4ushqkEOuD6x$J6IP2jUyz+SH66FlOI628bawkyzTfWMRR8qbK+GCHkY=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "紀 ??",
+    "first_name": "??",
+    "last_name": "紀",
+    "email": "0",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-12-23T05:52:24Z",
+    "man_number": "125052",
+    "user_name": "紀 ??",
+    "bumon_cd": "92210",
+    "post_cd": "101",
+    "role": "employee",
+    "groups": [],
+    "user_permissions": []
+  }
+}
+]

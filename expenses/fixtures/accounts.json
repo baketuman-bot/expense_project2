@@ -1,0 +1,34 @@
+[
+    {
+        "model": "expenses.account",
+        "pk": 1,
+        "fields": {
+            "code": "TRANS",
+            "name": "交通費"
+        }
+    },
+    {
+        "model": "expenses.account",
+        "pk": 2,
+        "fields": {
+            "code": "HOTEL",
+            "name": "宿泊費"
+        }
+    },
+    {
+        "model": "expenses.account",
+        "pk": 3,
+        "fields": {
+            "code": "FOOD",
+            "name": "飲食費"
+        }
+    },
+    {
+        "model": "expenses.account",
+        "pk": 4,
+        "fields": {
+            "code": "MISC",
+            "name": "雑費"
+        }
+    }
+]
