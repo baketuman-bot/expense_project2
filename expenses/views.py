@@ -1,41 +1,331 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.conf import settings
 from .models import (
     M_User, M_Status, M_Account, T_Document, T_DocumentContent,
-    M_Group, M_Bumon, M_Item, M_DocumentType, M_DocumentField
+    M_Group, M_Bumon, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
+    V_Group, M_BelongTo
 )
-from .forms import ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm
+from .forms import ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm, TravelDetailFormSet, TravelDetailEditFormSet
 from .utils import send_notification, steps_with_candidates
 from django.utils import timezone
 import uuid
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.core.paginator import Paginator
+import csv
+
+from django.core.files.base import ContentFile
+import io
+
+
+def _is_travel_doc_type(doc_type):
+    """DocType=5（出張旅費精算）か判定する。"""
+    return bool(doc_type and getattr(doc_type, 'document_type_id', None) == 5)
+
+
+def _build_dynamic_fields_display(expense):
+    """T_Document の DocType=4 動的フィールドを表示用リストで返す。
+    戻り値: [{'label', 'value', 'col_width', 'row_break', 'is_label', 'calc_formula'}, ...] または []
+    """
+    result = []
+    try:
+        doc_type = getattr(expense, 'document_type', None)
+        if not doc_type or getattr(doc_type, 'document_type_id', None) != 4:
+            return []
+        first_detail = expense.contents.order_by('document_detail_id').first()
+        stored = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
+        defs = M_DocumentField.objects.filter(document_type=doc_type).order_by('field_order', 'field_name')
+        for d in defs:
+            raw_type = (d.field_type or '').strip().lower()
+            label = d.field_name_view or d.field_name
+            is_label = (raw_type == 'label')
+            if is_label:
+                # label型は保存値なし。計算式を持つ場合は calc_formula を渡す
+                result.append({
+                    'label':        label,
+                    'value':        '',
+                    'col_width':    d.col_width or 4,
+                    'row_break':    d.row_break,
+                    'is_label':     True,
+                    'calc_formula': d.calc_formula or '',
+                    'field_help_text': d.field_help_text or '',
+                    'name':         d.field_name,
+                })
+                continue
+            raw_val = stored.get(d.field_name, '')
+            # select 型は key → content に変換
+            if raw_type.startswith('select') and raw_val:
+                parts = raw_type.split(':', 1)
+                if len(parts) == 2:
+                    item = M_Item.objects.filter(data_kbn__iexact=parts[1].strip(), key=raw_val).first()
+                    display_val = item.content if item else raw_val
+                else:
+                    display_val = raw_val
+            else:
+                display_val = raw_val
+            result.append({
+                'label':        label,
+                'value':        display_val or '-',
+                'col_width':    d.col_width or 4,
+                'row_break':    d.row_break,
+                'is_label':     False,
+                'calc_formula': '',
+                'field_help_text': d.field_help_text or '',
+                'name':         d.field_name,
+            })
+    except Exception:
+        result = []
+    return result
+
+
+def _build_approval_request_mail(expense, prefix=""):
+    """承認依頼メールの件名・本文を生成する共通ヘルパー。
+    prefix: 本文冒頭に付ける文字列（例: '【再申請】'）
+    """
+    try:
+        applicant = getattr(expense.man_number, 'user_name', '') or ''
+    except Exception:
+        applicant = ''
+    doc_id = expense.document_id
+    subject = f"[経費精算] 承認依頼: ID {doc_id} {applicant}"
+
+    try:
+        updated_at_val = expense.updated_at
+        if updated_at_val:
+            local_dt = timezone.localtime(updated_at_val)
+            updated_at_str = local_dt.strftime("%Y年%m月%d日 %H:%M")
+        else:
+            updated_at_str = ''
+    except Exception:
+        updated_at_str = ''
+
+    try:
+        doc_type_name = expense.document_type.document_type_name or ''
+    except Exception:
+        doc_type_name = ''
+
+    try:
+        tsuka_cd_val = expense.tsuka_cd or ''
+        tsuka_disp = (
+            M_Item.objects.filter(data_kbn='CUR', key=tsuka_cd_val)
+            .values_list('content', flat=True)
+            .first()
+        ) or tsuka_cd_val
+    except Exception:
+        tsuka_disp = ''
+
+    amount = expense.total_amount or 0
+    prefix_line = f"{prefix}" if prefix else ""
+
+    body = (
+        f"{prefix_line}承認申請が提出されました。\n"
+        f"申請者: {applicant}\n"
+        f"日付：{updated_at_str}\n"
+        f"申請：{doc_type_name}\n"
+        f"タイトル: {expense.title or ''}\n"
+        f"合計金額: {tsuka_disp} {amount}\n"
+        f"\n"
+        f"費用処理アプリ\n"
+        f"http://172.16.100.150/\n"
+    )
+    return subject, body
+
+
+def _get_bumons_for_user(user, doc_type=None):
+    """doc_type.bumon_scope に従って負担部門リストを返す。
+    bumon_scope=1 (全部門) → M_Bumon 全件
+    bumon_scope=0 (自グループ絞り込み・デフォルト) → 申請者グループ起点でフィルタ
+
+    SQL ロジック (scope=0):
+        SELECT g.group_cd FROM v_group g
+        WHERE g.relation_group_cd IN (
+            SELECT bb.group_cd_id FROM m_belong_to bb WHERE bb.man_number_id = <user>
+        )
+    得られた group_cd に所属するユーザーの bumon_cd を収集し M_Bumon を絞り込む。
+    フィルタ失敗・所属なし時は全件を返す。
+    """
+    # bumon_scope=1 なら全件返す
+    scope = getattr(doc_type, 'bumon_scope', 0) if doc_type else 0
+    if scope == 1:
+        return M_Bumon.objects.all().order_by('bumon_cd')
+
+    try:
+        # 1. 申請者の所属グループコード
+        applicant_group_cds = list(
+            M_BelongTo.objects.filter(man_number=user)
+            .values_list('group_cd_id', flat=True)
+        )
+        if not applicant_group_cds:
+            return M_Bumon.objects.all().order_by('bumon_cd')
+
+        # 2. v_group: relation_group_cd が申請者グループに含まれる group_cd を取得
+        filtered_group_cds = list(
+            V_Group.objects
+            .filter(relation_group_cd__in=applicant_group_cds)
+            .values_list('group_cd', flat=True)
+            .distinct()
+        )
+        if not filtered_group_cds:
+            return M_Bumon.objects.all().order_by('bumon_cd')
+
+        # 3. 対象グループに所属するユーザーの bumon_cd を収集
+        bumon_cds = list(
+            M_BelongTo.objects
+            .filter(group_cd_id__in=filtered_group_cds)
+            .values_list('man_number__bumon_cd', flat=True)
+            .distinct()
+        )
+        bumon_cds = [b for b in bumon_cds if b]
+        if not bumon_cds:
+            return M_Bumon.objects.all().order_by('bumon_cd')
+
+        return M_Bumon.objects.filter(bumon_cd__in=bumon_cds).order_by('bumon_cd')
+    except Exception:
+        return M_Bumon.objects.all().order_by('bumon_cd')
+
+
+def _get_account_queryset(doc_type):
+    """doc_type に紐づく M_AccountDocument が存在すればその勘定科目のみ、なければ全件を返す。"""
+    if doc_type is None:
+        return M_Account.objects.all().order_by('account_cd')
+    linked = M_AccountDocument.objects.filter(document_type=doc_type).values_list('account_cd_id', flat=True)
+    if linked.exists():
+        return M_Account.objects.filter(account_cd__in=linked).order_by('account_cd')
+    return M_Account.objects.all().order_by('account_cd')
+import base64
+import qrcode
+
+from .cloud_receipts import (
+    CloudReceiptFetchError,
+    fetch_receipt_by_seq,
+    fetch_receipts_by_upload_id,
+    normalize_seq,
+    parse_cloud_receipt_tokens,
+)
 
 @login_required
 def home(request):
-    # ログインユーザーの申請を取得
-    your_expenses = T_Document.objects.filter(
-        man_number=request.user
-    ).order_by('-created_at')[:5]  # 最新5件
+    from .models import T_DocumentApprover
 
-    # 承認待ちの申請を取得（承認者の場合）
+    # 承認待ち（自分が承認者に登録されていて、ステータスがSUBの申請）上位5件
+    approver_doc_ids = T_DocumentApprover.objects.filter(
+        man_number=request.user
+    ).values_list('document_id', flat=True)
     pending_approvals = T_Document.objects.filter(
-        status_cd__status_cd='SUB'
+        document_id__in=approver_doc_ids,
+        status_cd__status_cd='SUB',
     ).order_by('created_at')[:5]
+
+    # 申請中一覧（自分の申請で承認完了・下書き・取消以外）
+    in_progress_expenses = T_Document.objects.filter(
+        man_number=request.user,
+    ).exclude(
+        status_cd__status_cd__in=['APP', 'DRA', 'CAN', 'FNS', 'REJ']
+    ).order_by('-created_at')[:5]
+
+    # 下書き一覧（自分の下書き）
+    draft_expenses = T_Document.objects.filter(
+        man_number=request.user,
+        status_cd__status_cd='DRA',
+    ).order_by('-created_at')[:5]
 
     context = {
         'user': request.user,
-        'your_expenses': your_expenses,
         'pending_approvals': pending_approvals,
+        'in_progress_expenses': in_progress_expenses,
+        'draft_expenses': draft_expenses,
     }
     return render(request, "expenses/home.html", context)
 
 @login_required
 def expense_list(request):
-    expenses = T_Document.objects.filter(man_number=request.user).order_by("-created_at")
-    return render(request, "expenses/expense_list.html", {"expenses": expenses})
+    qs = T_Document.objects.filter(man_number=request.user).select_related(
+        'status_cd', 'document_type', 'bumon_cd'
+    ).prefetch_related('contents').order_by("-created_at")
+
+    # フィルター
+    status_filter = request.GET.get('status', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    keyword = request.GET.get('keyword', '')
+
+    if status_filter:
+        qs = qs.filter(status_cd__status_cd=status_filter)
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    if keyword:
+        qs = qs.filter(
+            Q(title__icontains=keyword) |
+            Q(contents__purpose__icontains=keyword) |
+            Q(memo__icontains=keyword)
+        ).distinct()
+
+    # ページネーション
+    paginator = Paginator(qs, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    statuses = M_Status.objects.all().order_by('status_cd')
+
+    return render(request, "expenses/expense_list.html", {
+        "expenses": page_obj,
+        "page_obj": page_obj,
+        "statuses": statuses,
+        "status_filter": status_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "keyword": keyword,
+    })
+
+
+@login_required
+def expense_csv(request):
+    """経費申請一覧のCSVエクスポート（フィルター条件を引き継ぐ）"""
+    qs = T_Document.objects.filter(man_number=request.user).select_related(
+        'status_cd', 'document_type', 'bumon_cd'
+    ).prefetch_related('contents').order_by("-created_at")
+
+    status_filter = request.GET.get('status', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    keyword = request.GET.get('keyword', '')
+
+    if status_filter:
+        qs = qs.filter(status_cd__status_cd=status_filter)
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    if keyword:
+        qs = qs.filter(
+            Q(title__icontains=keyword) |
+            Q(contents__purpose__icontains=keyword) |
+            Q(memo__icontains=keyword)
+        ).distinct()
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="expenses.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['申請ID', '申請種別', '申請日時', '目的', '負担部門', '合計金額', '通貨', 'ステータス', '備考'])
+    for exp in qs:
+        first_content = exp.contents.first()
+        writer.writerow([
+            exp.document_id,
+            exp.document_type.document_type_name if exp.document_type else '',
+            timezone.localtime(exp.created_at).strftime('%Y/%m/%d %H:%M'),
+            first_content.purpose if first_content else '',
+            exp.bumon_cd.bumon_name if exp.bumon_cd else '',
+            exp.total_amount,
+            exp.tsuka_cd or '',
+            exp.status_cd.status_name if exp.status_cd else '',
+            exp.memo or '',
+        ])
+    return response
 
 @login_required
 def expense_detail(request, pk):
@@ -111,6 +401,19 @@ def expense_detail(request, pk):
     except Exception:
         workflow_actions = []
 
+    # 承認予定者を取得（未承認 = pending / draft）
+    pending_approvers = []
+    try:
+        from .models import T_DocumentApprover
+        pending_approvers = list(
+            T_DocumentApprover.objects
+            .filter(document_id=expense, status__in=['pending', 'draft'])
+            .select_related('man_number', 'man_number__post_cd', 'step_id')
+            .order_by('step_order')
+        )
+    except Exception:
+        pending_approvers = []
+
     # 通貨名の解決（表示用）
     currency_name = None
     try:
@@ -122,7 +425,9 @@ def expense_detail(request, pk):
     except Exception:
         currency_name = None
 
-    return render(request, "expenses/expense_detail.html", {"expense": expense, "workflow_actions": workflow_actions, "currency_name": currency_name})
+    dynamic_fields_display = _build_dynamic_fields_display(expense)
+
+    return render(request, "expenses/expense_detail.html", {"expense": expense, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "currency_name": currency_name, "dynamic_fields_display": dynamic_fields_display})
 
 @login_required
 def expense_edit(request, pk):
@@ -147,7 +452,7 @@ def expense_edit(request, pk):
                 existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
             except Exception:
                 existing_dyn = {}
-            defs = M_DocumentField.objects.filter(document_type=doc_type_for_dyn).order_by('field_name')
+            defs = M_DocumentField.objects.filter(document_type=doc_type_for_dyn).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
                 html_type = 'text'
@@ -163,6 +468,10 @@ def expense_edit(request, pk):
                         )
                 elif raw_type in ('text', 'number', 'date'):
                     html_type = raw_type
+                elif raw_type == 'num':
+                    html_type = 'number'
+                elif raw_type == 'label':
+                    html_type = 'label'
                 else:
                     html_type = 'text'
                 # POST 優先、なければ既存JSON
@@ -175,18 +484,31 @@ def expense_edit(request, pk):
                 except Exception:
                     val = existing_dyn.get(d.field_name, '')
                 dynamic_fields.append({
-                    'name': d.field_name,
-                    'label': (d.field_name_view or d.field_name),
-                    'type': html_type,
-                    'options': options,
-                    'value': val,
+                    'name':          d.field_name,
+                    'label':         (d.field_name_view or d.field_name),
+                    'type':          html_type,
+                    'options':       options,
+                    'value':         val,
+                    'col_width':     d.col_width or 4,
+                    'row_break':     d.row_break,
+                    'required':      d.required,
+                    'placeholder':   d.placeholder or '',
+                    'field_help_text': d.field_help_text or '',
+                    'calc_formula':  d.calc_formula or '',
                 })
     except Exception:
         dynamic_fields = []
 
     if request.method == "POST":
         action = request.POST.get('action') or 'save'  # 'save' or 'submit'
-        formset = ExpenseDetailEditFormSet(request.POST, request.FILES, queryset=expense.contents.all())
+        is_draft_edit = (action in ('draft', 'save'))
+        error_message = None  # 初期化
+        _aq_edit = _get_account_queryset(getattr(expense, 'document_type', None))
+        _edit_doc_type_post = getattr(expense, 'document_type', None)
+        if _is_travel_doc_type(_edit_doc_type_post):
+            formset = TravelDetailEditFormSet(request.POST, request.FILES, queryset=expense.contents.all())
+        else:
+            formset = ExpenseDetailEditFormSet(request.POST, request.FILES, queryset=expense.contents.all(), account_queryset=_aq_edit)
         
         # 通貨コードの検証
         tsuka_cd = (request.POST.get('tsuka_cd') or '').strip()
@@ -200,13 +522,36 @@ def expense_edit(request, pk):
         if tsuka_cd:
             currency_valid = M_Item.objects.filter(data_kbn='CUR', key=tsuka_cd).exists()
 
-        if formset.is_valid() and currency_valid:
+        # 負担部門のチェック（申請時のみ必須）
+        bumon_cd_val_edit = request.POST.get('bumon_cd')
+        bumon_error_edit = not is_draft_edit and not bumon_cd_val_edit
+        if bumon_error_edit:
+            error_message = "負担部門を選択してください。"
+
+        # 承認者チェック（申請時のみ必須）
+        approver_missing_edit = []
+        if not is_draft_edit and not bumon_error_edit:
+            try:
+                edit_doc_type = getattr(expense, 'document_type', None)
+                if edit_doc_type and getattr(edit_doc_type, 'workflow_template_id', None):
+                    steps_for_check = steps_with_candidates(request.user, edit_doc_type.workflow_template_id)
+                    for s in steps_for_check:
+                        if s.get('allowed_bumon_scope') == 'keiri':
+                            continue
+                        if not request.POST.get(f"approver_step_{s['step_id']}"):
+                            approver_missing_edit.append(str(s['step_order']))
+            except Exception:
+                pass
+        if approver_missing_edit:
+            error_message = f"承認ステップ {', '.join(approver_missing_edit)} の承認者を選択してください。"
+
+        if formset.is_valid() and currency_valid and not bumon_error_edit and not approver_missing_edit:
             try:
                 # 申請情報（備考・負担部門の更新）
                 memo = request.POST.get('memo')
                 if memo is not None:
                     expense.memo = memo[:200]
-                bumon_cd_val = request.POST.get('bumon_cd')
+                bumon_cd_val = bumon_cd_val_edit
                 if bumon_cd_val:
                     try:
                         expense.bumon_cd = M_Bumon.objects.get(bumon_cd=bumon_cd_val)
@@ -219,6 +564,11 @@ def expense_edit(request, pk):
                     expense.ringi_no = (request.POST.get('ringi_no') or '').strip() or None
                 except Exception:
                     pass
+                # DocType=5（出張旅費精算）: 出張件名の更新
+                if _is_travel_doc_type(getattr(expense, 'document_type', None)):
+                    trip_title = (request.POST.get('trip_title') or '').strip()
+                    if trip_title:
+                        expense.title = trip_title
                 # 承認者設定はワークフロー側に委ねるためここでは扱わない
 
                 # モデル検証（pay_kbn の妥当性など）
@@ -297,7 +647,38 @@ def expense_edit(request, pk):
                             T_DocumentAttachment.objects.create(detail=detail, file=f)
                     except Exception:
                         pass
-                
+
+                    # 4) Cloud領収書の取り込み（連番指定）
+                    try:
+                        raw_cloud = form.cleaned_data.get('cloud_receipts')
+                        for token in parse_cloud_receipt_tokens(raw_cloud):
+                            seq = normalize_seq(token)
+                            if not seq:
+                                raise CloudReceiptFetchError(
+                                    f"Cloud領収書の指定が不正です: '{token}'（例: 000123）"
+                                )
+                            cf = fetch_receipt_by_seq(seq)
+                            att = T_DocumentAttachment(detail=detail)
+                            att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                    except CloudReceiptFetchError:
+                        raise
+                    except Exception:
+                        # 取得失敗はユーザーに見せるため上位で捕捉
+                        raise
+
+                    # 5) モバイルQRアップロードID経由の取り込み
+                    try:
+                        mobile_upload_id = (form.cleaned_data.get('mobile_upload_id') or '').strip()
+                        if mobile_upload_id:
+                            mobile_files = fetch_receipts_by_upload_id(mobile_upload_id)
+                            for cf in mobile_files:
+                                att = T_DocumentAttachment(detail=detail)
+                                att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                    except CloudReceiptFetchError:
+                        raise
+                    except Exception:
+                        raise
+
                 # 提出ボタン押下時は SUB へ状態遷移し、ワークフローを生成
                 if action == 'submit':
                     # ステータスを SUB に
@@ -312,8 +693,13 @@ def expense_edit(request, pk):
                     try:
                         from .models import T_WorkflowInstance, T_DocumentApprover, M_WorkflowStep, M_User, T_WorkflowAction
                         doc_type = expense.document_type
-                        exists_instance = T_WorkflowInstance.objects.filter(document_id=expense).exists()
-                        if doc_type and doc_type.workflow_template_id and not exists_instance:
+                        existing_instance = T_WorkflowInstance.objects.filter(document_id=expense).order_by('-started_at').first()
+                        exists_instance = existing_instance is not None
+                        # 下書きのみ（DRA）のインスタンスは初回申請として扱う
+                        is_draft_only_instance = exists_instance and not T_WorkflowInstance.objects.filter(
+                            document_id=expense
+                        ).exclude(status__status_cd='DRA').exists()
+                        if doc_type and doc_type.workflow_template_id and (not exists_instance or is_draft_only_instance):
                             wf = doc_type.workflow_template_id
                             steps = steps_with_candidates(request.user, wf)
                             # 最初のステップを現在ステップに設定
@@ -326,13 +712,21 @@ def expense_edit(request, pk):
                             # ワークフロー進行中ステータスを取得/作成
                             # インスタンス自体の状態は SUB と同義の進行とみなす（WF_INPROGRESS は使用しない）
                             wf_status = sub_status
-                            instance = T_WorkflowInstance.objects.create(
-                                document_id=expense,
-                                workflow_template=wf,
-                                status=wf_status,
-                                step=first_step,
-                                step_order=(steps[0]['step_order'] if steps else None),
-                            )
+                            # DRAインスタンスが既にある場合は更新、なければ新規作成
+                            if is_draft_only_instance and existing_instance:
+                                existing_instance.status = wf_status
+                                existing_instance.step = first_step
+                                existing_instance.step_order = (steps[0]['step_order'] if steps else None)
+                                existing_instance.save()
+                                instance = existing_instance
+                            else:
+                                instance = T_WorkflowInstance.objects.create(
+                                    document_id=expense,
+                                    workflow_template=wf,
+                                    status=wf_status,
+                                    step=first_step,
+                                    step_order=(steps[0]['step_order'] if steps else None),
+                                )
                             # SUB の履歴を記録
                             try:
                                 T_WorkflowAction.objects.create(
@@ -344,7 +738,7 @@ def expense_edit(request, pk):
                                 )
                             except Exception:
                                 pass
-                            # 経理ステップだけは自動回付
+                            # 経理ステップは自動回付、それ以外はフォームの選択値を保存
                             for s in steps:
                                 if s.get('allowed_bumon_scope') == 'keiri' and s.get('candidates'):
                                     try:
@@ -359,10 +753,40 @@ def expense_edit(request, pk):
                                             status='pending'
                                         )
                                     except Exception:
-                                        # 候補取得や作成失敗は致命ではないので無視
                                         pass
-                        elif exists_instance:
-                            # 既存インスタンスがある場合も SUB を履歴に記録
+                                elif s.get('allowed_bumon_scope') != 'keiri':
+                                    # 非経理ステップはフォームの選択値を保存
+                                    selected = request.POST.get(f"approver_step_{s['step_id']}")
+                                    if selected:
+                                        try:
+                                            step_obj = M_WorkflowStep.objects.get(pk=s['step_id'])
+                                            approver_user = M_User.objects.get(man_number=selected)
+                                            T_DocumentApprover.objects.create(
+                                                document_id=expense,
+                                                step_id=step_obj,
+                                                man_number=approver_user,
+                                                step_order=s['step_order'],
+                                                status='pending'
+                                            )
+                                        except Exception:
+                                            pass
+                            # 最初のステップの承認者に通知メールを送信
+                            try:
+                                if first_step:
+                                    next_approvers = T_DocumentApprover.objects.filter(
+                                        document_id=expense,
+                                        step_id=first_step,
+                                        step_order=getattr(first_step, 'step_order', None),
+                                    )
+                                    subject, body = _build_approval_request_mail(expense)
+                                    if next_approvers.exists():
+                                        for a in next_approvers:
+                                            to_addr = getattr(getattr(a.man_number, 'email', None), 'strip', lambda: None)()
+                                            send_notification(to_addr, subject, body)
+                            except Exception:
+                                pass
+                        elif exists_instance and not is_draft_only_instance:
+                            # 既存インスタンスがある場合も SUB を履歴に記録し、承認者を更新して通知
                             try:
                                 instance = T_WorkflowInstance.objects.filter(document_id=expense).order_by('-started_at').first()
                                 if instance:
@@ -373,6 +797,49 @@ def expense_edit(request, pk):
                                         action_status=sub_status,
                                         comment="申請者による再提出",
                                     )
+                                    # 承認者を更新（既存レコードを削除して再登録）
+                                    wf = doc_type.workflow_template_id if doc_type else None
+                                    if wf:
+                                        re_steps = steps_with_candidates(request.user, wf)
+                                        # 非経理ステップの既存承認者を削除して再登録
+                                        for s in re_steps:
+                                            try:
+                                                step_obj = M_WorkflowStep.objects.get(pk=s['step_id'])
+                                                if s.get('allowed_bumon_scope') == 'keiri':
+                                                    continue
+                                                T_DocumentApprover.objects.filter(
+                                                    document_id=expense, step_id=step_obj
+                                                ).delete()
+                                                selected = request.POST.get(f"approver_step_{s['step_id']}")
+                                                if selected:
+                                                    approver_user = M_User.objects.get(man_number=selected)
+                                                    T_DocumentApprover.objects.create(
+                                                        document_id=expense,
+                                                        step_id=step_obj,
+                                                        man_number=approver_user,
+                                                        step_order=s['step_order'],
+                                                        status='pending'
+                                                    )
+                                            except Exception:
+                                                pass
+                                        # 最初のステップを特定して通知
+                                        first_step_re = None
+                                        if re_steps:
+                                            try:
+                                                first_step_re = M_WorkflowStep.objects.get(pk=re_steps[0]['step_id'])
+                                            except Exception:
+                                                pass
+                                        if first_step_re:
+                                            next_approvers_re = T_DocumentApprover.objects.filter(
+                                                document_id=expense,
+                                                step_id=first_step_re,
+                                                step_order=getattr(first_step_re, 'step_order', None),
+                                            )
+                                            subject, body = _build_approval_request_mail(expense, "【再申請】")
+                                            if next_approvers_re.exists():
+                                                for a in next_approvers_re:
+                                                    to_addr = getattr(getattr(a.man_number, 'email', None), 'strip', lambda: None)()
+                                                    send_notification(to_addr, subject, body)
                             except Exception:
                                 pass
                     except Exception as e:
@@ -383,18 +850,25 @@ def expense_edit(request, pk):
                 print("Edit error:", str(e))
                 error_message = f"編集中にエラーが発生しました: {str(e)}"
         else:
-            # バリデーションエラー時のメッセージ
-            if not currency_valid:
-                error_message = "通貨の選択が不正です。"
-            else:
-                error_message = "入力内容にエラーがあります。各明細のエラーメッセージを確認してください。"
+            # バリデーションエラー時のメッセージ（既にセット済みの場合は上書きしない）
+            if not error_message:
+                if not currency_valid:
+                    error_message = "通貨の選択が不正です。"
+                else:
+                    error_message = "入力内容にエラーがあります。各明細のエラーメッセージを確認してください。"
     else:
-        formset = ExpenseDetailEditFormSet(queryset=expense.contents.all())
+        _aq_edit = _get_account_queryset(getattr(expense, 'document_type', None))
+        _edit_doc_type_get = getattr(expense, 'document_type', None)
+        if _is_travel_doc_type(_edit_doc_type_get):
+            formset = TravelDetailEditFormSet(queryset=expense.contents.all())
+        else:
+            formset = ExpenseDetailEditFormSet(queryset=expense.contents.all(), account_queryset=_aq_edit)
         error_message = None
     
     # 申請情報のドロップダウン用データ
     groups = M_Group.objects.all().order_by('group_cd')
-    bumons = M_Bumon.objects.all().order_by('bumon_cd')
+    _edit_doc_type = getattr(expense, 'document_type', None)
+    bumons = _get_bumons_for_user(request.user, _edit_doc_type)
     pay_items = M_Item.objects.filter(data_kbn='pay').order_by('key')
     currencies = M_Item.objects.filter(data_kbn='CUR').order_by('key')
 
@@ -451,9 +925,32 @@ def expense_edit(request, pk):
             except Exception:
                 pass
 
-    return render(request, "expenses/expense_edit.html", {
+    # 差し戻し・却下コメントを取得（2-8）
+    latest_return_action = None
+    try:
+        from .models import T_WorkflowAction
+        latest_return_action = (
+            T_WorkflowAction.objects
+            .filter(
+                instance__document_id=expense,
+                action_status__status_cd__in=['RET', 'REJ'],
+            )
+            .select_related('action_status', 'approver_man_number')
+            .order_by('-actioned_at')
+            .first()
+        )
+    except Exception:
+        latest_return_action = None
+
+    _edit_template = (
+        "expenses/travel_expense_form.html"
+        if _is_travel_doc_type(getattr(expense, 'document_type', None))
+        else "expenses/expense_edit.html"
+    )
+    return render(request, _edit_template, {
         "formset": formset,
         "expense": expense,
+        "is_edit_mode": True,
         "error_message": error_message,
         "groups": groups,
         "bumons": bumons,
@@ -461,6 +958,11 @@ def expense_edit(request, pk):
         "currencies": currencies,
         "workflow_steps": workflow_steps,
         "dynamic_fields": dynamic_fields,
+        "current_bumon_cd": expense.bumon_cd.bumon_cd if expense.bumon_cd else "",
+        "latest_return_action": latest_return_action,
+        "current_doc_type_name": getattr(getattr(expense, 'document_type', None), 'document_type_name', None),
+        "form_action": "",
+        "submission_id": str(uuid.uuid4()),
     })
 
 @login_required
@@ -488,7 +990,7 @@ def expense_create(request, document_type_id=None):
             resolved_doc_type = M_DocumentType.objects.filter(document_type_name="経費精算書").first()
         if resolved_doc_type and getattr(resolved_doc_type, 'document_type_id', None) == 4:
             # 型マッピングと select のオプション解決。全定義をテンプレートへ渡す
-            defs = M_DocumentField.objects.filter(document_type=resolved_doc_type).order_by('field_name')
+            defs = M_DocumentField.objects.filter(document_type=resolved_doc_type).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
                 html_type = 'text'
@@ -504,6 +1006,10 @@ def expense_create(request, document_type_id=None):
                         )
                 elif raw_type in ('text', 'number', 'date'):
                     html_type = raw_type
+                elif raw_type == 'num':
+                    html_type = 'number'
+                elif raw_type == 'label':
+                    html_type = 'label'
                 else:
                     html_type = 'text'
 
@@ -513,11 +1019,17 @@ def expense_create(request, document_type_id=None):
                 except Exception:
                     posted_val = ''
                 dynamic_fields.append({
-                    'name': d.field_name,
-                    'label': (d.field_name_view or d.field_name),
-                    'type': html_type,
-                    'options': options,
-                    'value': posted_val,
+                    'name':          d.field_name,
+                    'label':         (d.field_name_view or d.field_name),
+                    'type':          html_type,
+                    'options':       options,
+                    'value':         posted_val,
+                    'col_width':     d.col_width or 4,
+                    'row_break':     d.row_break,
+                    'required':      d.required,
+                    'placeholder':   d.placeholder or '',
+                    'field_help_text': d.field_help_text or '',
+                    'calc_formula':  d.calc_formula or '',
                 })
     except Exception:
         dynamic_fields = []
@@ -534,7 +1046,11 @@ def expense_create(request, document_type_id=None):
             return redirect('expenses:home')
 
         # ExpenseFormは不要になったため削除
-        formset = ExpenseDetailFormSet(request.POST, request.FILES)
+        _aq = _get_account_queryset(resolved_doc_type)
+        if _is_travel_doc_type(resolved_doc_type):
+            formset = TravelDetailFormSet(request.POST, request.FILES)
+        else:
+            formset = ExpenseDetailFormSet(request.POST, request.FILES, account_queryset=_aq)
         print("Formset is valid:", formset.is_valid())
         # 申請情報の取得
         memo = request.POST.get('memo')
@@ -559,7 +1075,28 @@ def expense_create(request, document_type_id=None):
         if not formset.is_valid():
             print("Formset errors:", formset.errors)
             error_message = "入力内容にエラーがあります。各明細のエラーメッセージを確認してください。"
-            
+
+        # 負担部門のチェック（申請時のみ必須）
+        bumon_required_error = not is_draft and not bumon_cd_val
+        if bumon_required_error:
+            error_message = "負担部門を選択してください。"
+
+        # 承認者チェック（申請時のみ必須）
+        approver_missing_create = []
+        if not is_draft and not bumon_required_error:
+            try:
+                if resolved_doc_type and getattr(resolved_doc_type, 'workflow_template_id', None):
+                    steps_for_check = steps_with_candidates(request.user, resolved_doc_type.workflow_template_id)
+                    for s in steps_for_check:
+                        if s.get('allowed_bumon_scope') == 'keiri':
+                            continue
+                        if not request.POST.get(f"approver_step_{s['step_id']}"):
+                            approver_missing_create.append(str(s['step_order']))
+            except Exception:
+                pass
+        if approver_missing_create:
+            error_message = f"承認ステップ {', '.join(approver_missing_create)} の承認者を選択してください。"
+
         # 動的フィールドの取り出し（DocType=4 のみ）
         dynamic_values = {}
         try:
@@ -572,7 +1109,7 @@ def expense_create(request, document_type_id=None):
         except Exception:
             dynamic_values = {}
 
-        if formset.is_valid() and currency_valid:
+        if formset.is_valid() and currency_valid and not bumon_required_error and not approver_missing_create:
             try:
                 with transaction.atomic():
                     # 文書を作成
@@ -612,14 +1149,28 @@ def expense_create(request, document_type_id=None):
                         expense.ringi_no = ringi_no or None
                     except Exception:
                         pass
-                    # タイトル（必須）: 最初の明細の目的から作成、なければデフォルト
-                    title = None
-                    for f in formset.forms:
-                        if f.is_valid() and f.cleaned_data:
-                            title = f.cleaned_data.get('purpose')
-                            if title:
-                                break
-                    expense.title = (title or "経費申請").strip()
+                    # タイトル（必須）
+                    if _is_travel_doc_type(resolved_doc_type or doc_type):
+                        # DocType=5: フォームのtrip_titleフィールドから取得、なければ最初の経路から生成
+                        title = (request.POST.get('trip_title') or '').strip()
+                        if not title:
+                            for f in formset.forms:
+                                if f.is_valid() and f.cleaned_data:
+                                    dep = f.cleaned_data.get('departure', '')
+                                    arr = f.cleaned_data.get('arrival', '')
+                                    if dep or arr:
+                                        title = f"{dep}→{arr}" if dep and arr else (dep or arr)
+                                        break
+                        expense.title = title or "出張旅費精算"
+                    else:
+                        # 最初の明細の目的から作成、なければデフォルト
+                        title = None
+                        for f in formset.forms:
+                            if f.is_valid() and f.cleaned_data:
+                                title = f.cleaned_data.get('purpose')
+                                if title:
+                                    break
+                        expense.title = (title or "経費申請").strip()
 
                     expense.save()
                     print("Document saved:", expense.document_id)
@@ -658,6 +1209,39 @@ def expense_create(request, document_type_id=None):
                                     T_DocumentAttachment.objects.create(detail=detail, file=f)
                             except Exception as _:
                                 pass
+
+                            # Cloud領収書の取り込み（連番指定）
+                            try:
+                                from .models import T_DocumentAttachment
+                                raw_cloud = form.cleaned_data.get('cloud_receipts')
+                                for token in parse_cloud_receipt_tokens(raw_cloud):
+                                    seq = normalize_seq(token)
+                                    if not seq:
+                                        raise CloudReceiptFetchError(
+                                            f"Cloud領収書の指定が不正です: '{token}'（例: 000123）"
+                                        )
+                                    cf = fetch_receipt_by_seq(seq)
+                                    att = T_DocumentAttachment(detail=detail)
+                                    att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                            except CloudReceiptFetchError:
+                                raise
+                            except Exception:
+                                raise
+
+                            # モバイルQRアップロードID経由の取り込み
+                            try:
+                                from .models import T_DocumentAttachment
+                                mobile_upload_id = (form.cleaned_data.get('mobile_upload_id') or '').strip()
+                                if mobile_upload_id:
+                                    mobile_files = fetch_receipts_by_upload_id(mobile_upload_id)
+                                    for cf in mobile_files:
+                                        att = T_DocumentAttachment(detail=detail)
+                                        att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                            except CloudReceiptFetchError:
+                                raise
+                            except Exception:
+                                raise
+
                             print("Detail saved:", detail.document_detail_id)
                     # 下書き時: 選択済みの承認者をドラフトとして保存
                     if is_draft and doc_type.workflow_template_id:
@@ -816,13 +1400,7 @@ def expense_create(request, document_type_id=None):
                                     step_id=first_step,
                                     step_order=getattr(first_step, 'step_order', None),
                                 )
-                                subject = f"[経費精算] 承認依頼: 申請ID {expense.document_id}"
-                                body = (
-                                    f"申請が提出されました。\n"
-                                    f"申請者: {getattr(expense.man_number, 'user_name', '')}\n"
-                                    f"タイトル: {expense.title}\n"
-                                    f"合計金額: {expense.total_amount}\n"
-                                )
+                                subject, body = _build_approval_request_mail(expense)
                                 if next_approvers.exists():
                                     for a in next_approvers:
                                         to_addr = getattr(getattr(a.man_number, 'email', None), 'strip', lambda: None)()
@@ -846,11 +1424,18 @@ def expense_create(request, document_type_id=None):
         elif not currency_valid:
             error_message = "通貨の選択が不正です。"
     else:
-        formset = ExpenseDetailFormSet(queryset=T_DocumentContent.objects.none())
-        # 空のフォームが1つだけ表示されるように調整
-        if len(formset.forms) > 1:
-            formset.forms = formset.forms[:1]
-            formset.management_form.initial['TOTAL_FORMS'] = 1
+        _aq = _get_account_queryset(resolved_doc_type)
+        if _is_travel_doc_type(resolved_doc_type):
+            formset = TravelDetailFormSet(queryset=T_DocumentContent.objects.none())
+            if len(formset.forms) > 1:
+                formset.forms = formset.forms[:1]
+                formset.management_form.initial['TOTAL_FORMS'] = 1
+        else:
+            formset = ExpenseDetailFormSet(queryset=T_DocumentContent.objects.none(), account_queryset=_aq)
+            # 空のフォームが1つだけ表示されるように調整
+            if len(formset.forms) > 1:
+                formset.forms = formset.forms[:1]
+                formset.management_form.initial['TOTAL_FORMS'] = 1
         error_message = None
         # 二重送信防止トークンを生成
         submission_id = str(uuid.uuid4())
@@ -861,7 +1446,6 @@ def expense_create(request, document_type_id=None):
     
     # 組織一覧・部門一覧の取得
     groups = M_Group.objects.all().order_by('group_cd')
-    bumons = M_Bumon.objects.all().order_by('bumon_cd')
     pay_items = M_Item.objects.filter(data_kbn='pay').order_by('key')
     currencies = M_Item.objects.filter(data_kbn='CUR').order_by('key')
     
@@ -880,6 +1464,9 @@ def expense_create(request, document_type_id=None):
     except Exception:
         workflow_steps = []
 
+    # doc_type 確定後に bumon_scope を参照して部門リストを絞り込む
+    bumons = _get_bumons_for_user(request.user, doc_type)
+
     # テンプレートでプリセレクトできるように、各ステップに selected を付与
     if workflow_steps:
         if request.method == "POST":
@@ -893,8 +1480,15 @@ def expense_create(request, document_type_id=None):
         for s in workflow_steps:
             s.setdefault('selected_group_cd', '')
 
-    return render(request, "expenses/expense_form.html", {
+    _create_template = (
+        "expenses/travel_expense_form.html"
+        if _is_travel_doc_type(doc_type or resolved_doc_type)
+        else "expenses/expense_form.html"
+    )
+    return render(request, _create_template, {
         "formset": formset,
+        "is_edit_mode": False,
+        "expense": None,
         "error_message": error_message,
         "groups": groups,
         "bumons": bumons,
@@ -910,29 +1504,239 @@ def expense_create(request, document_type_id=None):
         "doc1_workflow_template_id": doc1_wf_id,
         "doc1_document_type_name": doc1_name,
         "show_doc1_alert": request.method == "GET",
+        # コピー申請用（通常の新規申請では空文字）
+        "copy_from_expense": None,
+        "copy_from_bumon_cd": "",
+        "copy_from_tsuka_cd": "",
+        "copy_from_memo": "",
+        "copy_from_ringi_no": "",
+        "form_action": "",
+    })
+
+@login_required
+def expense_copy(request, pk):
+    """既存申請のデータをコピーして新規申請フォームを表示する（GET only）"""
+    source = get_object_or_404(T_Document, pk=pk)
+
+    # コピー元明細を取得
+    details = list(source.contents.all().order_by('document_detail_id'))
+    n = max(len(details), 1)
+
+    # フォームセットをコピー用に動的生成（extra=n）
+    from django.forms import modelformset_factory
+    from .forms import ExpenseDetailForm, BaseExpenseDetailFormSet
+    CopyFormSet = modelformset_factory(
+        T_DocumentContent,
+        form=ExpenseDetailForm,
+        formset=BaseExpenseDetailFormSet,
+        extra=n,
+        can_delete=False,
+        validate_min=False,
+        min_num=0,
+        validate_max=True,
+        max_num=10,
+    )
+
+    _aq = _get_account_queryset(source.document_type)
+
+    # 各明細の初期値
+    initial = []
+    for d in details:
+        initial.append({
+            'date': d.date,
+            'amount': d.amount,
+            'purpose': d.purpose or '',
+            'shiharaisaki': d.shiharaisaki or '',
+            'account': d.account,
+            'tekikaku_cd': d.tekikaku_cd or '',
+            'corpo_card': d.corpo_card,
+            'corpo_card_no': d.corpo_card_no or '',
+        })
+
+    formset = CopyFormSet(
+        queryset=T_DocumentContent.objects.none(),
+        account_queryset=_aq,
+        initial=initial,
+    )
+
+    # フォームの POST 先 URL（document_type_id を引き継ぐ）
+    from django.urls import reverse as url_reverse
+    doc_type = source.document_type
+    if doc_type:
+        form_action = url_reverse('expenses:expense_create_by_type', kwargs={'document_type_id': doc_type.document_type_id})
+    else:
+        form_action = url_reverse('expenses:expense_create')
+
+    # 承認候補（コピー元の承認者をプリセレクト）
+    workflow_steps = []
+    try:
+        if doc_type and doc_type.workflow_template_id:
+            workflow_steps = steps_with_candidates(request.user, doc_type.workflow_template_id)
+    except Exception:
+        workflow_steps = []
+    if workflow_steps:
+        from .models import T_DocumentApprover, M_BelongTo
+        existing = T_DocumentApprover.objects.filter(document_id=source)
+        selected_map = {}
+        for a in existing:
+            try:
+                step_pk = getattr(a, 'step_id_id', None)
+                if step_pk is None:
+                    step_pk = getattr(getattr(a, 'step_id', None), 'step_id', None)
+                selected_map[step_pk] = getattr(a.man_number, 'man_number', None)
+            except Exception:
+                pass
+        for s in workflow_steps:
+            s['selected'] = selected_map.get(s['step_id'], '') or ''
+            s.setdefault('selected_group_cd', '')
+        # others タイプは選択済みユーザーの所属グループもプリセット
+        for s in workflow_steps:
+            try:
+                if s.get('allowed_bumon_scope') == 'others' and s.get('selected'):
+                    grp = (
+                        M_BelongTo.objects
+                        .filter(man_number__man_number=s['selected'])
+                        .values_list('group_cd__group_cd', flat=True)
+                        .first()
+                    )
+                    if grp:
+                        s['selected_group_cd'] = grp
+            except Exception:
+                pass
+
+    groups = M_Group.objects.all().order_by('group_cd')
+    bumons = _get_bumons_for_user(request.user, doc_type)
+    pay_items = M_Item.objects.filter(data_kbn='pay').order_by('key')
+    currencies = M_Item.objects.filter(data_kbn='CUR').order_by('key')
+
+    return render(request, "expenses/expense_form.html", {
+        "formset": formset,
+        "groups": groups,
+        "bumons": bumons,
+        "pay_items": pay_items,
+        "currencies": currencies,
+        "workflow_steps": workflow_steps,
+        "dynamic_fields": [],
+        "submission_id": str(uuid.uuid4()),
+        "error_message": None,
+        "copy_from_expense": source,
+        "copy_from_bumon_cd": source.bumon_cd.bumon_cd if source.bumon_cd else "",
+        "copy_from_tsuka_cd": source.tsuka_cd or "00",
+        "copy_from_memo": source.memo or "",
+        "copy_from_ringi_no": source.ringi_no or "",
+        "form_action": form_action,
+        "current_doc_type_name": getattr(doc_type, 'document_type_name', '経費申請') + "（コピー）",
+        "doc1_wf_id": None,
     })
 
 @login_required
 def approval_list(request):
-    # 閲覧可能条件:
-    #  - 既存ロール (accountant/final_approver/approver)
-    #  - もしくは T_DocumentApprover に自分が登録されている場合
     from .models import T_DocumentApprover
     is_role_allowed = request.user.role in ["accountant", "final_approver", "approver"]
     is_listed_as_approver = T_DocumentApprover.objects.filter(man_number=request.user).exists()
     if not (is_role_allowed or is_listed_as_approver):
         raise PermissionDenied()
 
-    # 抽出条件: ステータス SUB または APP
-    base_qs = T_Document.objects.filter(status_cd__status_cd__in=["SUB", "APP"])  # 申請中・回覧中
+    base_qs = T_Document.objects.filter(
+        status_cd__status_cd__in=["SUB", "APP"]
+    ).select_related('status_cd', 'document_type', 'man_number', 'bumon_cd').prefetch_related('contents')
 
-    # 表示対象: 部門一致 or 自分が承認者に登録されている文書
     approver_docs = T_DocumentApprover.objects.filter(man_number=request.user).values_list('document_id', flat=True)
     approvals = base_qs.filter(
         Q(man_number__bumon_cd=request.user.bumon_cd) | Q(document_id__in=approver_docs)
     ).order_by('-created_at')
 
-    return render(request, "expenses/approval_list.html", {"approvals": approvals})
+    # フィルター
+    status_filter = request.GET.get('status', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    keyword = request.GET.get('keyword', '')
+
+    if status_filter:
+        approvals = approvals.filter(status_cd__status_cd=status_filter)
+    if date_from:
+        approvals = approvals.filter(created_at__date__gte=date_from)
+    if date_to:
+        approvals = approvals.filter(created_at__date__lte=date_to)
+    if keyword:
+        approvals = approvals.filter(
+            Q(title__icontains=keyword) |
+            Q(man_number__user_name__icontains=keyword) |
+            Q(contents__purpose__icontains=keyword)
+        ).distinct()
+
+    # ページネーション
+    paginator = Paginator(approvals, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    statuses = M_Status.objects.filter(status_cd__in=['SUB', 'APP']).order_by('status_cd')
+
+    return render(request, "expenses/approval_list.html", {
+        "approvals": page_obj,
+        "page_obj": page_obj,
+        "statuses": statuses,
+        "status_filter": status_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "keyword": keyword,
+    })
+
+
+@login_required
+def approval_csv(request):
+    """承認一覧のCSVエクスポート"""
+    from .models import T_DocumentApprover
+    is_role_allowed = request.user.role in ["accountant", "final_approver", "approver"]
+    is_listed_as_approver = T_DocumentApprover.objects.filter(man_number=request.user).exists()
+    if not (is_role_allowed or is_listed_as_approver):
+        raise PermissionDenied()
+
+    base_qs = T_Document.objects.filter(
+        status_cd__status_cd__in=["SUB", "APP"]
+    ).select_related('status_cd', 'document_type', 'man_number', 'bumon_cd').prefetch_related('contents')
+
+    approver_docs = T_DocumentApprover.objects.filter(man_number=request.user).values_list('document_id', flat=True)
+    approvals = base_qs.filter(
+        Q(man_number__bumon_cd=request.user.bumon_cd) | Q(document_id__in=approver_docs)
+    ).order_by('-created_at')
+
+    status_filter = request.GET.get('status', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    keyword = request.GET.get('keyword', '')
+
+    if status_filter:
+        approvals = approvals.filter(status_cd__status_cd=status_filter)
+    if date_from:
+        approvals = approvals.filter(created_at__date__gte=date_from)
+    if date_to:
+        approvals = approvals.filter(created_at__date__lte=date_to)
+    if keyword:
+        approvals = approvals.filter(
+            Q(title__icontains=keyword) |
+            Q(man_number__user_name__icontains=keyword) |
+            Q(contents__purpose__icontains=keyword)
+        ).distinct()
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="approvals.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['申請ID', '申請種別', '申請者', '部門', '申請日時', '目的', '合計金額', '通貨', 'ステータス'])
+    for exp in approvals:
+        first_content = exp.contents.first()
+        writer.writerow([
+            exp.document_id,
+            exp.document_type.document_type_name if exp.document_type else '',
+            exp.man_number.user_name if exp.man_number else '',
+            exp.bumon_cd.bumon_name if exp.bumon_cd else '',
+            timezone.localtime(exp.created_at).strftime('%Y/%m/%d %H:%M'),
+            first_content.purpose if first_content else '',
+            exp.total_amount,
+            exp.tsuka_cd or '',
+            exp.status_cd.status_name if exp.status_cd else '',
+        ])
+    return response
 
 # 旧: 組織から承認者候補を取得する補助APIはワークフロー候補抽出に置き換えたため削除
 
@@ -1031,12 +1835,8 @@ def approval_detail(request, pk):
                                         step_order=next_step.step_order,
                                     )
                                     # 件名/本文
-                                    subject = f"[経費精算] 承認依頼: 申請ID {expense.document_id}"
-                                    body = (
-                                        f"次の承認ステップ({next_step.step_order})に進みました。\n"
-                                        f"申請者: {getattr(expense.man_number, 'user_name', '')}\n"
-                                        f"タイトル: {expense.title}\n"
-                                        f"合計金額: {expense.total_amount}\n"
+                                    subject, body = _build_approval_request_mail(
+                                        expense, f"【次の承認ステップ ({next_step.step_order})】"
                                     )
                                     # 強制送信先がある場合はそちらへ（utils側で切替）
                                     if next_approvers.exists():
@@ -1163,7 +1963,22 @@ def approval_detail(request, pk):
     except Exception:
         workflow_actions = []
 
-    return render(request, "expenses/approval_detail.html", {"expense": expense, "form": form, "workflow_actions": workflow_actions})
+    # 承認予定者を取得（未承認 = pending / draft）
+    pending_approvers = []
+    try:
+        from .models import T_DocumentApprover
+        pending_approvers = list(
+            T_DocumentApprover.objects
+            .filter(document_id=expense, status__in=['pending', 'draft'])
+            .select_related('man_number', 'man_number__post_cd', 'step_id')
+            .order_by('step_order')
+        )
+    except Exception:
+        pending_approvers = []
+
+    dynamic_fields_display = _build_dynamic_fields_display(expense)
+
+    return render(request, "expenses/approval_detail.html", {"expense": expense, "form": form, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "dynamic_fields_display": dynamic_fields_display})
 
 
 @login_required
@@ -1206,3 +2021,79 @@ def approver_candidates(request):
         return JsonResponse({'members': members})
     except Exception:
         return JsonResponse({'members': []})
+
+
+@login_required
+def generate_mobile_upload_qr(request):
+    """モバイルアップロード用QRコードを生成するAPI（JSON）。
+    GET ?upload_id=xxx の場合は既存IDでQRを再生成。
+    """
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'セッションが切れました。再ログインしてください。'}, status=401)
+    upload_id = request.GET.get('upload_id', '').strip()
+    if not upload_id:
+        upload_id = uuid.uuid4().hex[:12]
+
+    base_url = getattr(settings, 'IMAGE_UP_APP_BASE_URL', '').strip().rstrip('/')
+    if not base_url:
+        return JsonResponse(
+            {'error': 'IMAGE_UP_APP_BASE_URLが未設定です。管理者に連絡してください。'},
+            status=500,
+        )
+
+    upload_url = f"{base_url}/?id={upload_id}"
+
+    try:
+        qr = qrcode.QRCode(box_size=8, border=2)
+        qr.add_data(upload_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        qr_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception as e:
+        return JsonResponse({'error': f'QRコード生成に失敗しました: {e}'}, status=500)
+
+    return JsonResponse({
+        'upload_id': upload_id,
+        'upload_url': upload_url,
+        'qr_image': f'data:image/png;base64,{qr_b64}',
+    })
+
+
+def check_mobile_uploads(request):
+    """モバイルアップロード済みファイルを確認するAPI（JSON）。
+    GET ?upload_id=xxx
+    """
+    import logging, os, traceback as tb
+    from .cloud_receipts import check_uploads_by_id, _GCS_ADC_PATH, _gcs_bucket, _gcs_folder
+    logger = logging.getLogger(__name__)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'セッションが切れました。再ログインしてください。'}, status=401)
+
+    upload_id = request.GET.get('upload_id', '').strip()
+    if not upload_id:
+        return JsonResponse({'error': 'upload_idが必要です。'}, status=400)
+
+    # デバッグ用診断情報
+    adc_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', _GCS_ADC_PATH)
+    debug_info = {
+        'upload_id': upload_id,
+        'adc_path': adc_path,
+        'adc_exists': os.path.exists(adc_path),
+        'gcs_bucket': _gcs_bucket(),
+        'gcs_prefix': f"{_gcs_folder()}/{upload_id}_",
+    }
+    logger.info('[check_mobile_uploads] debug=%s', debug_info)
+
+    try:
+        items = check_uploads_by_id(upload_id)
+        debug_info['status'] = 'ok'
+        return JsonResponse({'upload_id': upload_id, 'count': len(items), 'items': items, 'debug': debug_info})
+    except Exception as e:
+        debug_info['status'] = 'error'
+        debug_info['traceback'] = tb.format_exc()
+        logger.error('[check_mobile_uploads] error: %s', tb.format_exc())
+        return JsonResponse({'error': str(e), 'debug': debug_info}, status=500)

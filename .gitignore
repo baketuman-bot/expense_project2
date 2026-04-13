@@ -1,0 +1,44 @@
+# Python 仮想環境
+.venv/
+venv/
+env/
+
+# Python キャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django collectstatic 出力（ソースは expenses/static/ 以下）
+static/staticfiles.json
+static/admin/
+static/expenses/
+
+# ログ
+logs/
+*.log
+
+# メディアファイル（アップロードファイルは別途バックアップ推奨）
+media/
+media_user/
+
+# 秘密情報・認証情報
+gcloud_adc.json
+*.env
+.env
+secrets.json
+
+# エディタ・OS
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp
+
+# DB（SQLite を使っている場合）
+db.sqlite3
+
+# pytest / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.claude/

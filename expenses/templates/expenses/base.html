@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,168 +7,170 @@
     <title>経費精算システム</title>
     <!--下記の5.3.3/dist/の次のテーマ名を変える 全部小文字 sandstone flatly lumen spacelab cyborg litera -->
     <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/sandstone/bootstrap.min.css" rel="stylesheet">
+    <link href="{% static 'expenses/swiss.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     {# 画面ごとの追加<head>要素（meta等） #}
     {% block extra_head %}{% endblock %}
     {# 画面ごとの追加CSS #}
     {% block extra_css %}{% endblock %}
-    <style>
-            :root {
-                /* サイドとメインで色分け（同系色） */
-                --sidebar-bg: #cde1f9; /* サイド: 明るめの薄いブルー */
-                --main-bg:    #e7eef7; /* メイン: 同系で少し濃い */
-            }
-            body {
-                /* ページ全体の地の色はサイドと合わせる */
-                background-color: var(--sidebar-bg) !important;
-            }
-        .sidebar {
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 100;
-            padding: 0;
-            box-shadow: 0 2px 5px 0 rgba(0,0,0,.05);
-            width: 280px;
-                background-color: var(--sidebar-bg);
-        }
-        .sidebar-sticky {
-            position: relative;
-            top: 0;
-            height: 100vh;
-            padding-top: .5rem;
-            overflow-x: hidden;
-            overflow-y: auto;
-        }
-        .main-content {
-            margin-left: 280px;
-            padding: 20px;
-            background-color: var(--main-bg);
-            min-height: 100vh; /* 画面全体を覆う */
-        }
-        /* サイドバー非表示ページ用 */
-        .no-sidebar .main-content {
-            margin-left: 0;
-        }
-        .nav-link {
-            color: #333;
-            padding: 0.8rem 1rem;
-            border-radius: 4px;
-            margin: 0.2rem 1rem;
-        }
-        .nav-link:hover {
-            background-color: #e9ecef;
-            color: #0d6efd;
-        }
-        .nav-link.active {
-            background-color: #e9ecef;
-            color: #0d6efd;
-        }
-        .sidebar-header {
-            padding: 1.25rem 1rem;
-            background-color: #3f7bd9; /* 単一色・少し濃い青 */
-            color: #ffffff;
-            margin: 12px;
-            margin-bottom: 1rem;
-            border-radius: 12px;
-            border: 1px solid rgba(0, 0, 0, 0.06);
-            box-shadow: 0 4px 16px rgba(33, 37, 41, 0.05);
-        }
-        .sidebar-header a {
-            color: #ffffff;
-            text-decoration: none;
-        }
-        .sidebar-header .brand-heading {
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            display: inline-block;
-            padding: 0;
-            border-radius: 0;
-            box-shadow: none;
-            color: inherit; /* 背景とテキストのカラーを統一 */
-        }
-        .user-info {
-            padding: 1rem;
-            border-top: 1px solid #dee2e6;
-            margin-top: auto;
-        }
-        .user-info form {
-            display: flex;
-            justify-content: center;
-        }
-        .user-info .btn-logout {
-            width: 140px; /* ボタン幅を小さく */
-            /* 非ホバー時の配色（淡い危険色トーン） */
-            background-color: var(--bs-danger-bg-subtle);
-            color: var(--bs-danger-text-emphasis);
-            border-color: var(--bs-danger-border-subtle);
-        }
-        .user-info .btn-logout:hover,
-        .user-info .btn-logout:focus {
-            /* ホバー時ははっきりした危険色に */
-            background-color: var(--bs-danger);
-            color: #fff;
-            border-color: var(--bs-danger);
-        }
-    </style>
+    {# Swiss Modern 風の共通スタイルは static/expenses/swiss.css に集約 #}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="precision {% if user.is_authenticated %}has-sidebar{% else %}no-sidebar{% endif %} {% block body_class %}{% endblock %}">
+    {% if user.is_authenticated %}
+    <header class="precision-topbar">
+        <div class="precision-topbar-brand">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path>
+                <path d="M14 2v6h6"></path>
+                <path d="M8.5 13h7"></path>
+                <path d="M8.5 16.5h7"></path>
+            </svg>
+            <a href="{% url 'expenses:home' %}">イサハヤ電子</a>
+        </div>
+        <div class="precision-topbar-info">
+            <span>{{ user.user_name }}</span>
+            <span class="precision-topbar-sep">|</span>
+            <span>{{ user.bumon_cd.bumon_name|default:"未設定" }}</span>
+            {% if user.post_cd %}<span class="precision-topbar-sep">・</span><span>{{ user.post_cd.post_name }}</span>{% endif %}
+        </div>
+    </header>
+    {% endif %}
     {% block sidebar %}
     {% if user.is_authenticated %}
-    <nav class="sidebar">
-        <div class="sidebar-sticky">
-            <div class="sidebar-header">
-                <h4 class="mb-0 brand-heading">経費精算システム</h4>
-            </div>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'expenses:home' %}">
-                        <span class="me-2">🏠</span>トップに戻る
+    {% with current=request.resolver_match.url_name doc_type=request.resolver_match.kwargs.document_type_id|default:'' %}
+    <nav class="precision-sidebar" aria-label="サイドメニュー">
+        <div class="precision-brand">
+            <span class="precision-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path>
+                    <path d="M14 2v6h6"></path>
+                    <path d="M8.5 13h7"></path>
+                    <path d="M8.5 16.5h7"></path>
+                </svg>
+            </span>
+            <a href="{% url 'expenses:home' %}">
+                <div class="precision-brand-title">経費精算</div>
+            </a>
+        </div>
+        <ul class="precision-nav">
+            <li>
+                <a class="precision-link {% if current == 'home' %}is-active{% endif %}" href="{% url 'expenses:home' %}">
+                    <span class="precision-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 11.5 12 4l9 7.5"></path>
+                            <path d="M5 10.5V20h14v-9.5"></path>
+                        </svg>
+                    </span>
+                    <span>トップ</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="precision-link {% if current == 'expense_list' or current == 'expense_detail' or current == 'expense_edit' %}is-active{% endif %}" href="{% url 'expenses:expense_list' %}">
+                    <span class="precision-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M8 6h13"></path>
+                            <path d="M8 12h13"></path>
+                            <path d="M8 18h13"></path>
+                            <path d="M3 6h.01"></path>
+                            <path d="M3 12h.01"></path>
+                            <path d="M3 18h.01"></path>
+                        </svg>
+                    </span>
+                    <span>経費一覧</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="precision-link {% if current == 'expense_create' %}is-active{% elif current == 'expense_create_by_type' and doc_type|stringformat:'s' == '1' %}is-active{% endif %}" href="{% url 'expenses:expense_create' %}">
+                    <span class="precision-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                        </svg>
+                    </span>
+                    <span>支出伺い</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="precision-link {% if current == 'expense_create_by_type' and doc_type|stringformat:'s' == '2' %}is-active{% endif %}" href="{% url 'expenses:expense_create_by_type' 2 %}">
+                    <span class="precision-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <path d="M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path>
+                            <path d="M20 8v6"></path>
+                            <path d="M23 11h-6"></path>
+                        </svg>
+                    </span>
+                    <span>他部署負担</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="precision-link {% if current == 'expense_create_by_type' and doc_type|stringformat:'s' == '4' %}is-active{% endif %}" href="{% url 'expenses:expense_create_by_type' 4 %}">
+                    <span class="precision-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"></path>
+                            <path d="M7 8h10"></path>
+                            <path d="M7 12h10"></path>
+                        </svg>
+                    </span>
+                    <span>交際・会議費</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="precision-link {% if current == 'expense_create_by_type' and doc_type|stringformat:'s' == '5' %}is-active{% endif %}" href="{% url 'expenses:expense_create_by_type' 5 %}">
+                    <span class="precision-ico" aria-hidden="true">
+                        <i class="fas fa-plane" style="font-size:16px;"></i>
+                    </span>
+                    <span>出張旅費精算</span>
+                </a>
+            </li>
+        </ul>
+
+        {% if user.role in 'approver,accountant,final_approver' %}
+        <div class="precision-section">
+            <ul class="precision-nav">
+                <li>
+                    <a class="precision-link {% if current == 'approval_list' or current == 'approval_detail' %}is-active{% endif %}" href="{% url 'expenses:approval_list' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 8v4l2.5 2.5"></path>
+                                <path d="M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z"></path>
+                            </svg>
+                        </span>
+                        <span>承認待ち</span>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'expenses:expense_list' %}">
-                        <span class="me-2">📋</span>経費一覧
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'expenses:expense_create' %}">
-                        <span class="me-2">📝</span>支出伺い
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'expenses:expense_create_by_type' 2 %}">
-                        <span class="me-2">📝</span>支出伺い（他部署負担）
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'expenses:expense_create_by_type' 4 %}">
-                        <span class="me-2">📝</span>交際費・会議費支出伺い
-                    </a>
-                </li>
-                {% if user.role in 'approver,accountant,final_approver' %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'expenses:approval_list' %}">
-                        <span class="me-2">✓</span>承認待ち
-                    </a>
-                </li>
-                {% endif %}
             </ul>
-            <div class="user-info mt-auto text-center">
-                <div class="mb-2">{{ user.user_name }}</div>
-                <form method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-danger btn-sm btn-logout">ログアウト</button>
-                </form>
+        </div>
+        {% endif %}
+
+        <div class="precision-user">
+            <div class="precision-user-row">
+                <div class="precision-avatar" aria-hidden="true">{{ user.user_name|default:"?"|slice:":1" }}</div>
+                <div>
+                    <div class="precision-user-name">{{ user.user_name }}</div>
+                    <div class="precision-user-sub">{{ user.get_role_display }}</div>
+                </div>
             </div>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="precision-logout">ログアウト</button>
+            </form>
         </div>
     </nav>
+    {% endwith %}
     {% endif %}
     {% endblock %}
 
-    <main class="main-content">
+    <main class="precision-main">
+        <div class="precision-shell">
         {% block content %}
         {% endblock %}
+        </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -124,6 +124,13 @@ class M_WorkflowTemplate(models.Model):
 
 # 文書種別マスタ
 class M_DocumentType(models.Model):
+    BUMON_SCOPE_ALL = 1
+    BUMON_SCOPE_GROUP = 0
+    BUMON_SCOPE_CHOICES = [
+        (BUMON_SCOPE_GROUP, '自グループ絞り込み'),
+        (BUMON_SCOPE_ALL,   '全部門'),
+    ]
+
     document_type_id = models.AutoField("文書種別ID", primary_key=True, db_column='document_type_id')
     document_type_name = models.CharField("文書種別名", max_length=100)
     description = models.TextField("説明", null=True, blank=True)
@@ -134,6 +141,12 @@ class M_DocumentType(models.Model):
         null=True,
         blank=True,
         db_column='workflow_template_id'
+    )
+    bumon_scope = models.SmallIntegerField(
+        "負担部門スコープ",
+        choices=BUMON_SCOPE_CHOICES,
+        default=BUMON_SCOPE_GROUP,
+        help_text="0: 自グループ絞り込み / 1: 全部門表示",
     )
 
     def __str__(self):
@@ -157,6 +170,15 @@ class M_DocumentField(models.Model):
     field_name = models.CharField("フィールド名", max_length=30)
     field_type = models.CharField("フィールド型", max_length=30)
     field_name_view = models.CharField("表示名", max_length=30, null=True, blank=True, default='')
+    # レイアウト制御
+    field_order    = models.IntegerField("表示順", default=0)
+    col_width      = models.IntegerField("幅(col-md-N 1〜12)", default=4)
+    row_break      = models.BooleanField("この前で改行", default=False)
+    required       = models.BooleanField("必須", default=False)
+    placeholder    = models.CharField("プレースホルダー", max_length=100, blank=True, default='')
+    field_help_text = models.CharField("補助テキスト", max_length=200, blank=True, default='')
+    # label型専用: 計算式 例) {client_num}+{staff_num}|人  {amount_total}/{total_num}|円/人
+    calc_formula   = models.CharField("計算式(label型用)", max_length=200, blank=True, default='')
 
     def __str__(self):
         try:
@@ -169,7 +191,37 @@ class M_DocumentField(models.Model):
         verbose_name = '文書フィールドマスタ'
         verbose_name_plural = '文書フィールドマスタ'
         unique_together = [['document_type', 'field_name']]
-        ordering = ['document_type', 'field_name']
+        ordering = ['document_type', 'field_order', 'field_name']
+
+# 文書種別ごとの表示勘定科目マスタ
+class M_AccountDocument(models.Model):
+    document_type = models.ForeignKey(
+        M_DocumentType,
+        verbose_name="文書種別",
+        on_delete=models.PROTECT,
+        db_column='document_type_id',
+        related_name='account_documents',
+        db_constraint=False,
+    )
+    account_cd = models.ForeignKey(
+        M_Account,
+        verbose_name="勘定科目",
+        on_delete=models.PROTECT,
+        db_column='account_cd',
+        to_field='account_cd',
+        related_name='account_documents',
+        db_constraint=False,
+    )
+
+    def __str__(self):
+        return f"{self.document_type} - {self.account_cd}"
+
+    class Meta:
+        db_table = 'm_account_document'
+        verbose_name = '文書種別勘定科目マスタ'
+        verbose_name_plural = '文書種別勘定科目マスタ'
+        unique_together = [['document_type', 'account_cd']]
+        ordering = ['document_type', 'account_cd']
 
 # ワークフローステップマスタ
 class M_WorkflowStep(models.Model):
@@ -499,6 +551,8 @@ class T_DocumentContent(models.Model):
     purpose = models.CharField("目的", max_length=255, null=True, blank=True)
     amount = models.DecimalField("金額", max_digits=10, decimal_places=2, null=True, blank=True)
     content = models.JSONField("内容JSON", null=True, blank=True)
+    corpo_card = models.IntegerField("コーポレートカード支払い", null=True, blank=True)
+    corpo_card_no = models.CharField("カード番号", max_length=10, null=True, blank=True)
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
 

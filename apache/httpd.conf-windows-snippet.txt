@@ -1,0 +1,19 @@
+# Add/enable these lines in: C:\Apache24\conf\httpd.conf
+#
+# 1) Enable required modules (uncomment if commented with #)
+#    NOTE: module filenames can differ depending on your Apache build.
+#
+# LoadModule proxy_module modules/mod_proxy.so
+# LoadModule proxy_http_module modules/mod_proxy_http.so
+# LoadModule headers_module modules/mod_headers.so
+#
+# 2) Ensure the 'extra' directory includes are allowed
+#    (Apache default often already has: Include conf/extra/httpd-vhosts.conf)
+#
+# 3) Include the reverse-proxy vhost for this project
+# Include conf/extra/expense_project2-proxy-windows.conf
+#
+# After editing, validate and restart:
+#   cd C:\Apache24\bin
+#   httpd -t
+#   httpd -k restart

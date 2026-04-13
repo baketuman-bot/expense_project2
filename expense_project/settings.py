@@ -23,6 +23,7 @@ ALLOWED_HOSTS = [
 "localhost",
 "*",
 "172.16.100.149",
+"172.16.100.150",
 "172.16.102.223",
 "192.168.0.128"
 ]
@@ -109,9 +110,9 @@ else:
             'NAME': 'expense_db',
             'USER': 'ex_user',
             'PASSWORD': 'Django3592',
-            'HOST': '192.168.0.128',
+    #        'HOST': '192.168.0.128',
     #        'HOST': '172.16.100.149',
-    
+            'HOST': '172.16.100.150',
             'PORT': '3306',
             'OPTIONS': {
                 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -143,8 +144,21 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = str(BASE_DIR / 'static')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Django 5.x では STATICFILES_STORAGE は非推奨。STORAGES 辞書で指定する。
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Cloud Run(Flask) 画像アップロードアプリ連携
+# 例: https://receipt-upload-xxxxx-an.a.run.app
+IMAGE_UP_APP_BASE_URL = (os.environ.get('IMAGE_UP_APP_BASE_URL') or '').strip().rstrip('/')
+IMAGE_UP_APP_TIMEOUT = int(os.environ.get('IMAGE_UP_APP_TIMEOUT', '15'))
 
 # カスタムユーザー
 AUTH_USER_MODEL = 'expenses.M_User'
@@ -171,8 +185,8 @@ EMAIL_USE_SSL = False
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = 'idc_work@idc-com.co.jp'
 
-# 開発中は送信先を固定（本番では空文字にするか環境変数で上書き）
-EMAIL_FORCE_TO = os.environ.get('EMAIL_FORCE_TO', 'hayashida.daiji@gmail.com')
+# 強制転送先（設定時は全メールがこのアドレスへ送信される。空文字で無効）
+EMAIL_FORCE_TO = os.environ.get('EMAIL_FORCE_TO', '')
 
 # 認証設定
 LOGIN_URL = 'login'
@@ -192,7 +206,7 @@ elif _render_url:
 
 # 内部公開用IP (HTTP アクセス) を信頼オリジンに追加
 try:
-    _csrf.append("http://172.16.100.149")
+    _csrf.append("http://172.16.100.150")
 except Exception:
     pass
 

@@ -9,6 +9,9 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>申請詳細</h2>
                 <div>
+                    <a href="{% url 'expenses:expense_copy' expense.pk %}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-copy"></i> コピーして新規申請
+                    </a>
                     <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> 一覧に戻る
                     </a>
@@ -58,27 +61,46 @@
                             <dl class="row">
                                 <dt class="col-sm-4">ステータス:</dt>
                                 <dd class="col-sm-8">
-                                    <span class="badge 
-                                        {% if expense.status_cd.status_cd == 'SUB' %}bg-warning
-                                        {% elif expense.status_cd.status_cd == 'APP' %}bg-success
-                                        {% elif expense.status_cd.status_cd == 'REJ' %}bg-danger
-                                        {% elif expense.status_cd.status_cd == 'RET' %}bg-info
-                                        {% elif expense.status_cd.status_cd == 'CAN' %}bg-dark
-                                        {% elif expense.status_cd.status_cd == 'FNS' %}bg-success
-                                        {% else %}bg-secondary{% endif %}">
+                                    <span class="{{ expense.status_cd.status_cd|status_badge_class }}">
                                         {{ expense.status_cd.status_name }}
                                     </span>
                                 </dd>
                                 
                                 <dt class="col-sm-4">合計金額:</dt>
                                 <dd class="col-sm-8">
-                                    <strong class="text-primary">¥{{ expense.total_amount|floatformat:0 }}</strong>
+                                    <strong class="text-primary">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</strong>
                                 </dd>
                             </dl>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {% if dynamic_fields_display %}
+            <!-- 追加入力項目 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">追加入力項目</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                    {% for f in dynamic_fields_display %}
+                        {% if f.row_break %}</div><div class="row mt-2">{% endif %}
+                        <div class="col-md-{{ f.col_width }} mb-3">
+                            <div class="fw-semibold text-muted small mb-1">{{ f.label }}</div>
+                            {% if f.is_label %}
+                                <div class="fw-bold text-primary" id="disp_dyn_{{ f.name }}"
+                                     {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
+                            {% else %}
+                                <div>{{ f.value }}</div>
+                            {% endif %}
+                            {% if f.field_help_text %}<div class="text-muted small">{{ f.field_help_text }}</div>{% endif %}
+                        </div>
+                    {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- 経費明細 -->
             <div class="card mb-4">
@@ -97,6 +119,7 @@
                                         <th>取引先</th>
                                         <th>勘定科目</th>
                                         <th>登録番号</th>
+                                        <th>コーポレートカード</th>
                                         <th>領収書</th>
                                     </tr>
                                 </thead>
@@ -104,11 +127,19 @@
                                     {% for detail in expense.details.all %}
                                     <tr>
                                         <td>{{ detail.date|date:"Y年m月d日" }}</td>
-                                        <td class="text-end">¥{{ detail.amount|floatformat:0 }}</td>
+                                        <td class="text-end">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
                                         <td>{{ detail.purpose }}</td>
                                         <td>{{ detail.shiharaisaki }}</td>
                                         <td>{{ detail.account.account_name }}</td>
                                         <td>{{ detail.tekikaku_cd|default:"なし" }}</td>
+                                        <td>
+                                            {% if detail.corpo_card == 2 %}
+                                                <span class="badge bg-primary">コーポレートカード支払い</span>
+                                                {% if detail.corpo_card_no %}<br><small>{{ detail.corpo_card_no }}</small>{% endif %}
+                                            {% else %}
+                                                その他
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             {% if detail.attachments.all %}
                                                 <div class="d-flex flex-wrap gap-2">
@@ -144,8 +175,8 @@
                                 <tfoot>
                                     <tr class="table-primary">
                                         <th colspan="1">合計</th>
-                                        <th class="text-end">¥{{ expense.total_amount|floatformat:0 }}</th>
-                                        <th colspan="5"></th>
+                                        <th class="text-end">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</th>
+                                        <th colspan="6"></th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -156,50 +187,71 @@
                 </div>
             </div>
 
-            <!-- 承認履歴（ワークフローアクション） -->
-            {% if workflow_actions %}
+            <!-- 承認フロー（履歴 + 承認予定者を統合タイムライン表示） -->
+            {% if workflow_actions or pending_approvers %}
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="card-title mb-0">承認履歴</h5>
+                    <h5 class="card-title mb-0"><i class="fas fa-stream me-2 text-primary"></i>承認フロー</h5>
                 </div>
-                <div class="card-body">
-                    <div class="timeline">
+                <div class="card-body pb-0">
+                    <div class="approval-timeline">
+
                         {% for act in workflow_actions %}
-                        <div class="timeline-item mb-3">
-                            <div class="d-flex">
-                                <div class="timeline-marker me-3">
-                                    {% with cd=act.action_status.status_cd %}
-                                    <div class="timeline-marker-icon 
-                                        {% if cd == 'APP' %}bg-success
-                                        {% elif cd == 'REJ' %}bg-danger
-                                        {% elif cd == 'RET' %}bg-info
-                                        {% elif cd == 'CAN' %}bg-dark
-                                        {% elif cd == 'SUB' %}bg-warning
-                                        {% elif cd == 'FNS' %}bg-success
-                                        {% else %}bg-secondary{% endif %}">
-                                    </div>
-                                    {% endwith %}
+                        <div class="approval-timeline-item">
+                            <div class="approval-timeline-dot {{ act.action_status.status_cd|status_dot_class }}">
+                                {% if act.action_status.status_cd == 'APP' or act.action_status.status_cd == 'FNS' %}
+                                    <i class="fas fa-check"></i>
+                                {% elif act.action_status.status_cd == 'REJ' %}
+                                    <i class="fas fa-times"></i>
+                                {% elif act.action_status.status_cd == 'RET' %}
+                                    <i class="fas fa-undo"></i>
+                                {% elif act.action_status.status_cd == 'SUB' %}
+                                    <i class="fas fa-paper-plane"></i>
+                                {% elif act.action_status.status_cd == 'CAN' %}
+                                    <i class="fas fa-ban"></i>
+                                {% else %}
+                                    <i class="fas fa-circle"></i>
+                                {% endif %}
+                            </div>
+                            <div class="approval-timeline-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold">{{ act.action_status.action_name|default:act.action_status.status_name }}</span>
+                                    <small class="text-muted">{{ act.actioned_at|date:"Y/m/d H:i" }}</small>
                                 </div>
-                                <div class="timeline-content flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <h6 class="mb-1">{{ act.action_status.action_name|default:act.action_status.status_name }}</h6>
-                                            <p class="mb-1 text-muted small">
-                                                実行者: {{ act.approver_man_number.user_name }} | 
-                                                {{ act.actioned_at|date:"Y年m月d日 H:i" }}
-                                                {% if act.step %}
-                                                <span class="ms-2">(Step {{ act.step.step_order }})</span>
-                                                {% endif %}
-                                            </p>
-                                            {% if act.comment %}
-                                                <p class="mb-0">{{ act.comment }}</p>
-                                            {% endif %}
-                                        </div>
-                                    </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-user me-1"></i>{{ act.approver_man_number.user_name }}
+                                    {% if act.step %}<span class="ms-2 badge bg-light text-dark border">Step {{ act.step.step_order }}</span>{% endif %}
+                                </div>
+                                {% if act.comment %}
+                                <div class="mt-2 p-2 bg-light rounded small border-start border-3
+                                    {% if act.action_status.status_cd == 'RET' %}border-info
+                                    {% elif act.action_status.status_cd == 'REJ' %}border-danger
+                                    {% else %}border-secondary{% endif %}">
+                                    {{ act.comment }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% for pa in pending_approvers %}
+                        <div class="approval-timeline-item approval-timeline-pending">
+                            <div class="approval-timeline-dot bg-light border border-warning">
+                                <i class="fas fa-clock text-warning"></i>
+                            </div>
+                            <div class="approval-timeline-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold text-muted">承認待ち</span>
+                                    <span class="badge bg-warning text-dark">Step {{ pa.step_order }}</span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-user me-1"></i>{{ pa.man_number.user_name }}
+                                    {% if pa.man_number.post_cd %}<span class="ms-1">（{{ pa.man_number.post_cd.post_name }}）</span>{% endif %}
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
+
                     </div>
                 </div>
             </div>
@@ -266,52 +318,93 @@
 </div>
 {% endblock %}
 
-{% block extra_css %}
+{% block extra_js %}
+{% if dynamic_fields_display %}
+<script>
+(function(){
+    // detail画面のdisp_dyn_*へのcalc_formula展開
+    function evalDetailCalc(){
+        // 同等: 入力値は disp_dyn_* の textContentから取得
+        function getVal(name){
+            var el = document.getElementById('disp_dyn_' + name);
+            if(!el) return 0;
+            var raw = (el.textContent||'').replace(/[,\s]/g,'').match(/^-?[\d.]+/);
+            return raw ? parseFloat(raw[0]) : 0;
+        }
+        document.querySelectorAll('[data-calc-formula]').forEach(function(el){
+            var raw = el.getAttribute('data-calc-formula');
+            if(!raw) return;
+            var parts = raw.split('|');
+            var formula = parts[0].trim();
+            var suffix  = parts.length > 1 ? parts[1].trim() : '';
+            var expr = formula.replace(/\{(\w+)\}/g, function(_, name){ return getVal(name); });
+            try{
+                var result = Function('"use strict"; return (' + expr + ')')();
+                if(isFinite(result) && !isNaN(result)){
+                    var fmt = Number.isInteger(result)
+                        ? result.toLocaleString()
+                        : result.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                    el.textContent = fmt + (suffix ? (' ' + suffix) : '');
+                } else { el.textContent = '-'; }
+            } catch(e){ el.textContent = '-'; }
+        });
+    }
+    document.addEventListener('DOMContentLoaded', evalDetailCalc);
+})();
+</script>
+{% endif %}
+{% endblock %}{% block extra_css %}
 <style>
-.timeline {
+.approval-timeline {
     position: relative;
     padding-left: 0;
+    padding-bottom: 8px;
 }
-
-.timeline-item {
+.approval-timeline-item {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 0;
     position: relative;
 }
-
-.timeline-marker {
-    position: relative;
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
+.approval-timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: 36px;
+    bottom: -4px;
+    width: 2px;
+    background: #dee2e6;
+    z-index: 0;
 }
-
-.timeline-marker-icon {
-    width: 20px;
-    height: 20px;
+.approval-timeline-pending:not(:last-child)::before {
+    background: repeating-linear-gradient(to bottom, #ffc107 0, #ffc107 4px, transparent 4px, transparent 8px);
+}
+.approval-timeline-dot {
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    border: 3px solid #fff;
-    box-shadow: 0 0 0 2px #dee2e6;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 13px;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
-
-.timeline-content {
-    border-left: 2px solid #dee2e6;
-    padding-left: 20px;
-    margin-left: -10px;
+.approval-timeline-body {
+    flex: 1;
+    padding-bottom: 20px;
 }
-
-.timeline-item:last-child .timeline-content {
-    border-left: none;
-}
-
 .table th {
     background-color: #f8f9fa;
     border-top: none;
 }
-
 .table tfoot th {
     background-color: #e3f2fd;
     font-weight: bold;
 }
-
 .badge {
     font-size: 0.875em;
 }

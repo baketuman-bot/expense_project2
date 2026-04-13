@@ -60,16 +60,27 @@ def candidates_for_step(applicant: M_User, step: M_WorkflowStep):
 
     scope = str(step.allowed_bumon_scope or 'any').strip().lower()
     if scope == 'same':
-        # ユーザー要件のSQLに準拠:
-        # 候補uの所属(b.group_cd)に対し、v_groupで g.group_cd=b.group_cd かつ g.relation_group_cd が申請者の所属(bb.group_cd) に一致するもの
-        # -> 申請者の所属グループを取得
+        # 候補グループの抽出ロジック（指定SQL準拠）:
+        #   SELECT gg.group_cd FROM v_group gg
+        #   WHERE gg.relation_group_cd IN (
+        #       SELECT g.relation_group_cd FROM v_group g
+        #       WHERE g.group_cd = '申請者の所属グループ'
+        #   )
+        # 意味: 申請者グループが属する上位組織群を共通祖先に持つ全グループ
+        #       = 申請者グループ・兄弟グループ・その配下グループが候補範囲
+        # 申請者の所属グループを取得
         applicant_group_cds = M_BelongTo.objects.filter(man_number=applicant).values('group_cd__group_cd')
-        # -> 申請者所属に紐づく g.group_cd を取得（relationが申請者側）
-        candidate_group_cds = V_Group.objects.filter(
-            relation_group_cd__in=Subquery(applicant_group_cds)
-        ).values('group_cd')
-        # -> 候補ユーザーは、その所属が上記 group_cd に含まれる
-        qs = qs.filter(belongs__group_cd__group_cd__in=Subquery(candidate_group_cds)).distinct()
+        # Inner: 申請者グループの relation_group_cd（上位組織＋自身）を取得
+        inner_cds = V_Group.objects.filter(
+            group_cd__in=Subquery(applicant_group_cds)
+        ).exclude(relation_group_cd='').values('relation_group_cd')
+        # Outer: inner の relation_group_cd を持つ group_cd を取得
+        #        = 申請者と共通の上位組織に属する全グループ
+        target_group_cds = V_Group.objects.filter(
+            relation_group_cd__in=Subquery(inner_cds)
+        ).exclude(relation_group_cd='').values('group_cd')
+        # 候補ユーザーは target_group_cds に所属する
+        qs = qs.filter(belongs__group_cd__group_cd__in=Subquery(target_group_cds)).distinct()
     elif scope == 'keiri':
         # 経理系ロール（自動回付想定）
         qs = qs.filter(role__in=['accountant', 'final_approver'])

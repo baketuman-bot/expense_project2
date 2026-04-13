@@ -1,0 +1,21 @@
+[Unit]
+Description=Uvicorn daemon for expense_project2
+After=network.target
+
+[Service]
+User=idc_user
+Group=idc_user
+WorkingDirectory=/home/idc_user/expense_project2
+Environment="IMAGE_UP_APP_BASE_URL=https://image-up-app-366939928631.asia-northeast2.run.app"
+ExecStart=/home/idc_user/expense_project2/.venv/bin/uvicorn \
+    --workers 3 \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --log-level info \
+    --access-log \
+    expense_project.asgi:application
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

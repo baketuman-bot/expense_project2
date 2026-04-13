@@ -4,7 +4,7 @@ from django.http import HttpResponse
 import csv
 from .models import (
     M_User, M_Bumon, M_Post, M_Status, M_Account, M_Group, M_BelongTo, V_Group,
-    T_Document, T_DocumentContent, M_DocumentField
+    T_Document, T_DocumentContent, M_DocumentField, M_AccountDocument
 )
 
 @admin.register(M_Group)
@@ -108,5 +108,18 @@ class DocumentFieldAdmin(admin.ModelAdmin):
     list_filter = ("document_type",)
     search_fields = ("field_name", "field_type", "document_type__document_type_name")
     ordering = ("document_type", "field_name")
+
+
+@admin.register(M_AccountDocument)
+class AccountDocumentAdmin(admin.ModelAdmin):
+    list_display = ("document_type", "account_cd", "get_account_name")
+    list_filter = ("document_type",)
+    search_fields = ("document_type__document_type_name", "account_cd__account_cd", "account_cd__account_name")
+    ordering = ("document_type", "account_cd")
+
+    def get_account_name(self, obj):
+        return obj.account_cd.account_name
+    get_account_name.short_description = '勘定科目名'
+    get_account_name.admin_order_field = 'account_cd__account_name'
 
 

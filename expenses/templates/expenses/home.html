@@ -1,68 +1,145 @@
 {% extends "expenses/base.html" %}
+{% load expense_extras %}
 
 {% block content %}
 <div class="container">
-    <div class="row">
+
+    <!-- 承認待ち（承認者・経理・最終承認者のみ表示） -->
+    {% if user.role in 'approver,accountant,final_approver' %}
+    <div class="row mb-4">
         <div class="col-12">
             <div class="card">
-                <div class="card-body">
-                    <h2 class="card-title">{{ user.user_name }}さん、ようこそ</h2>
-                    <p class="card-text">
-                        部門: {{ user.bumon_cd.bumon_name|default:"未設定" }}<br>
-                        役職: {{ user.post_cd.post_name|default:"未設定" }}<br>
-                        権限: {{ user.get_role_display }}
-                    </p>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-clock text-warning me-2"></i>承認待ち <span class="badge border border-warning text-warning">上位5件</span></h5>
+                    <a href="{% url 'expenses:approval_list' %}" class="btn btn-sm btn-outline-warning">一覧を見る</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if pending_approvals %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>申請ID</th>
+                                    <th>申請者</th>
+                                    <th>申請日付</th>
+                                    <th class="text-end">金額</th>
+                                    <th>ステータス</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exp in pending_approvals %}
+                                <tr>
+                                    <td>{{ exp.document_id }}</td>
+                                    <td>{{ exp.man_number.user_name }}</td>
+                                    <td>{{ exp.created_at|date:"Y/m/d" }}</td>
+                                    <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
+                                    <td><span class="{{ exp.status_cd.status_cd|status_badge_class }}">{{ exp.status_cd.status_name }}</span></td>
+                                    <td><a href="{% url 'expenses:approval_detail' exp.pk %}" class="btn btn-sm btn-outline-primary">詳細</a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3 mb-0">承認待ちの申請はありません。</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 申請一覧 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-paper-plane text-primary me-2"></i>申請中 <span class="badge border border-primary text-primary">上位5件</span></h5>
+                    <a href="{% url 'expenses:expense_list' %}" class="btn btn-sm btn-outline-primary">一覧を見る</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if in_progress_expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>申請ID</th>
+                                    <th>申請日付</th>
+                                    <th>目的</th>
+                                    <th class="text-end">金額</th>
+                                    <th>ステータス</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exp in in_progress_expenses %}
+                                <tr>
+                                    <td>{{ exp.document_id }}</td>
+                                    <td>{{ exp.created_at|date:"Y/m/d" }}</td>
+                                    <td>{{ exp.contents.first.purpose|default:"-"|truncatechars:30 }}</td>
+                                    <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
+                                    <td>
+                                        <span class="{{ exp.status_cd.status_cd|status_badge_class }}">
+                                            {{ exp.status_cd.status_name }}
+                                        </span>
+                                    </td>
+                                    <td><a href="{% url 'expenses:expense_detail' exp.pk %}" class="btn btn-sm btn-outline-primary">詳細</a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3 mb-0">申請中の申請はありません。</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row mt-4">
-        <div class="col-md-6">
+    <!-- 下書き一覧 -->
+    <div class="row mb-4">
+        <div class="col-12">
             <div class="card">
-                <div class="card-body">
-                    <h3 class="card-title">あなたの申請</h3>
-                    {% if your_expenses %}
-                        <ul class="list-group">
-                        {% for expense in your_expenses %}
-                            <li class="list-group-item">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        申請日: {{ expense.created_at|date:"Y/m/d" }}<br>
-                                        金額: ¥{{ expense.total_amount|floatformat:0 }}
-                                    </div>
-                                    <span class="badge {% if expense.status_cd.status_cd == 'APPROVED' %}bg-success{% elif expense.status_cd.status_cd == 'REJECTED' %}bg-danger{% else %}bg-primary{% endif %}">
-                                        {{ expense.status_cd.status_name }}
-                                    </span>
-                                </div>
-                                <div class="mt-2">
-                                    <a href="{% url 'expenses:expense_detail' expense.expense_main_id %}" class="btn btn-sm btn-outline-primary">詳細</a>
-                                </div>
-                            </li>
-                        {% endfor %}
-                        </ul>
-                        <div class="mt-3">
-                            <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-primary">全ての申請を見る</a>
-                        </div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-edit text-secondary me-2"></i>下書き <span class="badge border border-secondary text-secondary">上位5件</span></h5>
+                    <a href="{% url 'expenses:expense_list' %}" class="btn btn-sm btn-outline-secondary">一覧を見る</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if draft_expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>申請ID</th>
+                                    <th>申請日付</th>
+                                    <th>目的</th>
+                                    <th class="text-end">金額</th>
+                                    <th>ステータス</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exp in draft_expenses %}
+                                <tr>
+                                    <td>{{ exp.document_id }}</td>
+                                    <td>{{ exp.created_at|date:"Y/m/d" }}</td>
+                                    <td>{{ exp.contents.first.purpose|default:"-"|truncatechars:30 }}</td>
+                                    <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
+                                    <td><span class="badge bg-secondary">{{ exp.status_cd.status_name }}</span></td>
+                                    <td><a href="{% url 'expenses:expense_edit' exp.pk %}" class="btn btn-sm btn-outline-secondary">編集</a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                     {% else %}
-                        <p>申請はありません</p>
+                    <p class="text-muted p-3 mb-0">下書きはありません。</p>
                     {% endif %}
                 </div>
             </div>
         </div>
-
-        {% if user.role in 'approver,accountant,final_approver' %}
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="card-title">承認待ち</h3>
-                    <div class="text-center">
-                        <a href="{% url 'expenses:approval_list' %}" class="btn btn-primary">承認待ち一覧を見る</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
     </div>
 
 </div>

@@ -12,8 +12,15 @@ urlpatterns = [
     path("list/", views.expense_list, name="expense_list"),
     path("<int:pk>/", views.expense_detail, name="expense_detail"),
     path("<int:pk>/edit/", views.expense_edit, name="expense_edit"),
+    path("<int:pk>/copy/", views.expense_copy, name="expense_copy"),
     path("approvals/", views.approval_list, name="approval_list"),
     path("approvals/<int:pk>/", views.approval_detail, name="approval_detail"),
+    # CSV エクスポート
+    path("csv/", views.expense_csv, name="expense_csv"),
+    path("approvals/csv/", views.approval_csv, name="approval_csv"),
     # API: 承認者候補（others 用）
     path("api/approver_candidates/", views.approver_candidates, name="approver_candidates"),
+    # API: モバイル QR アップロード
+    path("api/generate_mobile_qr/", views.generate_mobile_upload_qr, name="generate_mobile_qr"),
+    path("api/check_mobile_uploads/", views.check_mobile_uploads, name="check_mobile_uploads"),
 ]

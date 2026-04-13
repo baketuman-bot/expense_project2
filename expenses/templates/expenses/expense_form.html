@@ -8,7 +8,7 @@
 <div class="container">
     <h2 class="mb-4">{{ current_doc_type_name|default:"経費申請" }}</h2>
 
-    <form method="post" enctype="multipart/form-data" novalidate>
+    <form method="post" enctype="multipart/form-data" novalidate{% if form_action %} action="{{ form_action }}"{% endif %}>
         {% csrf_token %}
         <input type="hidden" name="submission_id" value="{{ submission_id }}" />
         {{ formset.management_form }}
@@ -52,17 +52,21 @@
 
                 <div id="expense-details">
                     {% for detail_form in formset %}
-                    <div class="expense-detail-form mb-4 border-bottom pb-3">
-                        {% if not forloop.first %}
-                        <div class="d-flex justify-content-end mb-2">
+                    <div class="expense-detail-form card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <span class="fw-semibold small text-muted">明細 {{ forloop.counter }}</span>
+                            {% if not forloop.first %}
                             <button type="button" class="btn btn-sm btn-outline-danger" data-remove-detail>
-                                <i class="fas fa-trash-alt"></i> 明細を削除
+                                <i class="fas fa-trash-alt"></i> 削除
                             </button>
+                            {% endif %}
                         </div>
-                        {% endif %}
-                        {# 隠しフィールド（id等）を必ず送信 #}
+                        <div class="card-body">
+                        {# 隠しフィールド（id等）を必ず送信。mobile_upload_id はQRエリアで出力するためここではスキップ #}
                         {% for hidden in detail_form.hidden_fields %}
-                            {{ hidden }}
+                            {% if 'mobile_upload_id' not in hidden.html_name %}
+                                {{ hidden }}
+                            {% endif %}
                         {% endfor %}
                         <div class="row">
                             <div class="col-md-6">
@@ -161,6 +165,35 @@
                         </div>
 
                         <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    {{ detail_form.corpo_card.label_tag }}
+                                    {% if detail_form.corpo_card.errors %}
+                                        {{ detail_form.corpo_card|add_class:"form-select is-invalid" }}
+                                        {% for error in detail_form.corpo_card.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ detail_form.corpo_card|add_class:"form-select" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    {{ detail_form.corpo_card_no.label_tag }}
+                                    {% if detail_form.corpo_card_no.errors %}
+                                        {{ detail_form.corpo_card_no|add_class:"form-control is-invalid" }}
+                                        {% for error in detail_form.corpo_card_no.errors %}
+                                            <div class="invalid-feedback d-block">{{ error }}</div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ detail_form.corpo_card_no|add_class:"form-control" }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
                             <div class="col-md-12">
                                 <div class="form-group">
                                     {{ detail_form.receipt.label_tag }}
@@ -184,7 +217,39 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    {# mobile_upload_id hidden field #}
+                                    {{ detail_form.mobile_upload_id }}
+                                    <label class="form-label">
+                                        <i class="fas fa-mobile-alt me-1"></i>携帯からアップロード
+                                    </label>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <button type="button"
+                                                class="btn btn-outline-info btn-sm mobile-qr-btn"
+                                                data-form-prefix="{{ detail_form.prefix }}">
+                                            <i class="fas fa-qrcode me-1"></i>QRコードを表示
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-success btn-sm mobile-check-btn"
+                                                data-form-prefix="{{ detail_form.prefix }}"
+                                                style="display:none;">
+                                            <i class="fas fa-sync-alt me-1"></i>アップロード確認
+                                        </button>
+                                        <span class="mobile-upload-status text-muted small"
+                                              data-form-prefix="{{ detail_form.prefix }}"></span>
+                                    </div>
+                                    <div class="form-text">
+                                        ボタンを押すとQRコードが表示されます。スマホで読み取り、領収書写真をアップロードしてください。
+                                        「アップロード確認」で件数を確認後、「申請する」で添付として取り込まれます。
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        </div>{# end card-body #}
+                    </div>{# end card #}
                     {% endfor %}
                 </div>
 
@@ -206,21 +271,30 @@
                         <div class="alert alert-info py-2 mb-3">この文書種別の追加項目</div>
                     </div>
                     {% for f in dynamic_fields %}
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label" for="id_dyn_{{ f.name }}">{{ f.label }}</label>
+                        {% if f.row_break %}</div><div class="row mb-1">{% endif %}
+                        <div class="col-md-{{ f.col_width }} mb-3">
+                            <label class="form-label{% if f.required %} fw-semibold{% endif %}" for="id_dyn_{{ f.name }}">
+                                {{ f.label }}{% if f.required %}<span class="text-danger ms-1">*</span>{% endif %}
+                            </label>
                             {% if f.type == 'select' %}
-                                <select class="form-select" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}">
+                                <select class="form-select" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}"{% if f.required %} required{% endif %}>
                                     <option value="">選択してください</option>
                                     {% for opt in f.options %}
                                         <option value="{{ opt.key }}" {% if f.value == opt.key %}selected{% endif %}>{{ opt.content }}</option>
                                     {% endfor %}
                                 </select>
                             {% elif f.type == 'number' %}
-                                <input type="number" step="any" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}">
+                                <input type="number" step="any" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
                             {% elif f.type == 'date' %}
-                                <input type="date" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}">
+                                <input type="date" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}>
+                            {% elif f.type == 'label' %}
+                                <div class="form-control bg-light fw-bold text-primary" id="id_dyn_{{ f.name }}"
+                                     {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
                             {% else %}
-                                <input type="text" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}">
+                                <input type="text" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
+                            {% endif %}
+                            {% if f.field_help_text %}
+                                <div class="form-text text-muted small">{{ f.field_help_text }}</div>
                             {% endif %}
                         </div>
                     {% endfor %}
@@ -237,14 +311,15 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="bumon_cd">負担部門</label>
-                            <select class="form-select form-select-sm" id="bumon_cd" name="bumon_cd">
+                            <select class="form-select form-select-sm{% if error_message and '負担部門' in error_message %} is-invalid{% endif %}" id="bumon_cd" name="bumon_cd">
                                 <option value="">選択してください</option>
                                 {% for bumon in bumons %}
-                                    <option value="{{ bumon.bumon_cd }}" {% if request.POST.bumon_cd == bumon.bumon_cd %}selected{% endif %}>
+                                    <option value="{{ bumon.bumon_cd }}" {% if request.POST.bumon_cd == bumon.bumon_cd %}selected{% elif not request.POST and copy_from_bumon_cd == bumon.bumon_cd %}selected{% endif %}>
                                         {{ bumon.bumon_name }} ({{ bumon.bumon_cd }})
                                     </option>
                                 {% endfor %}
                             </select>
+                            <div id="bumon_cd_error" class="invalid-feedback {% if error_message and '負担部門' in error_message %}d-block{% endif %}">負担部門を選択してください。</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -254,7 +329,7 @@
                                 <option value="">選択してください</option>
                                 {% if currencies %}
                                     {% for cur in currencies %}
-                                        {% with selected_cur=request.POST.tsuka_cd|default:'00' %}
+                                        {% with selected_cur=request.POST.tsuka_cd|default:copy_from_tsuka_cd|default:'00' %}
                                         <option value="{{ cur.key }}" {% if selected_cur == cur.key %}selected{% endif %}>{{ cur.key }} - {{ cur.content }}</option>
                                         {% endwith %}
                                     {% endfor %}
@@ -282,7 +357,7 @@
                     <div class="col-md-12">
                         <div class="form-group">
                             <label for="memo">備考</label>
-                            <textarea class="form-control" id="memo" name="memo" rows="3" maxlength="200" placeholder="200文字以内で入力してください">{{ request.POST.memo }}</textarea>
+                            <textarea class="form-control" id="memo" name="memo" rows="3" maxlength="200" placeholder="200文字以内で入力してください">{{ request.POST.memo|default:copy_from_memo }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -290,7 +365,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="ringi_no">稟議No</label>
-                            <input type="text" id="ringi_no" name="ringi_no" class="form-control" maxlength="20" value="{{ request.POST.ringi_no }}" placeholder="例: W20251203">
+                            <input type="text" id="ringi_no" name="ringi_no" class="form-control" maxlength="20" value="{{ request.POST.ringi_no|default:copy_from_ringi_no }}" placeholder="例: W20251203">
                         </div>
                     </div>
                 </div>
@@ -322,14 +397,15 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label small">承認者を選択（役職条件適用）</label>
-                                    <select class="form-select approver-user-select" name="approver_step_{{ s.step_id }}" data-step-id="{{ s.step_id }}" data-selected="{{ s.selected }}">
+                                    <select class="form-select approver-user-select" name="approver_step_{{ s.step_id }}" data-step-id="{{ s.step_id }}" data-selected="{{ s.selected }}" data-approver-required>
                                         <option value="">部署を選択してください</option>
                                     </select>
+                                    <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
                                 </div>
                             </div>
                             <div class="form-text">このステップは他部門から選択します。役職条件（{{ s.approver_post_name|default:'制限なし' }} 以上）が自動で適用されます。</div>
                         {% else %}
-                            <select class="form-select" name="approver_step_{{ s.step_id }}">
+                            <select class="form-select" name="approver_step_{{ s.step_id }}" data-approver-required>
                                 <option value="">選択してください</option>
                                 {% for c in s.candidates %}
                                     <option value="{{ c.man_number }}" {% if s.selected == c.man_number %}selected{% endif %}>
@@ -337,6 +413,7 @@
                                     </option>
                                 {% endfor %}
                             </select>
+                            <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
                             {% if not s.candidates %}
                                 <div class="text-warning small mt-1">候補者が見つかりませんでした。</div>
                             {% endif %}
@@ -352,14 +429,62 @@
         <div class="text-center mt-4">
             <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
             <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2">下書き保存</button>
-            <button type="submit" name="action" value="submit" class="btn btn-primary">申請する</button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn">申請する</button>
         </div>
     </form>
 </div>
+
+<!-- 携帯アップロード QR モーダル -->
+<div class="modal fade" id="mobileQrModal" tabindex="-1" aria-labelledby="mobileQrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mobileQrModalLabel">
+                    <i class="fas fa-qrcode me-2"></i>携帯からアップロード
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="qrLoadingSpinner" class="my-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                    <p class="text-muted small mt-2">QRコードを生成中...</p>
+                </div>
+                <div id="qrImageContainer" style="display:none;">
+                    <p class="text-muted small mb-2">以下のQRコードをスマホで読み取ってください</p>
+                    <img id="qrCodeImage" src="" alt="QRコード" class="img-fluid mb-3" style="max-width:260px;"/>
+                    <div class="alert alert-info py-2 small" id="qrUploadIdInfo"></div>
+                    <p class="text-muted small">アップロード後、「アップロード確認」ボタンで件数を確認してください。</p>
+                </div>
+                <div id="qrErrorMsg" class="alert alert-danger" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="autosave-bar">下書きを自動保存しました</div>
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<style>
+#autosave-bar {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: rgba(25,135,84,.9);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: .8rem;
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity .5s ease;
+    pointer-events: none;
+}
+</style>
 <style>
 .drop-zone {
     position: relative;
@@ -579,7 +704,11 @@ function addExpenseDetail() {
         select.selectedIndex = 0;
     });
 
-    // 先頭フォームを複製した場合、削除ボタンがないので付与
+    // corpo_card_no の disabled をリセット（コーポレートカードは未選択のため無効化）
+    newForm.querySelectorAll('[data-corpo-card-no]').forEach(function(inp) {
+        inp.disabled = true;
+        inp.value = '';
+    });
     (function ensureDeleteButton(formEl){
         if (!formEl.querySelector('[data-remove-detail]')) {
             const header = document.createElement('div');
@@ -654,6 +783,108 @@ document.addEventListener('DOMContentLoaded', function(){
     });
 });
 
+// ======= モバイルQRアップロード =======
+(function(){
+    const qrModalEl = document.getElementById('mobileQrModal');
+    if (!qrModalEl) return;
+    let currentPrefix = null;
+
+    // QRボタンクリック
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.mobile-qr-btn');
+        if (!btn) return;
+        currentPrefix = btn.dataset.formPrefix;
+        const hiddenInput = document.getElementById('id_' + currentPrefix + '-mobile_upload_id');
+        const existingId = hiddenInput ? hiddenInput.value.trim() : '';
+
+        // モーダル初期化
+        document.getElementById('qrLoadingSpinner').style.display = 'block';
+        document.getElementById('qrImageContainer').style.display = 'none';
+        document.getElementById('qrErrorMsg').style.display = 'none';
+
+        const modal = new bootstrap.Modal(qrModalEl);
+        modal.show();
+
+        const params = existingId ? '?upload_id=' + encodeURIComponent(existingId) : '';
+        fetch('/api/generate_mobile_qr/' + params)
+            .then(function(r){
+                if (!r.ok && r.status !== 200) {
+                    return r.text().then(function(t){ throw new Error('HTTP ' + r.status + ': サーバーエラー'); });
+                }
+                return r.json();
+            })
+            .then(function(data){
+                if (data.error) throw new Error(data.error);
+                // hidden field に格納
+                if (hiddenInput) hiddenInput.value = data.upload_id;
+                // 確認ボタンを表示
+                var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + currentPrefix + '"]');
+                if (checkBtn) checkBtn.style.display = 'inline-block';
+                // QR 表示
+                document.getElementById('qrLoadingSpinner').style.display = 'none';
+                document.getElementById('qrCodeImage').src = data.qr_image;
+                document.getElementById('qrUploadIdInfo').textContent = 'アップロードID: ' + data.upload_id;
+                document.getElementById('qrImageContainer').style.display = 'block';
+            })
+            .catch(function(err){
+                document.getElementById('qrLoadingSpinner').style.display = 'none';
+                var errEl = document.getElementById('qrErrorMsg');
+                errEl.textContent = err.message || 'エラーが発生しました';
+                errEl.style.display = 'block';
+            });
+    });
+
+    // 確認ボタンクリック
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.mobile-check-btn');
+        if (!btn) return;
+        const prefix = btn.dataset.formPrefix;
+        const hiddenInput = document.getElementById('id_' + prefix + '-mobile_upload_id');
+        const uploadId = hiddenInput ? hiddenInput.value.trim() : '';
+        if (!uploadId) return;
+
+        const statusEl = document.querySelector('.mobile-upload-status[data-form-prefix="' + prefix + '"]');
+        if (statusEl) statusEl.textContent = '確認中...';
+        btn.disabled = true;
+
+        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId))
+            .then(function(r){
+                return r.json();
+            })
+            .then(function(data){
+                btn.disabled = false;
+                if (data.error) {
+                    if (statusEl) statusEl.textContent = 'エラー: ' + data.error;
+                    return;
+                }
+                if (data.count === 0) {
+                    if (statusEl) statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>まだアップロードされていません。</span>';
+                } else {
+                    var names = (data.items || []).map(function(i){ return i.filename; }).join(', ');
+                    if (statusEl) statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件アップロード済み: ' + names + '</span>';
+                }
+            })
+            .catch(function(err){
+                btn.disabled = false;
+                if (statusEl) statusEl.textContent = 'エラー: ' + (err.message || '不明');
+            });
+    });
+
+    // 新規追加フォームに添付済みのIDがあれば確認ボタンを表示
+    function refreshMobileCheckButtons() {
+        document.querySelectorAll('[id$="-mobile_upload_id"]').forEach(function(inp){
+            if (!inp.value) return;
+            var m = inp.id.match(/^id_(.+)-mobile_upload_id$/);
+            if (!m) return;
+            var prefix = m[1];
+            var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + prefix + '"]');
+            if (checkBtn) checkBtn.style.display = 'inline-block';
+        });
+    }
+    refreshMobileCheckButtons();
+})();
+// ======= モバイルQRアップロード エンド =======
+
 // 明細削除ボタンのバインドと再インデックス処理
 function bindRemoveButtons(context) {
     const root = context || document;
@@ -694,5 +925,199 @@ function bindRemoveButtons(context) {
         });
     });
 }
+
+// ======= コーポレートカード番号トグル =======
+(function() {
+    function toggleCorpoCardNo(sel) {
+        var noId = sel.id.replace(/-corpo_card$/, '-corpo_card_no');
+        var noInput = document.getElementById(noId);
+        if (!noInput) return;
+        if (String(sel.value) === '2') {
+            noInput.disabled = false;
+        } else {
+            noInput.disabled = true;
+            noInput.value = '';
+        }
+    }
+    // 初期状態をページ読み込み時に設定
+    document.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+        toggleCorpoCardNo(sel);
+    });
+    // change イベント委任（動的フォーム含む）
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.hasAttribute('data-corpo-card-select')) {
+            toggleCorpoCardNo(e.target);
+        }
+    });
+})();
+// ======= コーポレートカード番号トグル エンド =======
+
+// ======= 入力バリデーション（負担部門・承認者） =======
+document.getElementById('submit-btn').addEventListener('click', function(e) {
+    let hasError = false;
+
+    // 負担部門チェック
+    const bumonSel = document.getElementById('bumon_cd');
+    const bumonErr = document.getElementById('bumon_cd_error');
+    if (!bumonSel.value) {
+        hasError = true;
+        bumonSel.classList.add('is-invalid');
+        bumonErr.classList.add('d-block');
+    } else {
+        bumonSel.classList.remove('is-invalid');
+        bumonErr.classList.remove('d-block');
+    }
+
+    // 承認者チェック（keiri 以外で未選択）
+    document.querySelectorAll('[data-approver-required]').forEach(function(sel) {
+        const container = sel.closest('.mb-3');
+        const errDiv = container ? container.querySelector('.approver-step-error') : null;
+        if (!sel.value) {
+            hasError = true;
+            sel.classList.add('is-invalid');
+            if (errDiv) errDiv.classList.remove('d-none');
+        } else {
+            sel.classList.remove('is-invalid');
+            if (errDiv) errDiv.classList.add('d-none');
+        }
+    });
+
+    if (hasError) {
+        e.preventDefault();
+        const firstErr = document.querySelector('#bumon_cd.is-invalid, [data-approver-required].is-invalid');
+        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+});
+document.getElementById('bumon_cd').addEventListener('change', function() {
+    if (this.value) {
+        this.classList.remove('is-invalid');
+        document.getElementById('bumon_cd_error').classList.remove('d-block');
+    }
+});
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.hasAttribute('data-approver-required') && e.target.value) {
+        e.target.classList.remove('is-invalid');
+        const container = e.target.closest('.mb-3');
+        const errDiv = container ? container.querySelector('.approver-step-error') : null;
+        if (errDiv) errDiv.classList.add('d-none');
+    }
+});
+// ======= 入力バリデーション エンド =======
+
+// ======= label型 calc_formula 汎用計算エンジン =======
+// 書式: {field_name}+{field_name}|単位  ※|以降は表示サフィックス(省略可)
+// 特殊変数: {amount_total} = 明細金額の合計
+(function() {
+    function evalCalcFormulas() {
+        // 明細金額を合計
+        var amountTotal = 0;
+        document.querySelectorAll('input[name$="-amount"]').forEach(function(inp) {
+            var v = parseFloat(inp.value);
+            if (!isNaN(v)) amountTotal += v;
+        });
+
+        document.querySelectorAll('[data-calc-formula]').forEach(function(el) {
+            var raw = el.getAttribute('data-calc-formula');
+            if (!raw) return;
+
+            // サフィックス分離: "式|単位"
+            var parts   = raw.split('|');
+            var formula = parts[0].trim();
+            var suffix  = parts.length > 1 ? parts[1].trim() : '';
+
+            // {amount_total} を置換
+            var expr = formula.replace(/\{amount_total\}/g, amountTotal);
+
+            // {field_name} を対応要素の値に置換
+            // input/select → .value  /  label div → .textContent から数値を抽出
+            expr = expr.replace(/\{(\w+)\}/g, function(_, name) {
+                var el = document.getElementById('id_dyn_' + name);
+                if (!el) return '0';
+                var raw = (el.tagName === 'INPUT' || el.tagName === 'SELECT')
+                    ? el.value
+                    : (el.textContent || '');
+                // "5 人" "2,500.00 円/人" などから数値部分だけ取り出す
+                var numStr = raw.replace(/[,\s]/g, '').match(/^-?[\d.]+/);
+                var v = numStr ? parseFloat(numStr[0]) : NaN;
+                return isNaN(v) ? '0' : String(v);
+            });
+
+            try {
+                // eslint-disable-next-line no-new-func
+                var result = Function('"use strict"; return (' + expr + ')')();
+                if (isFinite(result) && !isNaN(result)) {
+                    var formatted = Number.isInteger(result)
+                        ? result.toLocaleString()
+                        : result.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    el.textContent = formatted + (suffix ? (' ' + suffix) : '');
+                } else {
+                    el.textContent = '-';
+                }
+            } catch(e) {
+                el.textContent = '-';
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // calc_formula を持つ label 要素が存在しない場合はスキップ
+        if (!document.querySelector('[data-calc-formula]')) return;
+
+        // 動的フィールドの入力変化を監視
+        var dynArea = document.querySelector('.dynamic-fields-area') || document.body;
+        dynArea.addEventListener('input', function(e) {
+            if (e.target && e.target.id && e.target.id.startsWith('id_dyn_')) {
+                evalCalcFormulas();
+            }
+        });
+        // 明細の金額変化にも反応
+        var detailsEl = document.getElementById('expense-details');
+        if (detailsEl) {
+            detailsEl.addEventListener('input', function(e) {
+                if (e.target && e.target.name && e.target.name.endsWith('-amount')) {
+                    evalCalcFormulas();
+                }
+            });
+        }
+        evalCalcFormulas();
+    });
+})();
+// ======= calc_formula 計算エンジン エンド =======
+
+// ======= 下書き自動保存（localStorage） =======
+(function(){
+    var STORAGE_KEY = 'expense_new_draft_{{ submission_id }}';
+    var SAVE_INTERVAL = 30000;
+    var form = document.querySelector('form[enctype]');
+    if (!form) return;
+
+    function serializeForm() {
+        var data = {};
+        form.querySelectorAll('input:not([type=file]):not([type=hidden]), select, textarea').forEach(function(el) {
+            if (el.name) data[el.name] = el.value;
+        });
+        return JSON.stringify(data);
+    }
+
+    function saveToStorage() {
+        try {
+            localStorage.setItem(STORAGE_KEY, serializeForm());
+            var bar = document.getElementById('autosave-bar');
+            if (bar) {
+                bar.textContent = '下書きを自動保存しました（' + new Date().toLocaleTimeString('ja-JP') + '）';
+                bar.style.opacity = '1';
+                setTimeout(function(){ bar.style.opacity = '0'; }, 3000);
+            }
+        } catch(e) {}
+    }
+
+    setInterval(saveToStorage, SAVE_INTERVAL);
+
+    // フォーム送信時はキャッシュを削除
+    form.addEventListener('submit', function(){
+        try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    });
+})();
+// ======= 下書き自動保存 エンド =======
 </script>
 {% endblock %}

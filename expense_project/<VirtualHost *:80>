@@ -1,5 +1,5 @@
 <VirtualHost *:80>
-    ServerName 172.16.100.149
+    ServerName 172.16.100.150
     ServerAdmin hayashida.daiji@idc-com.co.jp
 
     WSGIDaemonProcess expense_project2 python-home=/home/idc_user/expense_project2/venv python-path=/home/idc_user/expense_project2
