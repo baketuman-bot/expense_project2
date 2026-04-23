@@ -21,19 +21,17 @@ class Command(BaseCommand):
 
         # 1) Statuses
         statuses = [
-            ("DRAFT", "申請前", None),
-            ("SUBMITTED", "申請中", None),
-            ("WAITING", "承認待ち", None),
-            ("APPROVED", "承認済", "APPROVED"),
-            ("REJECTED", "却下", "REJECTED"),
-            ("RETURNED", "差戻し", "RETURNED"),
-            ("IN_PROGRESS", "進行中", None),
-            ("COMPLETED", "完了", None),
+            ("DRAFT",    "申請前",   None,       10),
+            ("INPRO",    "申請中",   None,       20),
+            ("RETURNED", "差戻し",   "RETURNED", 30),
+            ("REJECTED", "却下",     "REJECTED", 40),
+            ("APPROVED", "承認済",   "APPROVED", 50),
+            ("CANCEL",   "取り下げ", "取消し",   90),
         ]
-        for cd, name, action in statuses:
+        for cd, name, action, order in statuses:
             obj, created = M_Status.objects.update_or_create(
                 status_cd=cd,
-                defaults={"status_name": name, "action_name": action},
+                defaults={"status_name": name, "action_name": action, "order_by": order},
             )
             created_total += int(created)
 
@@ -83,7 +81,7 @@ class Command(BaseCommand):
 
         # 6) Items (minimal)
         items = [
-            ("WF", "01", "承認種別", "APP"),
+            ("WF", "01", "承認種別", "APPROVED"),
         ]
         for data_kbn, key, content, content2 in items:
             obj, created = M_Item.objects.update_or_create(

@@ -26,14 +26,14 @@
                     <form method="get" class="row g-2 align-items-end">
                         <div class="col-md-3">
                             <label class="form-label small mb-1">キーワード</label>
-                            <input type="text" name="keyword" class="form-control form-control-sm" placeholder="目的・タイトル・備考" value="{{ keyword }}">
+                            <input type="text" name="keyword" class="form-control form-control-sm" placeholder="目的・支払先・タイトル・備考" value="{{ keyword }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small mb-1">ステータス</label>
                             <select name="status" class="form-select form-select-sm">
                                 <option value="">すべて</option>
                                 {% for s in statuses %}
-                                    <option value="{{ s.status_cd }}" {% if status_filter == s.status_cd %}selected{% endif %}>{{ s.status_name }}</option>
+                                    <option value="{{ s.status_name }}" {% if status_filter == s.status_name %}selected{% endif %}>{{ s.status_name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -73,6 +73,7 @@
                                         <th>目的</th>
                                         <th class="text-end" style="width:120px">合計金額</th>
                                         <th style="width:90px">ステータス</th>
+                                        <th class="text-center" style="width:60px">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -106,6 +107,16 @@
                                             <span class="{{ expense.status_cd.status_cd|status_badge_class }}">
                                                 {{ expense.status_cd.status_name }}
                                             </span>
+                                        </td>
+                                        <td class="text-center" onclick="event.stopPropagation();">
+                                            {% if expense.status_cd.status_cd == 'DRAFT' and expense.man_number == request.user %}
+                                            <form method="post" action="{% url 'expenses:expense_delete' expense.expense_main_id %}" class="d-inline js-delete-draft-form">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="下書きを削除">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -182,6 +193,13 @@
 document.querySelectorAll('tr.table-row-link').forEach(function(row){
     row.addEventListener('click', function(){
         window.location.href = this.dataset.href;
+    });
+});
+document.querySelectorAll('.js-delete-draft-form').forEach(function(f){
+    f.addEventListener('submit', function(e){
+        if (!window.confirm('この下書きを削除します。よろしいですか？')) {
+            e.preventDefault();
+        }
     });
 });
 </script>

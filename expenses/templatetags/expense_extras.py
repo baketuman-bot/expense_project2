@@ -40,13 +40,13 @@ def currency_display(tsuka_cd):
 def status_badge_class(status_cd):
     """ステータスコードからステータスピルクラスを返す。"""
     mapping = {
-        'SUB': 'status-pill status-pill-pending',
-        'APP': 'status-pill status-pill-approved',
-        'REJ': 'status-pill status-pill-rejected',
-        'RET': 'status-pill status-pill-review',
-        'CAN': 'status-pill status-pill-cancelled',
+        'INPRO': 'status-pill status-pill-pending',
+        'APPROVED': 'status-pill status-pill-approved',
+        'REJECTED': 'status-pill status-pill-rejected',
+        'RETURNED': 'status-pill status-pill-review',
+        'CANCEL': 'status-pill status-pill-cancelled',
         'FNS': 'status-pill status-pill-approved',
-        'DRA': 'status-pill status-pill-draft',
+        'DRAFT': 'status-pill status-pill-draft',
     }
     return mapping.get(status_cd or '', 'status-pill status-pill-draft')
 
@@ -54,13 +54,13 @@ def status_badge_class(status_cd):
 def status_dot_class(status_cd):
     """タイムラインドット用: ステータスコードからBootstrap bg-*クラスを返す。"""
     mapping = {
-        'SUB': 'bg-primary',
-        'APP': 'bg-success',
-        'REJ': 'bg-danger',
-        'RET': 'bg-warning',
-        'CAN': 'bg-secondary',
+        'INPRO': 'bg-primary',
+        'APPROVED': 'bg-success',
+        'REJECTED': 'bg-danger',
+        'RETURNED': 'bg-warning',
+        'CANCEL': 'bg-secondary',
         'FNS': 'bg-success',
-        'DRA': 'bg-secondary',
+        'DRAFT': 'bg-secondary',
     }
     return mapping.get(status_cd or '', 'bg-secondary')
 

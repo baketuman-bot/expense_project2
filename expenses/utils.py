@@ -115,3 +115,68 @@ def steps_with_candidates(applicant: M_User, workflow_template):
             } for u in cands],
         })
     return data
+
+
+def get_pending_approvers(document):
+    """承認予定者（未処理）一覧を返す。
+
+    T_DocumentApprover に登録済みの pending/draft 行に加え、
+    M_WorkflowStep の allowed_bumon_scope='keiri' で、まだ APPROVED アクションが
+    行われていない経理ステップを補完して返す。
+
+    テンプレートが参照する属性: step_order / man_number.user_name /
+    man_number.post_cd.post_name
+    """
+    from types import SimpleNamespace
+    from .models import T_DocumentApprover, T_WorkflowAction, M_WorkflowStep
+
+    explicit = list(
+        T_DocumentApprover.objects
+        .filter(document_id=document, status__in=['pending', 'draft'])
+        .select_related('man_number', 'man_number__post_cd', 'step_id')
+    )
+
+    doc_type = getattr(document, 'document_type', None)
+    tpl = getattr(doc_type, 'workflow_template_id', None) if doc_type else None
+    if not tpl:
+        return sorted(explicit, key=lambda x: x.step_order or 0)
+
+    keiri_steps = list(
+        M_WorkflowStep.objects
+        .filter(workflow_template=tpl, allowed_bumon_scope='keiri')
+        .select_related('approver_post')
+        .order_by('step_order')
+    )
+    if not keiri_steps:
+        return sorted(explicit, key=lambda x: x.step_order or 0)
+
+    covered_step_ids = {pa.step_id_id for pa in explicit if pa.step_id_id}
+    done_step_ids = set(
+        T_WorkflowAction.objects
+        .filter(instance__document_id=document, action_status_id='APPROVED')
+        .values_list('step_id', flat=True)
+    )
+
+    applicant = document.man_number
+    extras = []
+    for step in keiri_steps:
+        if step.step_id in covered_step_ids or step.step_id in done_step_ids:
+            continue
+        cand = candidates_for_step(applicant, step).first()
+        if cand:
+            post_ns = SimpleNamespace(
+                post_name=(cand.post_cd.post_name if cand.post_cd else '')
+            ) if cand.post_cd else None
+            user_ns = SimpleNamespace(user_name=cand.user_name, post_cd=post_ns)
+        else:
+            post_ns = SimpleNamespace(
+                post_name=step.approver_post.post_name
+            ) if step.approver_post else None
+            user_ns = SimpleNamespace(user_name='経理担当', post_cd=post_ns)
+        extras.append(SimpleNamespace(
+            step_order=step.step_order,
+            man_number=user_ns,
+        ))
+
+    combined = explicit + extras
+    return sorted(combined, key=lambda x: x.step_order or 0)

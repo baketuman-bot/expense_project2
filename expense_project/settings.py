@@ -120,6 +120,9 @@ else:
             },
             # 接続の永続化（ローカルでも有効にしておく）
             'CONN_MAX_AGE': 60,
+            'TEST': {
+                'NAME': 'expense_db',
+            },
         }
     }
 

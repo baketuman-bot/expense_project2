@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>経費精算アプリ UI デザイン案</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --sub:#666; --line:#e5e5e5; --bg:#fafafa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;padding:40px 20px;
+  }
+  .wrap{max-width:880px;margin:0 auto}
+  h1{font-size:22px;font-weight:600;margin-bottom:8px;letter-spacing:.02em}
+  .lead{color:var(--sub);margin-bottom:28px;font-size:14px}
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:6px;
+    padding:20px 22px;margin-bottom:12px;
+    display:flex;gap:20px;align-items:center;
+    text-decoration:none;color:inherit;
+    transition:border-color .15s,transform .15s;
+  }
+  .card:hover{border-color:#1a1a1a;transform:translateX(2px)}
+  .num{
+    flex:0 0 44px;height:44px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:600;font-size:16px;
+    background:#f4f4f4;color:var(--ink);
+  }
+  .name{font-size:16px;font-weight:600;margin-bottom:2px}
+  .desc{font-size:13px;color:var(--sub)}
+  .footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>経費精算アプリ — UIデザイン案</h1>
+  <p class="lead">下記5案はすべて白基調で、装飾を抑えた社内業務アプリ向けの方向性です。各案をクリックすると「ホーム / 経費一覧 / 支出伺い」の3画面を切り替えて閲覧できます。</p>
+
+  <a class="card" href="design1-flat-corporate.html">
+    <div class="num">1</div>
+    <div>
+      <div class="name">Flat Corporate</div>
+      <div class="desc">単色アクセント、影なし、シャープな角。基本に忠実なコーポレートスタイル。</div>
+    </div>
+  </a>
+
+  <a class="card" href="design2-ruled-document.html">
+    <div class="num">2</div>
+    <div>
+      <div class="name">Ruled Document</div>
+      <div class="desc">1px罫線主体、色をほぼ使わない紙帳票風。堅めの経理業務に寄せた表現。</div>
+    </div>
+  </a>
+
+  <a class="card" href="design3-soft-card.html">
+    <div class="num">3</div>
+    <div>
+      <div class="name">Soft Card</div>
+      <div class="desc">角丸+極薄シャドウ、余白広め。やわらかく扱いやすい印象。</div>
+    </div>
+  </a>
+
+  <a class="card" href="design4-minimal-textfirst.html">
+    <div class="num">4</div>
+    <div>
+      <div class="name">Minimal Text-first</div>
+      <div class="desc">罫線を最小化、タイポと余白で情報を構造化。Stripe / Linear風の落ち着き。</div>
+    </div>
+  </a>
+
+  <a class="card" href="design5-dense-admin.html">
+    <div class="num">5</div>
+    <div>
+      <div class="name">Dense Admin</div>
+      <div class="desc">情報密度高め。ゼブラ+スティッキーヘッダ。大量データを扱う管理系向け。</div>
+    </div>
+  </a>
+
+  <div class="footer">※ 本ファイルは見た目検証用のスタティックモックです。リンク/ボタン/フォームは動作しません。</div>
+</div>
+</body>
+</html>

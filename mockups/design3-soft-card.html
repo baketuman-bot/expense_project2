@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>案3 Soft Card — 経費精算</title>
+<style>
+  :root{
+    --primary:#0891b2; --primary-hover:#0e7490; --primary-soft:#ecfeff;
+    --ink:#0f172a; --sub:#64748b; --muted:#94a3b8;
+    --line:#eef2f6; --line-strong:#e2e8f0;
+    --bg:#f8fafc; --panel:#fff;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.02);
+    --shadow-md:0 2px 6px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;
+    font-size:14px;color:var(--ink);background:var(--bg);
+  }
+  .mock-bar{position:fixed;top:0;left:0;right:0;height:36px;background:#0f172a;color:#fff;display:flex;align-items:center;gap:8px;padding:0 14px;font-size:12px;z-index:100}
+  .mock-bar a{color:#67e8f9;text-decoration:none}
+  .mock-bar button{background:transparent;color:#cbd5e1;border:1px solid #475569;padding:4px 12px;font-size:12px;cursor:pointer;border-radius:6px}
+  .mock-bar button.active{background:#fff;color:#0f172a;border-color:#fff}
+  .mock-bar .spacer{flex:1}
+  .app{padding-top:36px;display:grid;grid-template-columns:240px 1fr;min-height:100%}
+  /* sidebar */
+  .sidebar{background:#fff;padding:20px 16px;display:flex;flex-direction:column;min-height:calc(100vh - 36px);border-right:1px solid var(--line)}
+  .brand{padding:4px 8px 18px;display:flex;gap:10px;align-items:center}
+  .brand-logo{
+    width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#0891b2,#06b6d4);
+    color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;
+  }
+  .brand-text .brand-name{font-weight:700;font-size:15px}
+  .brand-text .brand-sub{color:var(--sub);font-size:11px}
+  .nav{list-style:none}
+  .nav li a{
+    display:flex;align-items:center;gap:12px;padding:9px 12px;color:var(--ink);
+    text-decoration:none;border-radius:8px;font-size:13.5px;margin-bottom:2px;
+    transition:background .15s,color .15s;
+  }
+  .nav li a:hover{background:var(--bg)}
+  .nav li a.active{background:var(--primary-soft);color:var(--primary);font-weight:600}
+  .nav .ico{width:18px;height:18px;color:var(--muted);flex-shrink:0}
+  .nav li a.active .ico{color:var(--primary)}
+  .nav-section{padding:16px 12px 6px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .user-block{margin-top:auto;padding:14px;border-radius:10px;background:var(--bg);display:flex;align-items:center;gap:10px}
+  .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
+  .user-name{font-size:13px;font-weight:600}
+  .user-role{font-size:11px;color:var(--sub)}
+  /* topbar */
+  .topbar{
+    height:60px;background:#fff;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;padding:0 28px;
+  }
+  .topbar-title{font-size:15px;font-weight:600}
+  .topbar-actions{margin-left:auto;display:flex;align-items:center;gap:16px}
+  .topbar-info{font-size:13px;color:var(--sub)}
+  .topbar-info strong{color:var(--ink)}
+  .main{display:flex;flex-direction:column}
+  .content{padding:28px 32px;flex:1}
+  .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+  .page-title{font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .page-sub{font-size:13px;color:var(--sub);margin-top:4px}
+  /* buttons */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;
+    border:1px solid var(--line-strong);background:#fff;color:var(--ink);cursor:pointer;
+    border-radius:8px;text-decoration:none;font-weight:500;transition:all .15s;
+  }
+  .btn:hover{background:var(--bg);border-color:var(--muted)}
+  .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 1px 2px rgba(8,145,178,.25)}
+  .btn.primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+  .btn.sm{padding:5px 12px;font-size:12px;border-radius:6px}
+  /* panel */
+  .panel{background:#fff;border-radius:12px;box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+  .panel-head{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+  .panel-head h3{font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .panel-head h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--primary)}
+  .panel-head .count{font-size:12px;color:var(--sub);background:var(--bg);padding:2px 10px;border-radius:10px;font-weight:500;margin-left:2px}
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;padding:11px 20px;font-weight:600;font-size:12px;color:var(--sub);background:#fff;border-bottom:1px solid var(--line)}
+  td{padding:14px 20px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tbody tr{cursor:pointer;transition:background .12s}
+  tbody tr:hover{background:var(--bg)}
+  .right{text-align:right}
+  .num-amt{font-variant-numeric:tabular-nums;font-weight:600}
+  /* status pill */
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;font-size:12px;font-weight:500;border-radius:999px}
+  .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .pill.draft{background:#f1f5f9;color:#475569}
+  .pill.submit{background:#dbeafe;color:#1d4ed8}
+  .pill.approve{background:#fef3c7;color:#b45309}
+  .pill.finish{background:#d1fae5;color:#047857}
+  .pill.reject{background:#fee2e2;color:#b91c1c}
+  /* id chip */
+  .id-chip{
+    display:inline-flex;padding:3px 10px;font-size:12px;font-weight:600;
+    background:var(--bg);color:var(--sub);border-radius:6px;
+    font-variant-numeric:tabular-nums;
+  }
+  /* filter */
+  .filter-card{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;margin-bottom:18px}
+  .filter-row{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .filter-row .field{display:flex;flex-direction:column;gap:6px;min-width:160px}
+  .filter-row label{font-size:12px;color:var(--sub);font-weight:500}
+  .filter-row input,.filter-row select{
+    padding:8px 12px;border:1px solid var(--line-strong);font-size:13.5px;background:#fff;
+    border-radius:8px;font-family:inherit;
+  }
+  .filter-row input:focus,.filter-row select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(8,145,178,.12)}
+  /* form */
+  .form-section{background:#fff;border-radius:12px;box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+  .form-section-head{padding:16px 22px;border-bottom:1px solid var(--line)}
+  .form-section-head h3{font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .form-section-head h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--primary)}
+  .form-section-head .sub{font-size:12px;color:var(--sub);margin-top:4px}
+  .form-grid{padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:18px 20px}
+  .form-grid.full{grid-template-columns:1fr}
+  .form-field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:var(--ink)}
+  .form-field label .req{color:#dc2626;margin-left:2px}
+  .form-field input,.form-field select,.form-field textarea{
+    width:100%;padding:9px 13px;border:1px solid var(--line-strong);font-size:14px;
+    font-family:inherit;border-radius:8px;background:#fff;transition:all .15s;
+  }
+  .form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(8,145,178,.12)}
+  .form-actions{padding:18px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:#fcfcfd}
+  .detail-row{border:1px solid var(--line-strong);border-radius:10px;margin-bottom:12px;background:#fff;overflow:hidden}
+  .detail-head{padding:12px 18px;background:var(--bg);display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--sub);font-weight:600}
+  .detail-head .badge{background:var(--primary-soft);color:var(--primary);padding:2px 10px;border-radius:6px;font-size:11.5px}
+  .detail-body{padding:18px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="mock-bar">
+  <a href="index.html">← 一覧</a><span class="spacer"></span>
+  <button class="active" data-screen="home">ホーム</button>
+  <button data-screen="list">経費一覧</button>
+  <button data-screen="create">支出伺い</button>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">経</div>
+      <div class="brand-text">
+        <div class="brand-name">経費精算</div>
+        <div class="brand-sub">イサハヤ電子</div>
+      </div>
+    </div>
+    <ul class="nav">
+      <li><a href="#" class="active"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></svg>トップ</a></li>
+      <li><a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>経費一覧</a></li>
+      <li><a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>支出伺い</a></li>
+      <li><a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>他部署負担</a></li>
+      <li><a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3H7a2 2 0 0 0-2 2v14l7-3 7 3V5a2 2 0 0 0-2-2z"/></svg>交際・会議費</a></li>
+      <li><a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 10L4 14l6 2 2 6 8-12z"/></svg>出張旅費精算</a></li>
+      <div class="nav-section">承認</div>
+      <li><a href="#"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>承認待ち</a></li>
+    </ul>
+    <div class="user-block">
+      <div class="avatar">山</div>
+      <div>
+        <div class="user-name">山田 太郎</div>
+        <div class="user-role">営業部・一般</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">経費精算</div>
+      <div class="topbar-actions">
+        <div class="topbar-info"><strong>山田 太郎</strong> ｜ 営業部・一般社員</div>
+      </div>
+    </header>
+    <div class="content">
+
+      <!-- HOME -->
+      <section data-screen="home">
+        <div class="page-head">
+          <div><div class="page-title">トップ</div><div class="page-sub">承認待ち・申請中・下書きの状況を確認できます</div></div>
+          <a href="#" class="btn primary">＋ 新規申請</a>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3><span class="dot" style="background:#f59e0b"></span>承認待ち <span class="count">上位5件</span></h3><a href="#" class="btn sm">すべて表示 →</a></div>
+          <table>
+            <thead><tr><th style="width:90px">申請ID</th><th>申請者</th><th style="width:110px">申請日</th><th class="right" style="width:140px">金額</th><th style="width:110px">ステータス</th></tr></thead>
+            <tbody>
+              <tr><td><span class="id-chip">#1287</span></td><td>佐藤 次郎</td><td>2026/04/16</td><td class="right num-amt">¥34,500</td><td><span class="pill approve">承認中</span></td></tr>
+              <tr><td><span class="id-chip">#1284</span></td><td>鈴木 花子</td><td>2026/04/15</td><td class="right num-amt">¥128,000</td><td><span class="pill approve">承認中</span></td></tr>
+              <tr><td><span class="id-chip">#1279</span></td><td>高橋 一郎</td><td>2026/04/14</td><td class="right num-amt">¥12,800</td><td><span class="pill submit">申請済</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3><span class="dot" style="background:#3b82f6"></span>申請中 <span class="count">上位5件</span></h3><a href="#" class="btn sm">すべて表示 →</a></div>
+          <table>
+            <thead><tr><th style="width:90px">申請ID</th><th style="width:110px">申請日</th><th>目的</th><th class="right" style="width:140px">金額</th><th style="width:110px">ステータス</th></tr></thead>
+            <tbody>
+              <tr><td><span class="id-chip">#1290</span></td><td>2026/04/17</td><td>大阪出張（客先訪問）</td><td class="right num-amt">¥42,300</td><td><span class="pill submit">申請済</span></td></tr>
+              <tr><td><span class="id-chip">#1281</span></td><td>2026/04/14</td><td>取引先との会食</td><td class="right num-amt">¥18,750</td><td><span class="pill approve">承認中</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3><span class="dot" style="background:#94a3b8"></span>下書き <span class="count">上位5件</span></h3><a href="#" class="btn sm">すべて表示 →</a></div>
+          <table>
+            <thead><tr><th style="width:90px">申請ID</th><th style="width:110px">更新日</th><th>目的</th><th class="right" style="width:140px">金額</th><th style="width:110px">ステータス</th></tr></thead>
+            <tbody>
+              <tr><td><span class="id-chip">#1292</span></td><td>2026/04/17</td><td>消耗品購入（見積中）</td><td class="right num-amt">¥5,600</td><td><span class="pill draft">下書き</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- LIST -->
+      <section data-screen="list" hidden>
+        <div class="page-head">
+          <div><div class="page-title">経費申請一覧</div><div class="page-sub">申請中・承認済みを含むすべての申請</div></div>
+          <div style="display:flex;gap:8px"><a href="#" class="btn">📥 CSV出力</a><a href="#" class="btn primary">＋ 新規申請</a></div>
+        </div>
+
+        <div class="filter-card">
+          <div class="filter-row">
+            <div class="field"><label>キーワード</label><input type="text" placeholder="目的・備考"></div>
+            <div class="field"><label>ステータス</label><select><option>すべて</option><option>下書き</option><option>申請済</option></select></div>
+            <div class="field"><label>申請日（から）</label><input type="date"></div>
+            <div class="field"><label>申請日（まで）</label><input type="date"></div>
+            <button class="btn primary">検索</button>
+            <button class="btn">クリア</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3><span class="dot"></span>申請一覧 <span class="count">全 128 件</span></h3><span style="font-size:12px;color:var(--sub)">1 / 16 ページ</span></div>
+          <table>
+            <thead><tr><th style="width:90px">申請ID</th><th style="width:110px">申請日</th><th style="width:130px">種別</th><th>目的</th><th class="right" style="width:140px">合計金額</th><th style="width:110px">ステータス</th></tr></thead>
+            <tbody>
+              <tr><td><span class="id-chip">#1292</span></td><td>2026/04/17</td><td>支出伺い</td><td>消耗品購入（見積中）</td><td class="right num-amt">¥5,600</td><td><span class="pill draft">下書き</span></td></tr>
+              <tr><td><span class="id-chip">#1290</span></td><td>2026/04/17</td><td>出張旅費精算</td><td>大阪出張（客先訪問）</td><td class="right num-amt">¥42,300</td><td><span class="pill submit">申請済</span></td></tr>
+              <tr><td><span class="id-chip">#1287</span></td><td>2026/04/16</td><td>支出伺い</td><td>ソフトウェアライセンス更新</td><td class="right num-amt">¥34,500</td><td><span class="pill approve">承認中</span></td></tr>
+              <tr><td><span class="id-chip">#1284</span></td><td>2026/04/15</td><td>交際・会議費</td><td>取引先との会食（関東支社）</td><td class="right num-amt">¥128,000</td><td><span class="pill finish">最終承認</span></td></tr>
+              <tr><td><span class="id-chip">#1281</span></td><td>2026/04/14</td><td>交際・会議費</td><td>取引先との会食</td><td class="right num-amt">¥18,750</td><td><span class="pill approve">承認中</span></td></tr>
+              <tr><td><span class="id-chip">#1279</span></td><td>2026/04/14</td><td>支出伺い</td><td>書籍購入</td><td class="right num-amt">¥12,800</td><td><span class="pill submit">申請済</span></td></tr>
+              <tr><td><span class="id-chip">#1275</span></td><td>2026/04/13</td><td>他部署負担</td><td>共同プロジェクト材料費</td><td class="right num-amt">¥86,400</td><td><span class="pill reject">差戻し</span></td></tr>
+              <tr><td><span class="id-chip">#1270</span></td><td>2026/04/11</td><td>出張旅費精算</td><td>福岡出張</td><td class="right num-amt">¥58,900</td><td><span class="pill finish">最終承認</span></td></tr>
+            </tbody>
+          </table>
+          <div style="padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--sub)">
+            <span>全 128 件中 1 - 8 件</span>
+            <div style="display:flex;gap:4px"><button class="btn sm">‹</button><button class="btn sm primary">1</button><button class="btn sm">2</button><button class="btn sm">3</button><button class="btn sm">›</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CREATE -->
+      <section data-screen="create" hidden>
+        <div class="page-head">
+          <div><div class="page-title">支出伺い（新規）</div><div class="page-sub">経費の申請内容を入力してください</div></div>
+          <a href="#" class="btn">キャンセル</a>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-head">
+            <h3><span class="dot"></span>申請情報</h3>
+            <div class="sub">申請者・負担部門など基本情報</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-field"><label>申請者</label><input type="text" value="山田 太郎（営業部）" disabled></div>
+            <div class="form-field"><label>申請日</label><input type="date" value="2026-04-17" disabled></div>
+            <div class="form-field"><label>負担部門<span class="req">*</span></label><select><option>営業部</option><option>経理部</option></select></div>
+            <div class="form-field"><label>通貨</label><select><option>JPY 円</option><option>USD ドル</option></select></div>
+            <div class="form-field"><label>稟議番号</label><input type="text" placeholder="任意"></div>
+            <div class="form-field"><label>精算方法</label><select><option>口座振込</option><option>小口現金</option></select></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-head">
+            <h3><span class="dot" style="background:#8b5cf6"></span>経費明細</h3>
+            <div class="sub">各経費の内訳を記入してください</div>
+          </div>
+          <div style="padding:18px 22px">
+            <div class="detail-row">
+              <div class="detail-head"><span class="badge">明細 1</span><button class="btn sm">🗑 削除</button></div>
+              <div class="detail-body">
+                <div class="form-field"><label>日付<span class="req">*</span></label><input type="date" value="2026-04-16"></div>
+                <div class="form-field"><label>金額<span class="req">*</span></label><input type="number" value="34500"></div>
+                <div class="form-field"><label>支払先</label><input type="text" value="ABC ソフトウェア株式会社"></div>
+                <div class="form-field" style="grid-column:1/-1"><label>目的<span class="req">*</span></label><input type="text" value="ソフトウェアライセンス更新"></div>
+                <div class="form-field"><label>勘定科目<span class="req">*</span></label><select><option>消耗品費</option><option>会議費</option></select></div>
+                <div class="form-field"><label>登録番号（適格）</label><input type="text" placeholder="T1234567890123"></div>
+              </div>
+            </div>
+            <button class="btn" style="margin-top:10px">＋ 明細を追加</button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-head"><h3><span class="dot" style="background:#10b981"></span>承認フロー</h3><div class="sub">承認者を選択してください</div></div>
+          <div class="form-grid">
+            <div class="form-field"><label>承認ステップ 1（上長）<span class="req">*</span></label><select><option>佐藤 次郎（営業部 課長）</option></select></div>
+            <div class="form-field"><label>承認ステップ 2（経理）</label><input type="text" value="自動割当" disabled></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-head"><h3><span class="dot" style="background:#94a3b8"></span>備考</h3></div>
+          <div class="form-grid full">
+            <div class="form-field"><textarea rows="3" placeholder="補足事項があれば記入"></textarea></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn">下書き保存</button>
+            <button class="btn primary">申請する →</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.mock-bar button[data-screen]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const t=b.dataset.screen;
+      document.querySelectorAll('.mock-bar button[data-screen]').forEach(x=>x.classList.toggle('active',x===b));
+      document.querySelectorAll('section[data-screen]').forEach(s=>s.hidden = s.dataset.screen!==t);
+    });
+  });
+</script>
+</body>
+</html>

@@ -47,29 +47,37 @@
 <script>
 (function(){
     function evalDetailCalc(){
+        var amountTotal = 0;
+        document.querySelectorAll('[data-amount]').forEach(function(el){
+            var v = parseFloat(el.getAttribute('data-amount'));
+            if (!isNaN(v)) amountTotal += v;
+        });
         function getVal(name){
             var el = document.getElementById('disp_dyn_' + name);
             if(!el) return 0;
             var raw = (el.textContent||'').replace(/[,\s]/g,'').match(/^-?[\d.]+/);
             return raw ? parseFloat(raw[0]) : 0;
         }
-        document.querySelectorAll('[data-calc-formula]').forEach(function(el){
-            var raw = el.getAttribute('data-calc-formula');
-            if(!raw) return;
-            var parts = raw.split('|');
-            var formula = parts[0].trim();
-            var suffix  = parts.length > 1 ? parts[1].trim() : '';
-            var expr = formula.replace(/\{(\w+)\}/g, function(_, name){ return getVal(name); });
-            try{
-                var result = Function('"use strict"; return (' + expr + ')')();
-                if(isFinite(result) && !isNaN(result)){
-                    var fmt = Number.isInteger(result)
-                        ? result.toLocaleString()
-                        : result.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-                    el.textContent = fmt + (suffix ? (' ' + suffix) : '');
-                } else { el.textContent = '-'; }
-            } catch(e){ el.textContent = '-'; }
-        });
+        for (var pass=0; pass<2; pass++) {
+            document.querySelectorAll('[data-calc-formula]').forEach(function(el){
+                var raw = el.getAttribute('data-calc-formula');
+                if(!raw) return;
+                var parts = raw.split('|');
+                var formula = parts[0].trim();
+                var suffix  = parts.length > 1 ? parts[1].trim() : '';
+                var expr = formula.replace(/\{amount_total\}/g, amountTotal);
+                expr = expr.replace(/\{(\w+)\}/g, function(_, name){ return getVal(name); });
+                try{
+                    var result = Function('"use strict"; return (' + expr + ')')();
+                    if(isFinite(result) && !isNaN(result)){
+                        var fmt = Number.isInteger(result)
+                            ? result.toLocaleString()
+                            : result.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                        el.textContent = fmt + (suffix ? (' ' + suffix) : '');
+                    } else { el.textContent = '-'; }
+                } catch(e){ el.textContent = '-'; }
+            });
+        }
     }
     document.addEventListener('DOMContentLoaded', evalDetailCalc);
 })();
@@ -164,7 +172,7 @@
                                         <div class="fw-bold text-primary" id="disp_dyn_{{ f.name }}"
                                              {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
                                     {% else %}
-                                        <div>{{ f.value }}</div>
+                                        <div id="disp_dyn_{{ f.name }}">{{ f.value }}</div>
                                     {% endif %}
                                     {% if f.field_help_text %}<div class="text-muted small">{{ f.field_help_text }}</div>{% endif %}
                                 </div>
@@ -191,7 +199,7 @@
                                                 <th>日付</th>
                                                 <th>勘定科目</th>
                                                 <th>目的</th>
-                                                <th>取引先</th>
+                                                <th>支払先</th>
                                                 <th>コーポレートカード</th>
                                                 <th class="text-end">金額</th>
                                                 <th class="text-center">添付書類</th>
@@ -216,7 +224,7 @@
                                                         その他
                                                     {% endif %}
                                                 </td>
-                                                <td class="text-end fw-bold">
+                                                <td class="text-end fw-bold" data-amount="{{ detail.amount|default:0 }}">
                                                     {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
                                                 </td>
                                                 <td class="text-center">
@@ -291,7 +299,7 @@
                                             <small class="text-muted">
                                                 日付: {{ detail.date|date:"Y/m/d" }}<br>
                                                 勘定科目: {{ detail.account.account_name }}<br>
-                                                取引先: {{ detail.shiharaisaki|default:"-" }}<br>
+                                                支払先: {{ detail.shiharaisaki|default:"-" }}<br>
                                                 目的: {{ detail.purpose|truncatechars:30 }}<br>
                                                 金額: {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
                                             </small>
@@ -375,15 +383,15 @@
                         {% for act in workflow_actions %}
                         <div class="approval-timeline-item">
                             <div class="approval-timeline-dot {{ act.action_status.status_cd|status_dot_class }}">
-                                {% if act.action_status.status_cd == 'APP' or act.action_status.status_cd == 'FNS' %}
+                                {% if act.action_status.status_cd == 'APPROVED' or act.action_status.status_cd == 'FNS' %}
                                     <i class="fas fa-check"></i>
-                                {% elif act.action_status.status_cd == 'REJ' %}
+                                {% elif act.action_status.status_cd == 'REJECTED' %}
                                     <i class="fas fa-times"></i>
-                                {% elif act.action_status.status_cd == 'RET' %}
+                                {% elif act.action_status.status_cd == 'RETURNED' %}
                                     <i class="fas fa-undo"></i>
-                                {% elif act.action_status.status_cd == 'SUB' %}
+                                {% elif act.action_status.status_cd == 'INPRO' %}
                                     <i class="fas fa-paper-plane"></i>
-                                {% elif act.action_status.status_cd == 'CAN' %}
+                                {% elif act.action_status.status_cd == 'CANCEL' %}
                                     <i class="fas fa-ban"></i>
                                 {% else %}
                                     <i class="fas fa-circle"></i>
@@ -400,8 +408,8 @@
                                 </div>
                                 {% if act.comment %}
                                 <div class="mt-2 p-2 bg-light rounded small border-start border-3
-                                    {% if act.action_status.status_cd == 'RET' %}border-info
-                                    {% elif act.action_status.status_cd == 'REJ' %}border-danger
+                                    {% if act.action_status.status_cd == 'RETURNED' %}border-info
+                                    {% elif act.action_status.status_cd == 'REJECTED' %}border-danger
                                     {% else %}border-secondary{% endif %}">
                                     {{ act.comment }}
                                 </div>
@@ -523,11 +531,11 @@ document.querySelector('form').addEventListener('submit', function(e) {
     const comment = document.querySelector('textarea[name="comment"]').value;
     
     let message = '';
-    if (status === 'APP') {
+    if (status === 'APPROVED') {
         message = 'この申請を承認しますか？';
-    } else if (status === 'REJ') {
+    } else if (status === 'REJECTED') {
         message = 'この申請を却下しますか？';
-    } else if (status === 'RET') {
+    } else if (status === 'RETURNED') {
         message = 'この申請を差戻ししますか？';
     }
     

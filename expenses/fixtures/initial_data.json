@@ -2,15 +2,8 @@
   {
     "model": "expenses.m_status",
     "fields": {
-      "status_cd": "SUBMITTED",
+      "status_cd": "INPRO",
       "status_name": "申請中"
-    }
-  },
-  {
-    "model": "expenses.m_status",
-    "fields": {
-      "status_cd": "WAITING",
-      "status_name": "承認待ち"
     }
   },
   {

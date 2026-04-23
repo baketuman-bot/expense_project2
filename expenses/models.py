@@ -47,12 +47,14 @@ class M_Status(models.Model):
     status_cd = models.CharField("ステータスコード", max_length=20, primary_key=True, default='DEFAULT')
     status_name = models.CharField("ステータス名", max_length=50)
     action_name = models.CharField("アクション名", max_length=50, null=True, blank=True)
+    order_by = models.IntegerField("表示順", default=100)
 
     def __str__(self):
         return self.status_name
 
     class Meta:
         db_table = 'm_status'
+        ordering = ['order_by', 'status_cd']
 
 
 # ユーザーマスタ（AbstractUser拡張）
@@ -426,6 +428,8 @@ class T_Document(models.Model):
     # DB レベルのFK制約は設けず、アプリ側で選択肢/バリデーションにより整合性を担保する。
     tsuka_cd = models.CharField("通貨コード", max_length=3, db_column='tsuka_cd', null=True, blank=True)
     memo = models.TextField("メモ", null=True, blank=True)
+    # 精算方法（01:給与振込 / 02:現金 / 03:精算者以外へ支払 等）。m_item(DATA_KBN='PAY') と連動。
+    pay_kbn = models.CharField("精算方法", max_length=2, db_column='pay_kbn', null=True, blank=True)
     created_at = models.DateTimeField("作成日時", auto_now_add=True)
     updated_at = models.DateTimeField("更新日時", auto_now=True)
 

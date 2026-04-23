@@ -7,9 +7,9 @@
     <h2 class="mb-4">経費申請編集</h2>
 
     {% if latest_return_action %}
-    <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJ' %}danger{% else %}info{% endif %} border-start border-4 border-{% if latest_return_action.action_status.status_cd == 'REJ' %}danger{% else %}info{% endif %}">
+    <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %} border-start border-4 border-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %}">
         <div class="d-flex align-items-center mb-1">
-            <i class="fas fa-{% if latest_return_action.action_status.status_cd == 'REJ' %}times-circle{% else %}undo{% endif %} me-2"></i>
+            <i class="fas fa-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}times-circle{% else %}undo{% endif %} me-2"></i>
             <strong>{{ latest_return_action.action_status.action_name|default:latest_return_action.action_status.status_name }}</strong>
             <small class="text-muted ms-2">（{{ latest_return_action.approver_man_number.user_name }} / {{ latest_return_action.actioned_at|date:"Y/m/d H:i" }}）</small>
         </div>
@@ -319,21 +319,30 @@
                         <div class="alert alert-info py-2 mb-3">この文書種別の追加項目</div>
                     </div>
                     {% for f in dynamic_fields %}
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label" for="id_dyn_{{ f.name }}">{{ f.label }}</label>
+                        {% if f.row_break %}</div><div class="row mb-1">{% endif %}
+                        <div class="col-md-{{ f.col_width }} mb-3">
+                            <label class="form-label{% if f.required %} fw-semibold{% endif %}" for="id_dyn_{{ f.name }}">
+                                {{ f.label }}{% if f.required %}<span class="text-danger ms-1">*</span>{% endif %}
+                            </label>
                             {% if f.type == 'select' %}
-                                <select class="form-select" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}">
+                                <select class="form-select" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}"{% if f.required %} required{% endif %}>
                                     <option value="">選択してください</option>
                                     {% for opt in f.options %}
-                                        <option value="{{ opt.key }}" {% if f.value == opt.key %}selected{% endif %}>{{ opt.key }} - {{ opt.content }}</option>
+                                        <option value="{{ opt.key }}" {% if f.value == opt.key %}selected{% endif %}>{{ opt.content }}</option>
                                     {% endfor %}
                                 </select>
                             {% elif f.type == 'number' %}
-                                <input type="number" step="any" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}">
+                                <input type="number" step="any" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
                             {% elif f.type == 'date' %}
-                                <input type="date" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}">
+                                <input type="date" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}>
+                            {% elif f.type == 'label' %}
+                                <div class="form-control bg-light fw-bold text-primary" id="id_dyn_{{ f.name }}"
+                                     {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
                             {% else %}
-                                <input type="text" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}">
+                                <input type="text" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
+                            {% endif %}
+                            {% if f.field_help_text %}
+                                <div class="form-text text-muted small">{{ f.field_help_text }}</div>
                             {% endif %}
                         </div>
                     {% endfor %}
@@ -386,7 +395,7 @@
                                 <option value="">選択してください</option>
                                 {% if pay_items %}
                                     {% for item in pay_items %}
-                                        {% with selected_pay=request.POST.pay_kbn|default:'01' %}
+                                        {% with selected_pay=request.POST.pay_kbn|default:expense.pay_kbn|default:'01' %}
                                         <option value="{{ item.key }}" {% if selected_pay == item.key %}selected{% endif %}>{{ item.content }}</option>
                                         {% endwith %}
                                     {% endfor %}
@@ -469,8 +478,41 @@
             <a href="{% url 'expenses:expense_detail' expense.expense_main_id %}" class="btn btn-secondary me-2">キャンセル</a>
             <button type="submit" name="action" value="save" class="btn btn-outline-primary me-2">下書きを保存</button>
             <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn">申請する</button>
+            {% if expense.status_cd.status_cd == 'DRAFT' %}
+            <button type="button" class="btn btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">
+                <i class="fas fa-trash-alt me-1"></i>下書きを削除
+            </button>
+            {% endif %}
         </div>
     </form>
+
+    {% if expense.status_cd.status_cd == 'DRAFT' %}
+    <!-- 下書き削除確認モーダル -->
+    <div class="modal fade" id="deleteDraftModal" tabindex="-1" aria-labelledby="deleteDraftModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteDraftModalLabel">
+                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>下書きを削除
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>この下書きを削除します。削除したデータは復元できません。よろしいですか？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form method="post" action="{% url 'expenses:expense_delete' expense.expense_main_id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-1"></i>削除する
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <div id="autosave-bar">下書きを自動保存しました</div>
@@ -819,63 +861,29 @@ window.addEventListener('load', function() {
     });
 });
 
-// 編集画面の削除ボタンバインド（新規追加と既存双方に対応）
-function bindRemoveButtons(context) {
-    const root = context || document;
-    const buttons = root.querySelectorAll('[data-remove-detail]');
-    const detailsContainer = document.getElementById('expense-details');
-    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
-    if (!detailsContainer || !totalForms) return;
-
-    const reindex = () => {
-        const forms = detailsContainer.querySelectorAll('.expense-detail-form');
-        forms.forEach((formEl, idx) => {
-            const nodes = formEl.querySelectorAll('input, select, textarea, label');
-            nodes.forEach(node => {
-                if (node.id) node.id = node.id.replace(/form-\d+-/, `form-${idx}-`);
-                if (node.name) node.name = node.name.replace(/form-\d+-/, `form-${idx}-`);
-                if (node.htmlFor) node.htmlFor = node.htmlFor.replace(/form-\d+-/, `form-${idx}-`);
-            });
-        });
-        formCount = forms.length;
-        totalForms.value = String(formCount);
-    };
-
-    buttons.forEach(btn => {
-        if (btn._boundRemove) return;
-        btn._boundRemove = true;
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const forms = detailsContainer.querySelectorAll('.expense-detail-form');
-            if (forms.length <= 1) {
-                window.alert('少なくとも1件の明細が必要です。');
-                return;
-            }
-            const wrapper = this.closest('.expense-detail-form');
-            if (!wrapper) return;
-            const idInput = wrapper.querySelector('input[type="hidden"][name$="-id"]');
-            if (idInput && idInput.value) {
-                const del = document.createElement('input');
-                del.type = 'hidden';
-                del.name = 'delete_details';
-                del.value = idInput.value;
-                wrapper.appendChild(del);
-                wrapper.style.display = 'none';
-            } else {
-                wrapper.remove();
-                reindex();
-            }
-        });
-    });
-}
-
 // 明細削除ボタンのバインドと再インデックス処理（編集画面）
+// 既存行はDOMから完全に削除し、削除IDは form タグ直下に保持する hidden input で送信する。
+// 残った行は form-{i}-... を 0 から振り直してフォームセットの一貫性を保つ。
 function bindRemoveButtons(context) {
     const root = context || document;
     const buttons = root.querySelectorAll('[data-remove-detail]');
     const detailsContainer = document.getElementById('expense-details');
     const totalForms = document.getElementById('id_form-TOTAL_FORMS');
     if (!detailsContainer || !totalForms) return;
+
+    // 削除IDを保持する隠しコンテナ（form 要素の直下に配置）
+    function getDeleteContainer() {
+        let box = document.getElementById('deleted-details-container');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'deleted-details-container';
+            box.style.display = 'none';
+            const formEl = detailsContainer.closest('form') || document.querySelector('form');
+            if (formEl) formEl.appendChild(box);
+            else detailsContainer.parentNode.appendChild(box);
+        }
+        return box;
+    }
 
     const reindex = () => {
         const forms = detailsContainer.querySelectorAll('.expense-detail-form');
@@ -903,21 +911,20 @@ function bindRemoveButtons(context) {
             }
             const wrapper = this.closest('.expense-detail-form');
             if (!wrapper) return;
-            // 既存行なら hidden で削除IDを送る
+            if (!window.confirm('この明細を削除します。よろしいですか？')) return;
+            // 既存行なら delete_details に ID を登録
             const idInput = wrapper.querySelector('input[type="hidden"][name$="-id"]');
             if (idInput && idInput.value) {
+                const box = getDeleteContainer();
                 const del = document.createElement('input');
                 del.type = 'hidden';
                 del.name = 'delete_details';
                 del.value = idInput.value;
-                wrapper.appendChild(del);
-                // UIからは隠し、送信はされるようにする
-                wrapper.style.display = 'none';
-            } else {
-                // 新規行はDOMから削除
-                wrapper.remove();
-                reindex();
+                box.appendChild(del);
             }
+            // DOM から行を削除し、残り行を 0 から振り直す
+            wrapper.remove();
+            reindex();
         });
     });
 }
@@ -1098,6 +1105,78 @@ document.addEventListener('change', function(e) {
     }
 });
 // ======= 入力バリデーション エンド =======
+
+// ======= label型 calc_formula 汎用計算エンジン =======
+// 書式: {field_name}+{field_name}|単位  ※|以降は表示サフィックス(省略可)
+// 特殊変数: {amount_total} = 明細金額の合計
+(function() {
+    function evalCalcFormulas() {
+        // 明細金額を合計
+        var amountTotal = 0;
+        document.querySelectorAll('input[name$="-amount"]').forEach(function(inp) {
+            var v = parseFloat(inp.value);
+            if (!isNaN(v)) amountTotal += v;
+        });
+
+        document.querySelectorAll('[data-calc-formula]').forEach(function(el) {
+            var raw = el.getAttribute('data-calc-formula');
+            if (!raw) return;
+
+            // サフィックス分離: "式|単位"
+            var parts   = raw.split('|');
+            var formula = parts[0].trim();
+            var suffix  = parts.length > 1 ? parts[1].trim() : '';
+
+            // {amount_total} を置換
+            var expr = formula.replace(/\{amount_total\}/g, amountTotal);
+
+            // {field_name} を対応要素の値に置換
+            expr = expr.replace(/\{(\w+)\}/g, function(_, name) {
+                var fe = document.getElementById('id_dyn_' + name);
+                if (!fe) return '0';
+                var rawV = (fe.tagName === 'INPUT' || fe.tagName === 'SELECT')
+                    ? fe.value
+                    : (fe.textContent || '');
+                var numStr = rawV.replace(/[,\s]/g, '').match(/^-?[\d.]+/);
+                var v = numStr ? parseFloat(numStr[0]) : NaN;
+                return isNaN(v) ? '0' : String(v);
+            });
+
+            try {
+                var result = Function('"use strict"; return (' + expr + ')')();
+                if (isFinite(result) && !isNaN(result)) {
+                    var formatted = Number.isInteger(result)
+                        ? result.toLocaleString()
+                        : result.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    el.textContent = formatted + (suffix ? (' ' + suffix) : '');
+                } else {
+                    el.textContent = '-';
+                }
+            } catch(e) {
+                el.textContent = '-';
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!document.querySelector('[data-calc-formula]')) return;
+        document.body.addEventListener('input', function(e) {
+            if (e.target && e.target.id && e.target.id.startsWith('id_dyn_')) {
+                evalCalcFormulas();
+            }
+        });
+        var detailsEl = document.getElementById('expense-details');
+        if (detailsEl) {
+            detailsEl.addEventListener('input', function(e) {
+                if (e.target && e.target.name && e.target.name.endsWith('-amount')) {
+                    evalCalcFormulas();
+                }
+            });
+        }
+        evalCalcFormulas();
+    });
+})();
+// ======= calc_formula 計算エンジン エンド =======
 
 // ======= 下書き自動保存（localStorage） =======
 (function(){

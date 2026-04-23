@@ -5,10 +5,11 @@ from django.conf import settings
 from .models import (
     M_User, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
-    V_Group, M_BelongTo
+    V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
+    T_DocumentAttachment
 )
 from .forms import ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm, TravelDetailFormSet, TravelDetailEditFormSet
-from .utils import send_notification, steps_with_candidates
+from .utils import send_notification, steps_with_candidates, get_pending_approvers
 from django.utils import timezone
 import uuid
 from django.db import transaction
@@ -24,6 +25,30 @@ import io
 def _is_travel_doc_type(doc_type):
     """DocType=5（出張旅費精算）か判定する。"""
     return bool(doc_type and getattr(doc_type, 'document_type_id', None) == 5)
+
+
+def _apply_created_at_date_range(qs, date_from, date_to):
+    """created_at に対する日付範囲フィルタを、MySQL の timezone テーブル有無に依存しない形で適用する。
+
+    Django の __date ルックアップは CONVERT_TZ() を使うため、mysql.time_zone_name が未ロードだと
+    常に NULL を返し 0 件となる。ここでは datetime 範囲に変換して比較する。
+    """
+    from datetime import datetime, time, timedelta
+    if date_from:
+        try:
+            d = datetime.strptime(date_from, "%Y-%m-%d").date()
+            start_dt = timezone.make_aware(datetime.combine(d, time.min))
+            qs = qs.filter(created_at__gte=start_dt)
+        except (ValueError, TypeError):
+            pass
+    if date_to:
+        try:
+            d = datetime.strptime(date_to, "%Y-%m-%d").date()
+            end_dt = timezone.make_aware(datetime.combine(d + timedelta(days=1), time.min))
+            qs = qs.filter(created_at__lt=end_dt)
+        except (ValueError, TypeError):
+            pass
+    return qs
 
 
 def _build_dynamic_fields_display(expense):
@@ -216,20 +241,20 @@ def home(request):
     ).values_list('document_id', flat=True)
     pending_approvals = T_Document.objects.filter(
         document_id__in=approver_doc_ids,
-        status_cd__status_cd='SUB',
+        status_cd__status_cd='INPRO',
     ).order_by('created_at')[:5]
 
     # 申請中一覧（自分の申請で承認完了・下書き・取消以外）
     in_progress_expenses = T_Document.objects.filter(
         man_number=request.user,
     ).exclude(
-        status_cd__status_cd__in=['APP', 'DRA', 'CAN', 'FNS', 'REJ']
+        status_cd__status_cd__in=['APPROVED', 'DRAFT', 'CANCEL', 'FNS', 'REJECTED']
     ).order_by('-created_at')[:5]
 
     # 下書き一覧（自分の下書き）
     draft_expenses = T_Document.objects.filter(
         man_number=request.user,
-        status_cd__status_cd='DRA',
+        status_cd__status_cd='DRAFT',
     ).order_by('-created_at')[:5]
 
     context = {
@@ -253,15 +278,14 @@ def expense_list(request):
     keyword = request.GET.get('keyword', '')
 
     if status_filter:
-        qs = qs.filter(status_cd__status_cd=status_filter)
-    if date_from:
-        qs = qs.filter(created_at__date__gte=date_from)
-    if date_to:
-        qs = qs.filter(created_at__date__lte=date_to)
+        # ドロップダウンの選択値は status_name。同名の複数ステータス(例: 精算完了)をまとめて絞り込む
+        qs = qs.filter(status_cd__status_name=status_filter)
+    qs = _apply_created_at_date_range(qs, date_from, date_to)
     if keyword:
         qs = qs.filter(
             Q(title__icontains=keyword) |
             Q(contents__purpose__icontains=keyword) |
+            Q(contents__shiharaisaki__icontains=keyword) |
             Q(memo__icontains=keyword)
         ).distinct()
 
@@ -270,7 +294,14 @@ def expense_list(request):
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
-    statuses = M_Status.objects.all().order_by('status_cd')
+    # status_name 単位で重複除去し、order_by 昇順で並べる
+    from django.db.models import Min
+    statuses = (
+        M_Status.objects
+        .values('status_name')
+        .annotate(min_order=Min('order_by'))
+        .order_by('min_order', 'status_name')
+    )
 
     return render(request, "expenses/expense_list.html", {
         "expenses": page_obj,
@@ -297,14 +328,12 @@ def expense_csv(request):
 
     if status_filter:
         qs = qs.filter(status_cd__status_cd=status_filter)
-    if date_from:
-        qs = qs.filter(created_at__date__gte=date_from)
-    if date_to:
-        qs = qs.filter(created_at__date__lte=date_to)
+    qs = _apply_created_at_date_range(qs, date_from, date_to)
     if keyword:
         qs = qs.filter(
             Q(title__icontains=keyword) |
             Q(contents__purpose__icontains=keyword) |
+            Q(contents__shiharaisaki__icontains=keyword) |
             Q(memo__icontains=keyword)
         ).distinct()
 
@@ -333,10 +362,10 @@ def expense_detail(request, pk):
     
     # 取り消し処理
     if request.method == "POST" and "cancel_expense" in request.POST:
-        if expense.man_number == request.user and expense.status_cd.status_cd == "SUB":
+        if expense.man_number == request.user and expense.status_cd.status_cd == "INPRO":
             # ステータスを「取り消し」に変更
             try:
-                cancelled_status = M_Status.objects.get(status_cd="CAN")
+                cancelled_status = M_Status.objects.get(status_cd="CANCEL")
                 expense.status_cd = cancelled_status
                 expense.save()
 
@@ -359,7 +388,7 @@ def expense_detail(request, pk):
             except M_Status.DoesNotExist:
                 # 取り消しステータスが存在しない場合は作成
                 cancelled_status = M_Status.objects.create(
-                    status_cd="CAN",
+                    status_cd="CANCEL",
                     status_name="取り下げ",
                     action_name="取消し",
                 )
@@ -401,16 +430,9 @@ def expense_detail(request, pk):
     except Exception:
         workflow_actions = []
 
-    # 承認予定者を取得（未承認 = pending / draft）
-    pending_approvers = []
+    # 承認予定者を取得（未承認 = pending/draft + 未処理の keiri ステップ）
     try:
-        from .models import T_DocumentApprover
-        pending_approvers = list(
-            T_DocumentApprover.objects
-            .filter(document_id=expense, status__in=['pending', 'draft'])
-            .select_related('man_number', 'man_number__post_cd', 'step_id')
-            .order_by('step_order')
-        )
+        pending_approvers = get_pending_approvers(expense)
     except Exception:
         pending_approvers = []
 
@@ -434,8 +456,8 @@ def expense_edit(request, pk):
     expense = get_object_or_404(T_Document, pk=pk)
     
     # 権限チェック：申請者のみ編集可能
-    #   編集可能ステータス: 提出中(SUB) / 下書き(DRA) / 差戻し(RET)
-    if expense.man_number != request.user or expense.status_cd.status_cd not in ("SUB", "DRA", "RET"):
+    #   編集可能ステータス: 申請中(INPRO) / 下書き(DRAFT) / 差戻し(RETURNED)
+    if expense.man_number != request.user or expense.status_cd.status_cd not in ("INPRO", "DRAFT", "RETURNED"):
         return redirect('expenses:expense_detail', pk=pk)
     
     # エラーメッセージの初期化（未定義参照を防ぐ）
@@ -505,8 +527,10 @@ def expense_edit(request, pk):
         error_message = None  # 初期化
         _aq_edit = _get_account_queryset(getattr(expense, 'document_type', None))
         _edit_doc_type_post = getattr(expense, 'document_type', None)
+        expense_formset = None
         if _is_travel_doc_type(_edit_doc_type_post):
-            formset = TravelDetailEditFormSet(request.POST, request.FILES, queryset=expense.contents.all())
+            _travel_qs = expense.contents.filter(content__has_key='departure')
+            formset = TravelDetailEditFormSet(request.POST, request.FILES, queryset=_travel_qs, prefix='travel')
         else:
             formset = ExpenseDetailEditFormSet(request.POST, request.FILES, queryset=expense.contents.all(), account_queryset=_aq_edit)
         
@@ -528,6 +552,33 @@ def expense_edit(request, pk):
         if bumon_error_edit:
             error_message = "負担部門を選択してください。"
 
+        # 出張件名チェック（出張旅費精算・申請時のみ必須）
+        trip_title_error_edit = False
+        if not is_draft_edit and _is_travel_doc_type(_edit_doc_type_post):
+            _trip_title_val = (request.POST.get('trip_title') or '').strip()
+            if not _trip_title_val:
+                trip_title_error_edit = True
+                error_message = "出張件名を入力してください。"
+
+        # 移動経路明細：最低1行（申請時のみ）
+        travel_row_error_edit = False
+        if not is_draft_edit and _is_travel_doc_type(_edit_doc_type_post) and not trip_title_error_edit:
+            # formsetのバリデーション結果に依存せず、POSTデータを直接確認
+            _travel_valid_count = 0
+            try:
+                _total_travel = int(request.POST.get('travel-TOTAL_FORMS', 0))
+                for _i in range(_total_travel):
+                    _d   = request.POST.get(f'travel-{_i}-date', '').strip()
+                    _dep = request.POST.get(f'travel-{_i}-departure', '').strip()
+                    _arr = request.POST.get(f'travel-{_i}-arrival', '').strip()
+                    if _d and _dep and _arr:
+                        _travel_valid_count += 1
+            except Exception:
+                pass
+            if _travel_valid_count == 0:
+                travel_row_error_edit = True
+                error_message = "移動経路明細に日付・発地・着地を入力してください。"
+
         # 承認者チェック（申請時のみ必須）
         approver_missing_edit = []
         if not is_draft_edit and not bumon_error_edit:
@@ -545,7 +596,35 @@ def expense_edit(request, pk):
         if approver_missing_edit:
             error_message = f"承認ステップ {', '.join(approver_missing_edit)} の承認者を選択してください。"
 
-        if formset.is_valid() and currency_valid and not bumon_error_edit and not approver_missing_edit:
+        # 経費明細チェック（申請時のみ・出張以外）：目的・支払先・勘定科目の空白
+        detail_missing_edit = []
+        if not is_draft_edit and not _is_travel_doc_type(_edit_doc_type_post):
+            try:
+                _total_detail_e = int(request.POST.get('form-TOTAL_FORMS', 0))
+                for _i in range(_total_detail_e):
+                    _amt_e = request.POST.get(f'form-{_i}-amount', '').strip()
+                    _dt_e = request.POST.get(f'form-{_i}-date', '').strip()
+                    _purpose_e = request.POST.get(f'form-{_i}-purpose', '').strip()
+                    _shi_e = request.POST.get(f'form-{_i}-shiharaisaki', '').strip()
+                    _acc_e = request.POST.get(f'form-{_i}-account', '').strip()
+                    if not any([_amt_e, _dt_e, _purpose_e, _shi_e, _acc_e]):
+                        continue
+                    _missing_fields_e = []
+                    if not _purpose_e:
+                        _missing_fields_e.append('目的')
+                    if not _shi_e:
+                        _missing_fields_e.append('支払先')
+                    if not _acc_e:
+                        _missing_fields_e.append('勘定科目')
+                    if _missing_fields_e:
+                        detail_missing_edit.append(f"明細{_i + 1}（{ '・'.join(_missing_fields_e) }）")
+            except Exception:
+                pass
+        if detail_missing_edit:
+            error_message = f"経費明細の入力漏れがあります: { ' / '.join(detail_missing_edit) } を入力してください。"
+
+        _expense_fs_valid = expense_formset is None or expense_formset.is_valid()
+        if formset.is_valid() and _expense_fs_valid and currency_valid and not bumon_error_edit and not approver_missing_edit and not trip_title_error_edit and not travel_row_error_edit and not detail_missing_edit:
             try:
                 # 申請情報（備考・負担部門の更新）
                 memo = request.POST.get('memo')
@@ -559,6 +638,9 @@ def expense_edit(request, pk):
                         pass
                 # 通貨の更新
                 expense.tsuka_cd = tsuka_cd
+                # 精算方法の更新
+                _pay_kbn_edit = (request.POST.get('pay_kbn') or '').strip()
+                expense.pay_kbn = _pay_kbn_edit or None
                 # 稟議No（全 DocType 共通で反映）
                 try:
                     expense.ringi_no = (request.POST.get('ringi_no') or '').strip() or None
@@ -606,6 +688,14 @@ def expense_edit(request, pk):
                     dynamic_values = {}
 
                 # 2) 明細の保存（フォームセットの各行）
+                # 出張旅費の場合は勘定科目670・目的を強制セット
+                _is_travel_save = _is_travel_doc_type(getattr(expense, 'document_type', None))
+                _account_670 = None
+                if _is_travel_save:
+                    try:
+                        _account_670 = M_Account.objects.get(account_cd='670')
+                    except M_Account.DoesNotExist:
+                        pass
                 used_dynamic = False
                 for form in formset.forms:
                     if not (form.is_valid() and form.cleaned_data):
@@ -633,6 +723,12 @@ def expense_edit(request, pk):
                             used_dynamic = True
                     except Exception:
                         pass
+
+                    # 出張旅費: 勘定科目・目的を強制セット
+                    if _is_travel_save:
+                        if _account_670:
+                            detail.account = _account_670
+                        detail.purpose = '出張旅費'
 
                     detail.save()
                     # 3) 添付の追加（新規に指定されたファイル分）
@@ -679,13 +775,13 @@ def expense_edit(request, pk):
                     except Exception:
                         raise
 
-                # 提出ボタン押下時は SUB へ状態遷移し、ワークフローを生成
+                # 提出ボタン押下時は INPRO へ状態遷移し、ワークフローを生成
                 if action == 'submit':
-                    # ステータスを SUB に
+                    # ステータスを INPRO に
                     try:
-                        sub_status = M_Status.objects.get(status_cd="SUB")
+                        sub_status = M_Status.objects.get(status_cd="INPRO")
                     except M_Status.DoesNotExist:
-                        sub_status = M_Status.objects.create(status_cd="SUB", status_name="申請中", action_name="提出")
+                        sub_status = M_Status.objects.create(status_cd="INPRO", status_name="申請中", action_name="提出")
                     expense.status_cd = sub_status
                     expense.save()
 
@@ -695,10 +791,10 @@ def expense_edit(request, pk):
                         doc_type = expense.document_type
                         existing_instance = T_WorkflowInstance.objects.filter(document_id=expense).order_by('-started_at').first()
                         exists_instance = existing_instance is not None
-                        # 下書きのみ（DRA）のインスタンスは初回申請として扱う
+                        # 下書きのみ（DRAFT）のインスタンスは初回申請として扱う
                         is_draft_only_instance = exists_instance and not T_WorkflowInstance.objects.filter(
                             document_id=expense
-                        ).exclude(status__status_cd='DRA').exists()
+                        ).exclude(status__status_cd='DRAFT').exists()
                         if doc_type and doc_type.workflow_template_id and (not exists_instance or is_draft_only_instance):
                             wf = doc_type.workflow_template_id
                             steps = steps_with_candidates(request.user, wf)
@@ -710,7 +806,7 @@ def expense_edit(request, pk):
                                 except M_WorkflowStep.DoesNotExist:
                                     first_step = None
                             # ワークフロー進行中ステータスを取得/作成
-                            # インスタンス自体の状態は SUB と同義の進行とみなす（WF_INPROGRESS は使用しない）
+                            # インスタンス自体の状態は INPRO と同義の進行とみなす
                             wf_status = sub_status
                             # DRAインスタンスが既にある場合は更新、なければ新規作成
                             if is_draft_only_instance and existing_instance:
@@ -859,10 +955,31 @@ def expense_edit(request, pk):
     else:
         _aq_edit = _get_account_queryset(getattr(expense, 'document_type', None))
         _edit_doc_type_get = getattr(expense, 'document_type', None)
+        expense_formset = None
         if _is_travel_doc_type(_edit_doc_type_get):
-            formset = TravelDetailEditFormSet(queryset=expense.contents.all())
+            _travel_qs = expense.contents.filter(content__has_key='departure')
+            # 下書き等で明細が1件もない場合は空フォームを1件表示（追加ボタンの複製元）
+            if not _travel_qs.exists():
+                from django.forms import modelformset_factory as _mff
+                from .forms import TravelDetailForm as _TDF
+                from .models import T_DocumentContent as _TDC
+                _TempFS = _mff(_TDC, form=_TDF, extra=1, can_delete=False, max_num=20)
+                formset = _TempFS(queryset=_TDC.objects.none(), prefix='travel')
+            else:
+                formset = TravelDetailEditFormSet(queryset=_travel_qs, prefix='travel')
         else:
-            formset = ExpenseDetailEditFormSet(queryset=expense.contents.all(), account_queryset=_aq_edit)
+            _qs = expense.contents.all()
+            if not _qs.exists():
+                from django.forms import modelformset_factory as _mff
+                from .forms import ExpenseDetailForm as _EDF, BaseExpenseDetailFormSet as _BEFS
+                from .models import T_DocumentContent as _TDC
+                _TempFS = _mff(
+                    _TDC, form=_EDF, formset=_BEFS,
+                    extra=1, can_delete=False, min_num=0, max_num=10,
+                )
+                formset = _TempFS(queryset=_TDC.objects.none(), account_queryset=_aq_edit)
+            else:
+                formset = ExpenseDetailEditFormSet(queryset=_qs, account_queryset=_aq_edit)
         error_message = None
     
     # 申請情報のドロップダウン用データ
@@ -933,7 +1050,7 @@ def expense_edit(request, pk):
             T_WorkflowAction.objects
             .filter(
                 instance__document_id=expense,
-                action_status__status_cd__in=['RET', 'REJ'],
+                action_status__status_cd__in=['RETURNED', 'REJECTED'],
             )
             .select_related('action_status', 'approver_man_number')
             .order_by('-actioned_at')
@@ -949,6 +1066,7 @@ def expense_edit(request, pk):
     )
     return render(request, _edit_template, {
         "formset": formset,
+        "expense_formset": expense_formset,
         "expense": expense,
         "is_edit_mode": True,
         "error_message": error_message,
@@ -964,6 +1082,29 @@ def expense_edit(request, pk):
         "form_action": "",
         "submission_id": str(uuid.uuid4()),
     })
+
+@login_required
+def expense_delete(request, pk):
+    """下書き(DRA)の申請を物理削除する。申請者本人のみ、POST のみ受理。"""
+    expense = get_object_or_404(T_Document, pk=pk)
+    if expense.man_number != request.user:
+        return redirect('expenses:expense_detail', pk=pk)
+    if not (expense.status_cd and expense.status_cd.status_cd == 'DRAFT'):
+        return redirect('expenses:expense_detail', pk=pk)
+    if request.method != 'POST':
+        return redirect('expenses:expense_edit', pk=pk)
+    with transaction.atomic():
+        # PROTECT 関係の依存レコードを先に削除
+        instances = T_WorkflowInstance.objects.filter(document_id=expense)
+        T_WorkflowAction.objects.filter(instance_id__in=instances).delete()
+        instances.delete()
+        T_DocumentApprover.objects.filter(document_id=expense).delete()
+        # 添付→明細は CASCADE だが、GCS 等の外部リソース解放のため明示的に順序削除
+        T_DocumentAttachment.objects.filter(detail__document=expense).delete()
+        T_DocumentContent.objects.filter(document=expense).delete()
+        expense.delete()
+    return redirect('expenses:expense_list')
+
 
 @login_required
 def expense_create(request, document_type_id=None):
@@ -1047,8 +1188,9 @@ def expense_create(request, document_type_id=None):
 
         # ExpenseFormは不要になったため削除
         _aq = _get_account_queryset(resolved_doc_type)
+        expense_formset = None
         if _is_travel_doc_type(resolved_doc_type):
-            formset = TravelDetailFormSet(request.POST, request.FILES)
+            formset = TravelDetailFormSet(request.POST, request.FILES, prefix='travel')
         else:
             formset = ExpenseDetailFormSet(request.POST, request.FILES, account_queryset=_aq)
         print("Formset is valid:", formset.is_valid())
@@ -1081,6 +1223,33 @@ def expense_create(request, document_type_id=None):
         if bumon_required_error:
             error_message = "負担部門を選択してください。"
 
+        # 出張件名チェック（出張旅費精算・申請時のみ必須）
+        trip_title_error_create = False
+        if not is_draft and _is_travel_doc_type(resolved_doc_type):
+            _trip_title_val_c = (request.POST.get('trip_title') or '').strip()
+            if not _trip_title_val_c:
+                trip_title_error_create = True
+                error_message = "出張件名を入力してください。"
+
+        # 移動経路明細：最低1行（申請時のみ）
+        travel_row_error_create = False
+        if not is_draft and _is_travel_doc_type(resolved_doc_type) and not trip_title_error_create:
+            # formsetのバリデーション結果に依存せず、POSTデータを直接確認
+            _travel_valid_count_c = 0
+            try:
+                _total_travel_c = int(request.POST.get('travel-TOTAL_FORMS', 0))
+                for _i in range(_total_travel_c):
+                    _d   = request.POST.get(f'travel-{_i}-date', '').strip()
+                    _dep = request.POST.get(f'travel-{_i}-departure', '').strip()
+                    _arr = request.POST.get(f'travel-{_i}-arrival', '').strip()
+                    if _d and _dep and _arr:
+                        _travel_valid_count_c += 1
+            except Exception:
+                pass
+            if _travel_valid_count_c == 0:
+                travel_row_error_create = True
+                error_message = "移動経路明細に日付・発地・着地を入力してください。"
+
         # 承認者チェック（申請時のみ必須）
         approver_missing_create = []
         if not is_draft and not bumon_required_error:
@@ -1097,6 +1266,34 @@ def expense_create(request, document_type_id=None):
         if approver_missing_create:
             error_message = f"承認ステップ {', '.join(approver_missing_create)} の承認者を選択してください。"
 
+        # 経費明細チェック（申請時のみ・出張以外）：目的・支払先・勘定科目の空白
+        detail_missing_create = []
+        if not is_draft and not _is_travel_doc_type(resolved_doc_type):
+            try:
+                _total_detail_c = int(request.POST.get('form-TOTAL_FORMS', 0))
+                for _i in range(_total_detail_c):
+                    _amt_c = request.POST.get(f'form-{_i}-amount', '').strip()
+                    _dt_c = request.POST.get(f'form-{_i}-date', '').strip()
+                    _purpose_c = request.POST.get(f'form-{_i}-purpose', '').strip()
+                    _shi_c = request.POST.get(f'form-{_i}-shiharaisaki', '').strip()
+                    _acc_c = request.POST.get(f'form-{_i}-account', '').strip()
+                    # 完全に空の行はスキップ（入力意思なし）
+                    if not any([_amt_c, _dt_c, _purpose_c, _shi_c, _acc_c]):
+                        continue
+                    _missing_fields = []
+                    if not _purpose_c:
+                        _missing_fields.append('目的')
+                    if not _shi_c:
+                        _missing_fields.append('支払先')
+                    if not _acc_c:
+                        _missing_fields.append('勘定科目')
+                    if _missing_fields:
+                        detail_missing_create.append(f"明細{_i + 1}（{ '・'.join(_missing_fields) }）")
+            except Exception:
+                pass
+        if detail_missing_create:
+            error_message = f"経費明細の入力漏れがあります: { ' / '.join(detail_missing_create) } を入力してください。"
+
         # 動的フィールドの取り出し（DocType=4 のみ）
         dynamic_values = {}
         try:
@@ -1109,14 +1306,15 @@ def expense_create(request, document_type_id=None):
         except Exception:
             dynamic_values = {}
 
-        if formset.is_valid() and currency_valid and not bumon_required_error and not approver_missing_create:
+        _expense_fs_valid = expense_formset is None or expense_formset.is_valid()
+        if formset.is_valid() and _expense_fs_valid and currency_valid and not bumon_required_error and not approver_missing_create and not trip_title_error_create and not travel_row_error_create and not detail_missing_create:
             try:
                 with transaction.atomic():
                     # 文書を作成
                     expense = T_Document()
                     expense.man_number = request.user
-                    # ステータス（申請=SUB／下書き=DRA）
-                    status_code = "DRA" if is_draft else "SUB"
+                    # ステータス（申請=INPRO／下書き=DRAFT）
+                    status_code = "DRAFT" if is_draft else "INPRO"
                     try:
                         status = M_Status.objects.get(status_cd=status_code)
                     except M_Status.DoesNotExist:
@@ -1144,6 +1342,8 @@ def expense_create(request, document_type_id=None):
                             pass
                     # 通貨
                     expense.tsuka_cd = tsuka_cd
+                    # 精算方法
+                    expense.pay_kbn = (pay_kbn or '').strip() or None
                     # 稟議No（全 DocType 共通で設定）
                     try:
                         expense.ringi_no = ringi_no or None
@@ -1176,6 +1376,14 @@ def expense_create(request, document_type_id=None):
                     print("Document saved:", expense.document_id)
 
                     # 明細データを保存
+                    # 出張旅費の場合は勘定科目670・目的を強制セット
+                    _is_travel_save_c = _is_travel_doc_type(resolved_doc_type or doc_type)
+                    _account_670_c = None
+                    if _is_travel_save_c:
+                        try:
+                            _account_670_c = M_Account.objects.get(account_cd='670')
+                        except M_Account.DoesNotExist:
+                            pass
                     used_dynamic = False
                     for form in formset.forms:
                         if form.is_valid() and form.cleaned_data:
@@ -1193,6 +1401,11 @@ def expense_create(request, document_type_id=None):
                                     used_dynamic = True
                             except Exception:
                                 pass
+                            # 出張旅費: 勘定科目・目的を強制セット
+                            if _is_travel_save_c:
+                                if _account_670_c:
+                                    detail.account = _account_670_c
+                                detail.purpose = '出張旅費'
                             detail.save()
                             try:
                                 from .models import T_DocumentAttachment
@@ -1293,8 +1506,8 @@ def expense_create(request, document_type_id=None):
                                     first_step = M_WorkflowStep.objects.get(pk=steps[0]['step_id'])
                             except Exception:
                                 first_step = None
-                            # インスタンス取得/作成（DRA 状態で保持）
-                            dra_inst_status = M_Status.objects.get_or_create(status_cd="DRA", defaults={"status_name": "作成中", "action_name": "下書き"})[0]
+                            # インスタンス取得/作成（DRAFT 状態で保持）
+                            dra_inst_status = M_Status.objects.get_or_create(status_cd="DRAFT", defaults={"status_name": "作成中", "action_name": "下書き"})[0]
                             instance = T_WorkflowInstance.objects.filter(document_id=expense).order_by('-started_at').first()
                             if not instance:
                                 instance = T_WorkflowInstance.objects.create(
@@ -1304,8 +1517,8 @@ def expense_create(request, document_type_id=None):
                                     step=first_step,
                                     step_order=(steps[0]['step_order'] if steps else None),
                                 )
-                            # アクション（DRA）を記録
-                            dra_action_status = M_Status.objects.get_or_create(status_cd="DRA", defaults={"status_name": "作成中", "action_name": "下書き"})[0]
+                            # アクション（DRAFT）を記録
+                            dra_action_status = M_Status.objects.get_or_create(status_cd="DRAFT", defaults={"status_name": "作成中", "action_name": "下書き"})[0]
                             T_WorkflowAction.objects.create(
                                 instance=instance,
                                 step=instance.step,
@@ -1425,11 +1638,11 @@ def expense_create(request, document_type_id=None):
             error_message = "通貨の選択が不正です。"
     else:
         _aq = _get_account_queryset(resolved_doc_type)
+        expense_formset = None
         if _is_travel_doc_type(resolved_doc_type):
-            formset = TravelDetailFormSet(queryset=T_DocumentContent.objects.none())
+            formset = TravelDetailFormSet(queryset=T_DocumentContent.objects.none(), prefix='travel')
             if len(formset.forms) > 1:
                 formset.forms = formset.forms[:1]
-                formset.management_form.initial['TOTAL_FORMS'] = 1
         else:
             formset = ExpenseDetailFormSet(queryset=T_DocumentContent.objects.none(), account_queryset=_aq)
             # 空のフォームが1つだけ表示されるように調整
@@ -1487,6 +1700,7 @@ def expense_create(request, document_type_id=None):
     )
     return render(request, _create_template, {
         "formset": formset,
+        "expense_formset": expense_formset,
         "is_edit_mode": False,
         "expense": None,
         "error_message": error_message,
@@ -1609,6 +1823,47 @@ def expense_copy(request, pk):
     pay_items = M_Item.objects.filter(data_kbn='pay').order_by('key')
     currencies = M_Item.objects.filter(data_kbn='CUR').order_by('key')
 
+    # DocType=4: 動的フィールド定義をコピー元の値でプリセット
+    dynamic_fields_for_copy = []
+    try:
+        if doc_type and getattr(doc_type, 'document_type_id', None) == 4:
+            first_detail = source.contents.order_by('document_detail_id').first()
+            existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
+            defs = M_DocumentField.objects.filter(document_type=doc_type).order_by('field_order', 'field_name')
+            for d in defs:
+                raw_type = (d.field_type or '').strip().lower()
+                html_type = 'text'
+                options = []
+                if raw_type.startswith('select'):
+                    html_type = 'select'
+                    parts = raw_type.split(':', 1)
+                    if len(parts) == 2 and parts[1]:
+                        kbn = parts[1].strip()
+                        options = list(
+                            M_Item.objects.filter(data_kbn__iexact=kbn).order_by('key').values('key', 'content')
+                        )
+                elif raw_type in ('text', 'number', 'date'):
+                    html_type = raw_type
+                elif raw_type == 'num':
+                    html_type = 'number'
+                elif raw_type == 'label':
+                    html_type = 'label'
+                dynamic_fields_for_copy.append({
+                    'name':          d.field_name,
+                    'label':         (d.field_name_view or d.field_name),
+                    'type':          html_type,
+                    'options':       options,
+                    'value':         existing_dyn.get(d.field_name, '') if html_type != 'label' else '',
+                    'col_width':     d.col_width or 4,
+                    'row_break':     d.row_break,
+                    'required':      d.required,
+                    'placeholder':   d.placeholder or '',
+                    'field_help_text': d.field_help_text or '',
+                    'calc_formula':  d.calc_formula or '',
+                })
+    except Exception:
+        dynamic_fields_for_copy = []
+
     return render(request, "expenses/expense_form.html", {
         "formset": formset,
         "groups": groups,
@@ -1616,7 +1871,7 @@ def expense_copy(request, pk):
         "pay_items": pay_items,
         "currencies": currencies,
         "workflow_steps": workflow_steps,
-        "dynamic_fields": [],
+        "dynamic_fields": dynamic_fields_for_copy,
         "submission_id": str(uuid.uuid4()),
         "error_message": None,
         "copy_from_expense": source,
@@ -1638,7 +1893,7 @@ def approval_list(request):
         raise PermissionDenied()
 
     base_qs = T_Document.objects.filter(
-        status_cd__status_cd__in=["SUB", "APP"]
+        status_cd__status_cd__in=["INPRO", "APPROVED"]
     ).select_related('status_cd', 'document_type', 'man_number', 'bumon_cd').prefetch_related('contents')
 
     approver_docs = T_DocumentApprover.objects.filter(man_number=request.user).values_list('document_id', flat=True)
@@ -1653,11 +1908,8 @@ def approval_list(request):
     keyword = request.GET.get('keyword', '')
 
     if status_filter:
-        approvals = approvals.filter(status_cd__status_cd=status_filter)
-    if date_from:
-        approvals = approvals.filter(created_at__date__gte=date_from)
-    if date_to:
-        approvals = approvals.filter(created_at__date__lte=date_to)
+        approvals = approvals.filter(status_cd__status_name=status_filter)
+    approvals = _apply_created_at_date_range(approvals, date_from, date_to)
     if keyword:
         approvals = approvals.filter(
             Q(title__icontains=keyword) |
@@ -1670,7 +1922,14 @@ def approval_list(request):
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
-    statuses = M_Status.objects.filter(status_cd__in=['SUB', 'APP']).order_by('status_cd')
+    from django.db.models import Min
+    statuses = (
+        M_Status.objects
+        .filter(status_cd__in=['INPRO', 'APPROVED'])
+        .values('status_name')
+        .annotate(min_order=Min('order_by'))
+        .order_by('min_order', 'status_name')
+    )
 
     return render(request, "expenses/approval_list.html", {
         "approvals": page_obj,
@@ -1693,7 +1952,7 @@ def approval_csv(request):
         raise PermissionDenied()
 
     base_qs = T_Document.objects.filter(
-        status_cd__status_cd__in=["SUB", "APP"]
+        status_cd__status_cd__in=["INPRO", "APPROVED"]
     ).select_related('status_cd', 'document_type', 'man_number', 'bumon_cd').prefetch_related('contents')
 
     approver_docs = T_DocumentApprover.objects.filter(man_number=request.user).values_list('document_id', flat=True)
@@ -1708,10 +1967,7 @@ def approval_csv(request):
 
     if status_filter:
         approvals = approvals.filter(status_cd__status_cd=status_filter)
-    if date_from:
-        approvals = approvals.filter(created_at__date__gte=date_from)
-    if date_to:
-        approvals = approvals.filter(created_at__date__lte=date_to)
+    approvals = _apply_created_at_date_range(approvals, date_from, date_to)
     if keyword:
         approvals = approvals.filter(
             Q(title__icontains=keyword) |
@@ -1756,14 +2012,14 @@ def approval_detail(request, pk):
                 status = M_Status.objects.get(status_cd=status_code)
             except M_Status.DoesNotExist:
                 default_names = {
-                    "APP": "回覧中",
-                    "REJ": "却下",
-                    "RET": "差し戻し中",
+                    "APPROVED": "回覧中",
+                    "REJECTED": "却下",
+                    "RETURNED": "差し戻し中",
                 }
                 default_actions = {
-                    "APP": "承認",
-                    "REJ": "却下",
-                    "RET": "差し戻し",
+                    "APPROVED": "承認",
+                    "REJECTED": "却下",
+                    "RETURNED": "差し戻し",
                 }
                 status = M_Status.objects.create(
                     status_cd=status_code,
@@ -1788,7 +2044,7 @@ def approval_detail(request, pk):
                     )
 
                     # 2) アクションごとの遷移・完了処理・承認者記録
-                    if status.status_cd == 'APP':
+                    if status.status_cd == 'APPROVED':
                         now = timezone.now()
                         # 承認者予定のステータス更新（同一ステップ）
                         try:
@@ -1801,7 +2057,7 @@ def approval_detail(request, pk):
                             )
                             target = approver_qs.filter(man_number=request.user).first() or approver_qs.first()
                             if target:
-                                target.status = 'APP'
+                                target.status = 'APPROVED'
                                 target.approved_at = now
                                 if getattr(target.man_number, 'man_number', None) != getattr(request.user, 'man_number', None):
                                     who = f"{getattr(request.user, 'user_name', '')}({getattr(request.user, 'man_number', '')})"
@@ -1860,7 +2116,7 @@ def approval_detail(request, pk):
                                 expense.save(update_fields=['status_cd', 'updated_at'])
                         except Exception:
                             pass
-                    elif status.status_cd == 'REJ':
+                    elif status.status_cd == 'REJECTED':
                         # 却下: ワークフローを完了（REJ）し、文書の状態も REJ に
                         now = timezone.now()
                         try:
@@ -1874,7 +2130,7 @@ def approval_detail(request, pk):
                             )
                             target = approver_qs.filter(man_number=request.user).first() or approver_qs.first()
                             if target:
-                                target.status = 'REJ'
+                                target.status = 'REJECTED'
                                 target.approved_at = now
                                 if getattr(target.man_number, 'man_number', None) != getattr(request.user, 'man_number', None):
                                     who = f"{getattr(request.user, 'user_name', '')}({getattr(request.user, 'man_number', '')})"
@@ -1884,15 +2140,15 @@ def approval_detail(request, pk):
                             pass
 
                         try:
-                            instance.status = status  # REJ
+                            instance.status = status  # REJECTED
                             instance.completed_at = now
                             instance.save(update_fields=['status', 'completed_at'])
-                            expense.status_cd = status  # REJ
+                            expense.status_cd = status  # REJECTED
                             expense.updated_at = now
                             expense.save(update_fields=['status_cd', 'updated_at'])
                         except Exception:
                             pass
-                    elif status.status_cd == 'RET':
+                    elif status.status_cd == 'RETURNED':
                         # 差戻し: 一つ前のステップに戻し、状態を RET に
                         now = timezone.now()
                         try:
@@ -1906,7 +2162,7 @@ def approval_detail(request, pk):
                             )
                             target = approver_qs.filter(man_number=request.user).first() or approver_qs.first()
                             if target:
-                                target.status = 'RET'
+                                target.status = 'RETURNED'
                                 target.approved_at = now
                                 if getattr(target.man_number, 'man_number', None) != getattr(request.user, 'man_number', None):
                                     who = f"{getattr(request.user, 'user_name', '')}({getattr(request.user, 'man_number', '')})"
@@ -1925,7 +2181,7 @@ def approval_detail(request, pk):
                             if prev_step:
                                 instance.step = prev_step
                                 instance.step_order = prev_step.step_order
-                            instance.status = status  # RET（差し戻し中）
+                            instance.status = status  # RETURNED（差し戻し中）
                             instance.save(update_fields=['step', 'step_order', 'status'])
                             expense.status_cd = status
                             expense.updated_at = now
@@ -1934,10 +2190,10 @@ def approval_detail(request, pk):
                             pass
             except Exception:
                 pass
-            # 申請結果メールは FNS/REJ/RET のときに申請者へ送信（APPの中間状態では送らない）
+            # 申請結果メールは FNS/REJECTED/RETURNED のときに申請者へ送信（APPROVEDの中間状態では送らない）
             try:
                 final_code = getattr(getattr(expense, 'status_cd', None), 'status_cd', None)
-                if final_code in {'FNS', 'REJ', 'RET'}:
+                if final_code in {'FNS', 'REJECTED', 'RETURNED'}:
                     final_name = getattr(expense.status_cd, 'status_name', final_code)
                     send_notification(
                         expense.man_number.email,
@@ -1963,16 +2219,9 @@ def approval_detail(request, pk):
     except Exception:
         workflow_actions = []
 
-    # 承認予定者を取得（未承認 = pending / draft）
-    pending_approvers = []
+    # 承認予定者を取得（未承認 = pending/draft + 未処理の keiri ステップ）
     try:
-        from .models import T_DocumentApprover
-        pending_approvers = list(
-            T_DocumentApprover.objects
-            .filter(document_id=expense, status__in=['pending', 'draft'])
-            .select_related('man_number', 'man_number__post_cd', 'step_id')
-            .order_by('step_order')
-        )
+        pending_approvers = get_pending_approvers(expense)
     except Exception:
         pending_approvers = []
 

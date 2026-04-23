@@ -1,104 +1,154 @@
 {% extends "expenses/base.html" %}
 {% load static %}
+{% load form_tags %}
+
+{% block extra_head %}{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3">
-    <h2 class="mb-3">
-        {{ current_doc_type_name|default:"出張旅費精算" }}
-        {% if is_edit_mode %}<small class="text-muted fs-5"> 編集</small>{% endif %}
-    </h2>
+<div class="container">
+    <h2 class="mb-4">{{ current_doc_type_name|default:"出張旅費精算" }}{% if is_edit_mode %}<small class="text-muted fs-5"> 編集</small>{% endif %}</h2>
 
     {% if is_edit_mode and latest_return_action %}
-    <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJ' %}danger{% else %}info{% endif %} border-start border-4">
+    <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %} border-start border-4">
         <strong>{{ latest_return_action.action_status.action_name|default:latest_return_action.action_status.status_name }}</strong>
         <small class="text-muted ms-2">（{{ latest_return_action.approver_man_number.user_name }} / {{ latest_return_action.actioned_at|date:"Y/m/d H:i" }}）</small>
         {% if latest_return_action.comment %}<div>{{ latest_return_action.comment }}</div>{% endif %}
     </div>
     {% endif %}
 
-    <form id="travel-expense-form" method="post" enctype="multipart/form-data" novalidate
-          {% if form_action %}action="{{ form_action }}"{% endif %}>
+    <form id="travel-expense-form" method="post" enctype="multipart/form-data" novalidate{% if form_action %} action="{{ form_action }}"{% endif %}>
         {% csrf_token %}
-        <input type="hidden" name="submission_id" value="{{ submission_id }}">
+        <input type="hidden" name="submission_id" value="{{ submission_id }}" />
         {{ formset.management_form }}
 
         {% if error_message %}
         <div class="alert alert-danger">
             <strong>エラーがあります：</strong>
-            <p class="mb-0">{{ error_message }}</p>
+            <p>{{ error_message }}</p>
         </div>
         {% endif %}
 
         {% if formset.non_form_errors %}
         <div class="alert alert-danger">
-            <ul class="mb-0">
-                {% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}
-            </ul>
+            <ul class="mb-0">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>
         </div>
         {% endif %}
 
+        {% for formset_form in formset.forms %}
+            {% if formset_form.errors %}
+            <div class="alert alert-danger py-2 mb-2">
+                <ul class="mb-0">
+                {% for field, errors in formset_form.errors.items %}
+                    {% for error in errors %}<li>{{ forloop.parentloop.counter }}行目 {{ field }}: {{ error }}</li>{% endfor %}
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        {% endfor %}
+
         <!-- 申請情報 -->
-        <div class="card mb-3">
+        <div class="card">
             <div class="card-body">
-                <h5 class="card-title mb-3">申請情報</h5>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold" for="trip_title">出張件名 <span class="text-danger">*</span></label>
-                        <input type="text" id="trip_title" name="trip_title" class="form-control"
-                               maxlength="200"
-                               placeholder="例: 大阪出張 2026年4月"
-                               value="{% if is_edit_mode and expense %}{{ expense.title }}{% else %}{{ request.POST.trip_title }}{% endif %}"
-                               required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label fw-semibold" for="bumon_cd">負担部門 <span class="text-danger">*</span></label>
-                        <select class="form-select{% if error_message and '負担部門' in error_message %} is-invalid{% endif %}"
-                                id="bumon_cd" name="bumon_cd">
-                            <option value="">選択してください</option>
-                            {% for bumon in bumons %}
-                            <option value="{{ bumon.bumon_cd }}"
-                                {% if is_edit_mode and expense and expense.bumon_cd and expense.bumon_cd.bumon_cd == bumon.bumon_cd %}selected
-                                {% elif not is_edit_mode and request.POST.bumon_cd == bumon.bumon_cd %}selected
-                                {% elif not is_edit_mode and current_bumon_cd == bumon.bumon_cd %}selected{% endif %}>
-                                {{ bumon.bumon_name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="invalid-feedback">負担部門を選択してください。</div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="ringi_no">稟議No</label>
-                        <input type="text" id="ringi_no" name="ringi_no" class="form-control"
-                               maxlength="20" placeholder="例: W20260401"
-                               value="{% if is_edit_mode and expense %}{{ expense.ringi_no|default:'' }}{% else %}{{ request.POST.ringi_no }}{% endif %}">
+                <h3 class="card-title mb-4">申請情報</h3>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="form-group">
+                            <label for="trip_title">出張件名 <span class="text-danger">*</span></label>
+                            <input type="text" id="trip_title" name="trip_title"
+                                   class="form-control{% if error_message and '出張件名' in error_message %} is-invalid{% endif %}"
+                                   maxlength="200" placeholder="例: 大阪出張 2026年4月"
+                                   value="{% if is_edit_mode and expense %}{{ expense.title }}{% else %}{{ request.POST.trip_title }}{% endif %}"
+                                   required>
+                            <div id="trip_title_error" class="invalid-feedback {% if error_message and '出張件名' in error_message %}d-block{% endif %}">出張件名を入力してください。</div>
+                        </div>
                     </div>
                 </div>
-                <div class="row g-3 mt-1">
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="bumon_cd">負担部門</label>
+                            <select class="form-select form-select-sm{% if error_message and '負担部門' in error_message %} is-invalid{% endif %}" id="bumon_cd" name="bumon_cd">
+                                <option value="">選択してください</option>
+                                {% for bumon in bumons %}
+                                    <option value="{{ bumon.bumon_cd }}"
+                                        {% if is_edit_mode and expense and expense.bumon_cd and expense.bumon_cd.bumon_cd == bumon.bumon_cd %}selected
+                                        {% elif not is_edit_mode and request.POST.bumon_cd == bumon.bumon_cd %}selected
+                                        {% elif not is_edit_mode and current_bumon_cd == bumon.bumon_cd %}selected{% endif %}>
+                                        {{ bumon.bumon_name }} ({{ bumon.bumon_cd }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div id="bumon_cd_error" class="invalid-feedback {% if error_message and '負担部門' in error_message %}d-block{% endif %}">負担部門を選択してください。</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="tsuka_cd">通貨</label>
+                            <select class="form-select" id="tsuka_cd" name="tsuka_cd">
+                                <option value="">選択してください</option>
+                                {% if currencies %}
+                                    {% for cur in currencies %}
+                                        {% with selected_cur=request.POST.tsuka_cd|default:'' %}
+                                        <option value="{{ cur.key }}"
+                                            {% if is_edit_mode and expense and expense.tsuka_cd == cur.key %}selected
+                                            {% elif not is_edit_mode and selected_cur == cur.key %}selected
+                                            {% elif not is_edit_mode and not selected_cur and cur.key == '00' %}selected
+                                            {% endif %}>{{ cur.key }} - {{ cur.content }}</option>
+                                        {% endwith %}
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="pay_kbn">精算方法</label>
+                            <select class="form-select form-select-sm" id="pay_kbn" name="pay_kbn">
+                                <option value="">選択してください</option>
+                                {% if pay_items %}
+                                    {% if expense %}
+                                        {% with selected_pay=request.POST.pay_kbn|default:expense.pay_kbn|default:'01' %}
+                                        {% for item in pay_items %}
+                                        <option value="{{ item.key }}" {% if selected_pay == item.key %}selected{% endif %}>{{ item.content }}</option>
+                                        {% endfor %}
+                                        {% endwith %}
+                                    {% else %}
+                                        {% with selected_pay=request.POST.pay_kbn|default:'01' %}
+                                        {% for item in pay_items %}
+                                        <option value="{{ item.key }}" {% if selected_pay == item.key %}selected{% endif %}>{{ item.content }}</option>
+                                        {% endfor %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
                     <div class="col-md-12">
-                        <label class="form-label" for="memo">目的・用件</label>
-                        <textarea class="form-control" id="memo" name="memo" rows="2"
-                                  maxlength="200" placeholder="出張の目的・用件を入力してください（200文字以内）">{% if is_edit_mode and expense %}{{ expense.memo|default:'' }}{% else %}{{ request.POST.memo }}{% endif %}</textarea>
+                        <div class="form-group">
+                            <label for="memo">同行者・備考</label>
+                            <textarea class="form-control" id="memo" name="memo" rows="3" maxlength="200" placeholder="200文字以内で入力してください">{% if is_edit_mode and expense %}{{ expense.memo|default:'' }}{% else %}{{ request.POST.memo }}{% endif %}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="ringi_no">稟議No</label>
+                            <input type="text" id="ringi_no" name="ringi_no" class="form-control" maxlength="20"
+                                   value="{% if is_edit_mode and expense %}{{ expense.ringi_no|default:'' }}{% else %}{{ request.POST.ringi_no }}{% endif %}"
+                                   placeholder="例: W20251203">
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- 移動経路明細 -->
-        <div class="card mb-3">
+        <div class="card mt-4">
             <div class="card-body">
                 <h5 class="card-title mb-2">移動経路明細</h5>
-
-                {% for formset_form in formset.forms %}
-                    {% if formset_form.errors %}
-                    <div class="alert alert-danger py-2 mb-2">
-                        <ul class="mb-0">
-                        {% for field, errors in formset_form.errors.items %}
-                            {% for error in errors %}<li>{{ forloop.parentloop.counter }}行目 {{ field }}: {{ error }}</li>{% endfor %}
-                        {% endfor %}
-                        </ul>
-                    </div>
-                    {% endif %}
-                {% endfor %}
 
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-2" id="travel-table">
@@ -109,25 +159,90 @@
                                 <th style="min-width:110px">着地</th>
                                 <th style="min-width:120px">交通手段</th>
                                 <th style="min-width:90px">所要時間</th>
-                                <th style="min-width:80px">適格番号</th>
                                 <th style="min-width:95px">運賃(円)</th>
-                                <th style="width:46px"></th>
+                                <th style="width:110px"></th>
                             </tr>
                         </thead>
                         <tbody id="travel-details">
                             {% for form in formset %}
-                            <tr class="travel-detail-row">
+                            <tr class="travel-detail-row" data-row-index="{{ forloop.counter0 }}">
                                 {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
                                 <td>{{ form.date }}</td>
                                 <td>{{ form.departure }}</td>
                                 <td>{{ form.arrival }}</td>
                                 <td>{{ form.transport }}</td>
                                 <td>{{ form.duration }}</td>
-                                <td>{{ form.tekikaku_flag }}</td>
                                 <td>{{ form.amount }}</td>
                                 <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-success px-2 py-0 travel-expense-detail-btn"
+                                            data-row-index="{{ forloop.counter0 }}" title="この行の経費明細を入力">明細</button>
                                     <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0"
                                             data-remove-row title="この行を削除">×</button>
+                                </td>
+                            </tr>
+                            <tr class="travel-expense-inline" data-row-index="{{ forloop.counter0 }}" style="display:none;">
+                                <td colspan="7" class="p-0">
+                                    <div class="travel-expense-detail-panel bg-light border-start border-4 border-success px-3 py-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="fw-semibold text-success me-2"><i class="fas fa-receipt me-1"></i>経費明細</span>
+                                            <small class="text-muted">（上の移動経路と同一レコードに保存されます）</small>
+                                        </div>
+                                        {# 経費明細フィールドを非表示 hidden 化する hidden_fields (purpose/account/cloud_receipts/mobile_upload_id) #}
+                                        {{ form.cloud_receipts }}
+                                        {{ form.mobile_upload_id }}
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">支払先</label>
+                                                {{ form.shiharaisaki }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">登録番号</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">T</span>
+                                                    {{ form.tekikaku_cd }}
+                                                </div>
+                                                <div class="form-text small">登録番号がない場合は「なし」と記載</div>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">{{ form.corpo_card.label }}</label>
+                                                {{ form.corpo_card }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">{{ form.corpo_card_no.label }}</label>
+                                                {{ form.corpo_card_no }}
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-2">
+                                            <div class="col-md-12">
+                                                <label class="form-label small mb-1">領収書</label>
+                                                <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
+                                                    <div class="drop-zone__prompt">
+                                                        <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
+                                                        ここにファイルをドロップ、またはクリックして選択
+                                                    </div>
+                                                    <div class="drop-zone__hint text-muted small mt-1">対応形式: JPG/PNG/GIF/WebP/PDF</div>
+                                                    {{ form.receipt }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-2">
+                                            <div class="col-md-12">
+                                                <label class="form-label small mb-1"><i class="fas fa-mobile-alt me-1"></i>携帯からアップロード</label>
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <button type="button" class="btn btn-outline-info btn-sm mobile-qr-btn" data-form-prefix="{{ form.prefix }}">
+                                                        <i class="fas fa-qrcode me-1"></i>QRコードを表示
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-success btn-sm mobile-check-btn" data-form-prefix="{{ form.prefix }}" style="display:none;">
+                                                        <i class="fas fa-sync-alt me-1"></i>アップロード確認
+                                                    </button>
+                                                    <span class="mobile-upload-status text-muted small" data-form-prefix="{{ form.prefix }}"></span>
+                                                </div>
+                                                <div class="form-text small">QRコードをスマホで読み取り、領収書写真をアップロードしてください。</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -139,244 +254,658 @@
                     <button type="button" id="add-row-btn" class="btn btn-outline-primary btn-sm">
                         + 行を追加
                     </button>
-                    <span class="text-muted small">※ 行程に合わせて行を追加してください（最大30行）</span>
+                    <span class="text-muted small">※ 行程に合わせて行を追加してください（最大30行）<br>
+                    <i class="fas fa-info-circle me-1 text-success"></i>各行の「明細」ボタンで支払先・領収書などを入力できます</span>
                     <span class="ms-auto fw-semibold">
-                        合計金額: <span id="total-amount" class="text-primary">0</span> 円
+                        交通費合計: <span id="travel-total-amount" class="text-primary">0</span> 円
                     </span>
+                </div>
+                <div id="travel-section-error" class="text-danger small mt-2 d-none">
+                    <i class="fas fa-exclamation-circle me-1"></i>移動経路明細に日付・発地・着地を入力してください。
                 </div>
             </div>
         </div>
 
         <!-- 承認者選択 -->
         {% if workflow_steps and workflow_steps|length > 0 %}
-        <div class="card mb-3">
+        <div class="card mt-4">
             <div class="card-body">
-                <h5 class="card-title mb-3">承認者選択</h5>
+                <h3 class="card-title mb-4">承認者選択</h3>
                 {% for s in workflow_steps %}
-                <div class="mb-3">
-                    <label class="form-label">
-                        承認 {{ s.step_order }}（{{ s.approver_post_name|default:'役職未設定' }}）以上
-                    </label>
-                    {% if s.allowed_bumon_scope == 'keiri' %}
-                        <div class="form-text">経理ステップは自動で回付されます（選択不要）。</div>
-                    {% elif s.allowed_bumon_scope == 'others' %}
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-6">
-                                <label class="form-label small">所属部署を選択</label>
-                                <select class="form-select approver-group-select"
-                                        name="approver_step_{{ s.step_id }}_group"
-                                        data-step-id="{{ s.step_id }}">
-                                    <option value="">選択してください</option>
-                                    {% for g in groups %}
-                                    <option value="{{ g.group_cd }}" {% if s.selected_group_cd == g.group_cd %}selected{% endif %}>{{ g.group_name }}</option>
-                                    {% endfor %}
-                                </select>
+                    <div class="mb-3">
+                        <label class="form-label">
+                            承認 {{ s.step_order }}（{{ s.approver_post_name|default:'役職未設定' }}）以上
+                        </label>
+                        {% if s.allowed_bumon_scope == 'keiri' %}
+                            <div class="form-text">経理ステップは自動で回付されます（選択不要）。</div>
+                        {% elif s.allowed_bumon_scope == 'others' %}
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-6">
+                                    <label class="form-label small">所属部署を選択</label>
+                                    <select class="form-select approver-group-select" name="approver_step_{{ s.step_id }}_group" data-step-id="{{ s.step_id }}">
+                                        <option value="">選択してください</option>
+                                        {% for g in groups %}
+                                            <option value="{{ g.group_cd }}" {% if s.selected_group_cd == g.group_cd %}selected{% endif %}>{{ g.group_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">承認者を選択（役職条件適用）</label>
+                                    <select class="form-select approver-user-select" name="approver_step_{{ s.step_id }}" data-step-id="{{ s.step_id }}" data-selected="{{ s.selected }}" data-approver-required>
+                                        <option value="">部署を選択してください</option>
+                                    </select>
+                                    <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small">承認者を選択</label>
-                                <select class="form-select approver-user-select"
-                                        name="approver_step_{{ s.step_id }}"
-                                        data-step-id="{{ s.step_id }}"
-                                        data-selected="{{ s.selected }}"
-                                        data-approver-required>
-                                    <option value="">部署を選択してください</option>
-                                </select>
-                                <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
-                            </div>
-                        </div>
-                    {% else %}
-                        <select class="form-select" name="approver_step_{{ s.step_id }}" data-approver-required>
-                            <option value="">選択してください</option>
-                            {% for c in s.candidates %}
-                            <option value="{{ c.man_number }}" {% if s.selected == c.man_number %}selected{% endif %}>
-                                {{ c.user_name }}（{{ c.post_name }}）
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
-                        {% if not s.candidates %}
-                        <div class="text-warning small mt-1">候補者が見つかりませんでした。</div>
+                        {% else %}
+                            <select class="form-select" name="approver_step_{{ s.step_id }}" data-approver-required>
+                                <option value="">選択してください</option>
+                                {% for c in s.candidates %}
+                                    <option value="{{ c.man_number }}" {% if s.selected == c.man_number %}selected{% endif %}>
+                                        {{ c.user_name }}（{{ c.post_name }}）
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
+                            {% if not s.candidates %}
+                                <div class="text-warning small mt-1">候補者が見つかりませんでした。</div>
+                            {% endif %}
                         {% endif %}
-                    {% endif %}
-                </div>
+                    </div>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
 
-        <!-- 送信ボタン -->
-        <div class="d-flex gap-2 mb-4">
-            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn">
-                申請する
+        <div class="text-center mt-4">
+            <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
+            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2">下書き保存</button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn">申請する</button>
+            {% if is_edit_mode and expense and expense.status_cd.status_cd == 'DRAFT' %}
+            <button type="button" class="btn btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">
+                <i class="fas fa-trash-alt me-1"></i>下書きを削除
             </button>
-            <button type="submit" name="action" value="draft" class="btn btn-outline-secondary">
-                下書き保存
-            </button>
-            <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary ms-auto">
-                キャンセル
-            </a>
+            {% endif %}
         </div>
-
     </form>
+
+    {% if is_edit_mode and expense and expense.status_cd.status_cd == 'DRAFT' %}
+    <!-- 下書き削除確認モーダル -->
+    <div class="modal fade" id="deleteDraftModal" tabindex="-1" aria-labelledby="deleteDraftModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteDraftModalLabel">
+                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>下書きを削除
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>この下書きを削除します。削除したデータは復元できません。よろしいですか？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form method="post" action="{% url 'expenses:expense_delete' expense.expense_main_id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-1"></i>削除する
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
-{# ─── 空行テンプレート（JavaScript用: __prefix__ をインデックスに置換して使用） ─── #}
+<!-- 携帯アップロード QR モーダル -->
+<div class="modal fade" id="mobileQrModal" tabindex="-1" aria-labelledby="mobileQrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mobileQrModalLabel">
+                    <i class="fas fa-qrcode me-2"></i>携帯からアップロード
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="qrLoadingSpinner" class="my-3">
+                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">読み込み中...</span></div>
+                    <p class="text-muted small mt-2">QRコードを生成中...</p>
+                </div>
+                <div id="qrImageContainer" style="display:none;">
+                    <p class="text-muted small mb-2">以下のQRコードをスマホで読み取ってください</p>
+                    <img id="qrCodeImage" src="" alt="QRコード" class="img-fluid mb-3" style="max-width:260px;"/>
+                    <div class="alert alert-info py-2 small" id="qrUploadIdInfo"></div>
+                    <p class="text-muted small">アップロード後、「アップロード確認」ボタンで件数を確認してください。</p>
+                </div>
+                <div id="qrErrorMsg" class="alert alert-danger" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# 空行テンプレート（travel route 用 JavaScript） #}
 <script type="text/x-django-formset-template" id="empty-travel-row-template">
-<tr class="travel-detail-row">
+<tr class="travel-detail-row" data-row-index="__prefix__">
     {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
     <td>{{ formset.empty_form.date }}</td>
     <td>{{ formset.empty_form.departure }}</td>
     <td>{{ formset.empty_form.arrival }}</td>
     <td>{{ formset.empty_form.transport }}</td>
     <td>{{ formset.empty_form.duration }}</td>
-    <td>{{ formset.empty_form.tekikaku_flag }}</td>
     <td>{{ formset.empty_form.amount }}</td>
     <td class="text-center">
+        <button type="button" class="btn btn-sm btn-outline-success px-2 py-0 travel-expense-detail-btn"
+                data-row-index="__prefix__" title="この行の経費明細を入力">明細</button>
         <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0"
                 data-remove-row title="この行を削除">×</button>
     </td>
 </tr>
+<tr class="travel-expense-inline" data-row-index="__prefix__" style="display:none;">
+    <td colspan="7" class="p-0">
+        <div class="travel-expense-detail-panel bg-light border-start border-4 border-success px-3 py-3">
+            <div class="d-flex align-items-center mb-2">
+                <span class="fw-semibold text-success me-2"><i class="fas fa-receipt me-1"></i>経費明細</span>
+                <small class="text-muted">（上の移動経路と同一レコードに保存されます）</small>
+            </div>
+            {{ formset.empty_form.cloud_receipts }}
+            {{ formset.empty_form.mobile_upload_id }}
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">支払先</label>
+                    {{ formset.empty_form.shiharaisaki }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">登録番号</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">T</span>
+                        {{ formset.empty_form.tekikaku_cd }}
+                    </div>
+                    <div class="form-text small">登録番号がない場合は「なし」と記載</div>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">{{ formset.empty_form.corpo_card.label }}</label>
+                    {{ formset.empty_form.corpo_card }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">{{ formset.empty_form.corpo_card_no.label }}</label>
+                    {{ formset.empty_form.corpo_card_no }}
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-12">
+                    <label class="form-label small mb-1">領収書</label>
+                    <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
+                        <div class="drop-zone__prompt">
+                            <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
+                            ここにファイルをドロップ、またはクリックして選択
+                        </div>
+                        <div class="drop-zone__hint text-muted small mt-1">対応形式: JPG/PNG/GIF/WebP/PDF</div>
+                        {{ formset.empty_form.receipt }}
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-12">
+                    <label class="form-label small mb-1"><i class="fas fa-mobile-alt me-1"></i>携帯からアップロード</label>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-info btn-sm mobile-qr-btn" data-form-prefix="{{ formset.empty_form.prefix }}">
+                            <i class="fas fa-qrcode me-1"></i>QRコードを表示
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm mobile-check-btn" data-form-prefix="{{ formset.empty_form.prefix }}" style="display:none;">
+                            <i class="fas fa-sync-alt me-1"></i>アップロード確認
+                        </button>
+                        <span class="mobile-upload-status text-muted small" data-form-prefix="{{ formset.empty_form.prefix }}"></span>
+                    </div>
+                    <div class="form-text small">QRコードをスマホで読み取り、領収書写真をアップロードしてください。</div>
+                </div>
+            </div>
+        </div>
+    </td>
+</tr>
 </script>
 
-<script>
-(function () {
-    'use strict';
+<div id="autosave-bar">下書きを自動保存しました</div>
+{% endblock %}
 
+{% block extra_css %}
+<style>
+#autosave-bar {
+    position: fixed; bottom: 16px; right: 16px;
+    background: rgba(25,135,84,.9); color: #fff;
+    padding: 6px 14px; border-radius: 20px; font-size: .8rem;
+    z-index: 1050; opacity: 0; transition: opacity .5s ease; pointer-events: none;
+}
+.drop-zone {
+    position: relative; border: 3px dashed #6c757d; border-radius: .75rem;
+    padding: 18px; text-align: center; color: #495057; background-color: #f1f3f5;
+    cursor: pointer; min-height: 110px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; transition: all .15s ease-in-out;
+}
+.drop-zone:hover { border-color: #0d6efd; background-color: #e9f2ff; }
+.drop-zone.dragover { border-color: #0d6efd; background-color: #e7f1ff; color: #0d6efd; }
+.drop-zone:focus-visible { outline: none; border-color: #0d6efd; box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
+.drop-zone.selected { border-color: #198754; background-color: #eef7f1; }
+.drop-zone__prompt { font-size: .95rem; line-height: 1.4; }
+.drop-zone__thumb { margin-top: 8px; display: inline-block; max-width: 100%; font-size: .9rem; }
+.drop-zone .file-input { display: none !important; }
+.drop-zone__list { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.drop-zone__chip { background: #fff; border: 1px solid #dee2e6; border-radius: 999px; padding: 4px 10px; font-size: .85rem; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── ドロップゾーン ──────────────────────────────────────────────────────────
+function bindDropZones(context) {
+    const root = context || document;
+    root.querySelectorAll('[data-drop-zone]').forEach(function(zone) {
+        if (zone._dzBound) return;
+        zone._dzBound = true;
+        const input = zone.querySelector('input[type="file"].file-input');
+        if (!input) return;
+        const prompt = zone.querySelector('.drop-zone__prompt');
+        const listContainer = document.createElement('div');
+        listContainer.className = 'drop-zone__list';
+        zone.appendChild(listContainer);
+        const setFiles = function(files) {
+            if (!files || files.length === 0) return;
+            try {
+                if (window.DataTransfer) {
+                    const dt = new DataTransfer();
+                    Array.from(files).forEach(function(f) { dt.items.add(f); });
+                    input.files = dt.files;
+                }
+                zone.classList.add('selected');
+                if (prompt) prompt.innerHTML = '<span class="drop-zone__thumb"><i class="fas fa-paperclip me-2"></i>' + files.length + ' 件選択済み</span>';
+                listContainer.innerHTML = '';
+                Array.from(files).forEach(function(f) {
+                    const chip = document.createElement('span');
+                    chip.className = 'drop-zone__chip';
+                    chip.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
+                    listContainer.appendChild(chip);
+                });
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch(err) { console.error(err); }
+        };
+        zone.addEventListener('click', function() { input.click(); });
+        zone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+        zone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); });
+        zone.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); setFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null); });
+        input.addEventListener('change', function(e) { setFiles(e.target.files); });
+    });
+}
+
+// ── 移動経路明細の追加/削除 ────────────────────────────────────────────────
+(function() {
+    'use strict';
     const tbody        = document.getElementById('travel-details');
-    const totalFormsEl = document.getElementById('id_form-TOTAL_FORMS');
+    const totalFormsEl = document.getElementById('id_travel-TOTAL_FORMS');
     const addBtn       = document.getElementById('add-row-btn');
-    const totalAmountEl = document.getElementById('total-amount');
+    const totalAmountEl = document.getElementById('travel-total-amount');
+    if (!tbody || !totalFormsEl || !addBtn) return;
     let formCount = parseInt(totalFormsEl.value, 10) || 1;
 
-    // ── 合計金額の再計算 ──────────────────────────────────────────────────
     function updateTotal() {
         let total = 0;
-        tbody.querySelectorAll('input[name$="-amount"]').forEach(function (el) {
-            const v = parseFloat(el.value.replace(/,/g, '')) || 0;
-            total += v;
+        tbody.querySelectorAll('tr.travel-detail-row input[name$="-amount"]').forEach(function(el) {
+            total += parseFloat(el.value.replace(/,/g, '')) || 0;
         });
-        totalAmountEl.textContent = total.toLocaleString('ja-JP');
+        if (totalAmountEl) totalAmountEl.textContent = total.toLocaleString('ja-JP');
     }
 
-    // ── フォームインデックスの振り直し ────────────────────────────────────
     function renumberForms() {
         const rows = tbody.querySelectorAll('.travel-detail-row');
-        rows.forEach(function (row, i) {
-            row.querySelectorAll('[name]').forEach(function (el) {
+        rows.forEach(function(row, i) {
+            row.setAttribute('data-row-index', i);
+            row.querySelectorAll('[name]').forEach(function(el) {
                 const oldName = el.getAttribute('name');
-                el.setAttribute('name', oldName.replace(/form-\d+-/, 'form-' + i + '-'));
-                if (el.id) {
-                    el.id = el.id.replace(/id_form-\d+-/, 'id_form-' + i + '-');
-                }
+                el.setAttribute('name', oldName.replace(/travel-\d+-/, 'travel-' + i + '-'));
+                if (el.id) el.id = el.id.replace(/id_travel-\d+-/, 'id_travel-' + i + '-');
+            });
+            row.querySelectorAll('[data-row-index]').forEach(function(el) {
+                if (el !== row) el.setAttribute('data-row-index', i);
+            });
+            // ドロップゾーン内のinputのname/idも更新（data-form-prefix属性）
+            row.querySelectorAll('[data-form-prefix]').forEach(function(el) {
+                el.setAttribute('data-form-prefix', 'travel-' + i);
+            });
+        });
+        // インライン行も同様に番号振り直し
+        const inlineRows = tbody.querySelectorAll('.travel-expense-inline');
+        inlineRows.forEach(function(row, i) {
+            row.setAttribute('data-row-index', i);
+            row.querySelectorAll('[name]').forEach(function(el) {
+                const oldName = el.getAttribute('name');
+                el.setAttribute('name', oldName.replace(/travel-\d+-/, 'travel-' + i + '-'));
+                if (el.id) el.id = el.id.replace(/id_travel-\d+-/, 'id_travel-' + i + '-');
+            });
+            row.querySelectorAll('[data-form-prefix]').forEach(function(el) {
+                el.setAttribute('data-form-prefix', 'travel-' + i);
             });
         });
         formCount = rows.length;
         totalFormsEl.value = String(formCount);
     }
 
-    // ── 行追加 ───────────────────────────────────────────────────────────
-    addBtn.addEventListener('click', function () {
-        if (formCount >= 30) {
-            alert('1申請の最大行数（30行）に達しています。');
-            return;
-        }
-        const tmpl = document.getElementById('empty-travel-row-template').textContent;
+    addBtn.addEventListener('click', function() {
+        if (formCount >= 30) { alert('1申請の最大行数（30行）に達しています。'); return; }
+        const tmplEl = document.getElementById('empty-travel-row-template');
+        const tmpl = tmplEl.textContent;
         const newHtml = tmpl.replace(/__prefix__/g, String(formCount));
         tbody.insertAdjacentHTML('beforeend', newHtml);
         formCount++;
         totalFormsEl.value = String(formCount);
-        // 新しく追加された行に合計更新リスナーを付与
-        const newRow = tbody.lastElementChild;
-        newRow.querySelector('input[name$="-amount"]').addEventListener('input', updateTotal);
+        // 追加された2つの行（travel-detail-row + travel-expense-inline）に対してdropzone初期化
+        const allRows = tbody.querySelectorAll('.travel-detail-row');
+        const newRow = allRows[allRows.length - 1];
+        // 直後のtravel-expense-inlineも取得
+        const newInline = newRow.nextElementSibling;
+        if (newInline && newInline.classList.contains('travel-expense-inline')) {
+            bindDropZones(newInline);
+        }
+        const amtInput = newRow.querySelector('input[name$="-amount"]');
+        if (amtInput) amtInput.addEventListener('input', updateTotal);
         updateTotal();
     });
 
-    // ── 行削除（イベント委譲） ────────────────────────────────────────────
-    tbody.addEventListener('click', function (e) {
+    tbody.addEventListener('click', function(e) {
         const btn = e.target.closest('[data-remove-row]');
         if (!btn) return;
         const rows = tbody.querySelectorAll('.travel-detail-row');
-        if (rows.length <= 1) {
-            alert('最低1行は必要です。');
-            return;
-        }
+        if (rows.length <= 1) { alert('最低1行は必要です。'); return; }
         const row = btn.closest('.travel-detail-row');
-        // 編集時: 既存行の id を delete_details に追加してサーバ側で削除
         const hiddenId = row.querySelector('input[type="hidden"][name$="-id"]');
         if (hiddenId && hiddenId.value) {
             const inp = document.createElement('input');
-            inp.type  = 'hidden';
-            inp.name  = 'delete_details';
-            inp.value = hiddenId.value;
+            inp.type = 'hidden'; inp.name = 'delete_details'; inp.value = hiddenId.value;
             document.getElementById('travel-expense-form').appendChild(inp);
+        }
+        // インライン行も一緒に削除
+        const inlineRow = row.nextElementSibling;
+        if (inlineRow && inlineRow.classList.contains('travel-expense-inline')) {
+            inlineRow.remove();
         }
         row.remove();
         renumberForms();
         updateTotal();
     });
 
-    // ── 金額入力で合計更新（既存行） ──────────────────────────────────────
-    tbody.querySelectorAll('input[name$="-amount"]').forEach(function (el) {
+    tbody.querySelectorAll('tr.travel-detail-row input[name$="-amount"]').forEach(function(el) {
         el.addEventListener('input', updateTotal);
     });
 
-    // ── 承認者候補の動的取得（'others' スコープ用） ──────────────────────
-    function bindOthersApproverSelectors() {
-        document.querySelectorAll('.approver-group-select').forEach(function (sel) {
-            sel.addEventListener('change', function () {
-                const stepId     = this.dataset.stepId;
-                const userSelect = document.querySelector('select.approver-user-select[data-step-id="' + stepId + '"]');
-                if (!userSelect) return;
-                const groupCd = this.value;
-                if (!groupCd) {
-                    userSelect.innerHTML = '<option value="">部署を選択してください</option>';
-                    return;
-                }
-                userSelect.innerHTML = '<option value="">読込中...</option>';
-                fetch('/api/approver_candidates/?step_id=' + encodeURIComponent(stepId) + '&group_cd=' + encodeURIComponent(groupCd))
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        const pre = userSelect.dataset.selected || '';
-                        let opts = '<option value="">選択してください</option>';
-                        if (data && Array.isArray(data.members)) {
-                            data.members.forEach(function (m) {
-                                const sel2 = pre && String(pre) === String(m.man_number) ? ' selected' : '';
-                                const post = m.post_name ? '（' + m.post_name + '）' : '';
-                                opts += '<option value="' + m.man_number + '"' + sel2 + '>' + m.user_name + post + '</option>';
-                            });
-                        }
-                        userSelect.innerHTML = opts;
-                    })
-                    .catch(function () {
-                        userSelect.innerHTML = '<option value="">取得に失敗しました</option>';
-                    });
+    // 明細ボタン: 各行のインライン経費明細を表示/非表示トグル
+    tbody.addEventListener('click', function(e) {
+        const btn = e.target.closest('.travel-expense-detail-btn');
+        if (!btn) return;
+        const rowIndex = btn.getAttribute('data-row-index');
+        const inlineRow = tbody.querySelector('.travel-expense-inline[data-row-index="' + rowIndex + '"]');
+        if (!inlineRow) return;
+        const isHidden = inlineRow.style.display === 'none' || inlineRow.style.display === '';
+        inlineRow.style.display = isHidden ? '' : 'none';
+        if (isHidden) {
+            btn.classList.remove('btn-outline-success');
+            btn.classList.add('btn-success');
+            bindDropZones(inlineRow);
+            // toggleCorpoCardNoの適用
+            inlineRow.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+                toggleCorpoCardNo(sel);
             });
-            if (sel.value) sel.dispatchEvent(new Event('change'));
-        });
-    }
-    bindOthersApproverSelectors();
-
-    // ── 申請ボタンのバリデーション ────────────────────────────────────────
-    document.getElementById('submit-btn').addEventListener('click', function (e) {
-        let valid = true;
-        // 承認者選択の必須チェック
-        document.querySelectorAll('[data-approver-required]').forEach(function (sel) {
-            const errEl = sel.parentElement.querySelector('.approver-step-error');
-            if (!sel.value) {
-                valid = false;
-                if (errEl) errEl.classList.remove('d-none');
-            } else {
-                if (errEl) errEl.classList.add('d-none');
-            }
-        });
-        if (!valid) {
-            e.preventDefault();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            inlineRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-success');
         }
     });
 
-    // 初期合計計算
     updateTotal();
 }());
+
+// ── 承認者候補の動的取得 ──────────────────────────────────────────────────
+function bindOthersApproverSelectors() {
+    document.querySelectorAll('.approver-group-select').forEach(function(sel) {
+        sel.addEventListener('change', function() {
+            const stepId = this.dataset.stepId;
+            const userSelect = document.querySelector('select.approver-user-select[data-step-id="' + stepId + '"]');
+            if (!userSelect) return;
+            const groupCd = this.value;
+            if (!groupCd) { userSelect.innerHTML = '<option value="">部署を選択してください</option>'; return; }
+            userSelect.innerHTML = '<option value="">読込中...</option>';
+            fetch('/api/approver_candidates/?step_id=' + encodeURIComponent(stepId) + '&group_cd=' + encodeURIComponent(groupCd))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    const pre = userSelect.dataset.selected || '';
+                    let opts = '<option value="">選択してください</option>';
+                    if (data && Array.isArray(data.members)) {
+                        data.members.forEach(function(m) {
+                            const sel2 = pre && String(pre) === String(m.man_number) ? ' selected' : '';
+                            const post = m.post_name ? '（' + m.post_name + '）' : '';
+                            opts += '<option value="' + m.man_number + '"' + sel2 + '>' + m.user_name + post + '</option>';
+                        });
+                    }
+                    userSelect.innerHTML = opts;
+                })
+                .catch(function() { userSelect.innerHTML = '<option value="">取得に失敗しました</option>'; });
+        });
+        if (sel.value) sel.dispatchEvent(new Event('change'));
+    });
+}
+
+// ── コーポレートカード番号トグル ──────────────────────────────────────────
+function toggleCorpoCardNo(sel) {
+    // インライン行内では id が travel-N-corpo_card_no の形式
+    var noInput = sel.closest('tr, .travel-expense-detail-panel, form')
+        && sel.closest('tr, .travel-expense-detail-panel, form').querySelector('[data-corpo-card-no]');
+    if (!noInput) {
+        // fallback: id ベース
+        var noId = sel.id.replace(/-corpo_card$/, '-corpo_card_no');
+        noInput = document.getElementById(noId);
+    }
+    if (!noInput) return;
+    if (String(sel.value) === '2') { noInput.disabled = false; } else { noInput.disabled = true; noInput.value = ''; }
+}
+document.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) { toggleCorpoCardNo(sel); });
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.hasAttribute('data-corpo-card-select')) toggleCorpoCardNo(e.target);
+});
+
+// ── 送信ボタンのバリデーション ───────────────────────────────────────────
+document.getElementById('submit-btn').addEventListener('click', function(e) {
+    // 下書き保存はスキップ
+    if (this.value !== 'submit') return;
+
+    var hasError = false;
+    var firstErrors = [];
+
+    // ① 出張件名（必須）
+    var tripTitle = document.getElementById('trip_title');
+    var tripTitleErr = document.getElementById('trip_title_error');
+    if (tripTitle && !tripTitle.value.trim()) {
+        hasError = true;
+        tripTitle.classList.add('is-invalid');
+        if (tripTitleErr) tripTitleErr.classList.add('d-block');
+        firstErrors.push(tripTitle);
+    } else if (tripTitle) {
+        tripTitle.classList.remove('is-invalid');
+        if (tripTitleErr) tripTitleErr.classList.remove('d-block');
+    }
+
+    // ② 負担部門（必須）
+    var bumonSel = document.getElementById('bumon_cd');
+    var bumonErr = document.getElementById('bumon_cd_error');
+    if (!bumonSel.value) {
+        hasError = true; bumonSel.classList.add('is-invalid'); bumonErr.classList.add('d-block');
+        firstErrors.push(bumonSel);
+    } else {
+        bumonSel.classList.remove('is-invalid'); bumonErr.classList.remove('d-block');
+    }
+
+    // ③ 移動経路明細：最低1行（日付・発地・着地が入力されていること）
+    var travelRows = document.querySelectorAll('#travel-details .travel-detail-row');
+    var travelHasValidRow = false;
+    travelRows.forEach(function(row) {
+        var dateV = row.querySelector('input[name$="-date"]');
+        var depV  = row.querySelector('input[name$="-departure"]');
+        var arrV  = row.querySelector('input[name$="-arrival"]');
+        if (dateV && depV && arrV && dateV.value && depV.value.trim() && arrV.value.trim()) {
+            travelHasValidRow = true;
+        }
+    });
+    var travelErrEl = document.getElementById('travel-section-error');
+    if (!travelHasValidRow) {
+        hasError = true;
+        if (travelErrEl) travelErrEl.classList.remove('d-none');
+        var travelTable = document.getElementById('travel-table');
+        if (travelTable) firstErrors.push(travelTable);
+    } else {
+        if (travelErrEl) travelErrEl.classList.add('d-none');
+    }
+
+    // ④ 承認者（必須）
+    document.querySelectorAll('[data-approver-required]').forEach(function(sel) {
+        var container = sel.closest('.mb-3');
+        var errDiv = container ? container.querySelector('.approver-step-error') : null;
+        if (!sel.value) {
+            hasError = true; sel.classList.add('is-invalid');
+            if (errDiv) errDiv.classList.remove('d-none');
+            firstErrors.push(sel);
+        } else {
+            sel.classList.remove('is-invalid');
+            if (errDiv) errDiv.classList.add('d-none');
+        }
+    });
+
+    if (hasError) {
+        e.preventDefault();
+        if (firstErrors.length > 0 && firstErrors[0]) {
+            firstErrors[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+});
+// リアルタイムエラークリア
+document.getElementById('trip_title').addEventListener('input', function() {
+    if (this.value.trim()) {
+        this.classList.remove('is-invalid');
+        var err = document.getElementById('trip_title_error');
+        if (err) err.classList.remove('d-block');
+    }
+});
+document.getElementById('bumon_cd').addEventListener('change', function() {
+    if (this.value) { this.classList.remove('is-invalid'); document.getElementById('bumon_cd_error').classList.remove('d-block'); }
+});
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.hasAttribute('data-approver-required') && e.target.value) {
+        e.target.classList.remove('is-invalid');
+        var container = e.target.closest('.mb-3');
+        var errDiv = container ? container.querySelector('.approver-step-error') : null;
+        if (errDiv) errDiv.classList.add('d-none');
+    }
+});
+
+// ── 初期化 ───────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    bindOthersApproverSelectors();
+    bindDropZones();
+    ['dragover','drop'].forEach(function(type) {
+        window.addEventListener(type, function(e) { e.preventDefault(); });
+    });
+    // 編集モードで既存経費明細データがある行は自動展開
+    document.querySelectorAll('#travel-details .travel-expense-inline').forEach(function(inlineRow) {
+        var hasData = false;
+        var shiharaisaki = inlineRow.querySelector('input[name$="-shiharaisaki"]');
+        var tekikaku = inlineRow.querySelector('input[name$="-tekikaku_cd"]');
+        var mobileId = inlineRow.querySelector('input[name$="-mobile_upload_id"]');
+        if ((shiharaisaki && shiharaisaki.value.trim()) ||
+            (tekikaku && tekikaku.value.trim()) ||
+            (mobileId && mobileId.value.trim())) {
+            hasData = true;
+        }
+        if (hasData) {
+            inlineRow.style.display = '';
+            var rowIndex = inlineRow.getAttribute('data-row-index');
+            var detailBtn = document.querySelector('.travel-expense-detail-btn[data-row-index="' + rowIndex + '"]');
+            if (detailBtn) {
+                detailBtn.classList.remove('btn-outline-success');
+                detailBtn.classList.add('btn-success');
+            }
+            bindDropZones(inlineRow);
+            inlineRow.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+                toggleCorpoCardNo(sel);
+            });
+        }
+    });
+});
+
+// ── モバイルQRアップロード ────────────────────────────────────────────────
+(function(){
+    const qrModalEl = document.getElementById('mobileQrModal');
+    if (!qrModalEl) return;
+    let currentPrefix = null;
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.mobile-qr-btn');
+        if (!btn) return;
+        currentPrefix = btn.dataset.formPrefix;
+        const hiddenInput = document.getElementById('id_' + currentPrefix + '-mobile_upload_id');
+        const existingId = hiddenInput ? hiddenInput.value.trim() : '';
+        document.getElementById('qrLoadingSpinner').style.display = 'block';
+        document.getElementById('qrImageContainer').style.display = 'none';
+        document.getElementById('qrErrorMsg').style.display = 'none';
+        const modal = new bootstrap.Modal(qrModalEl);
+        modal.show();
+        const params = existingId ? '?upload_id=' + encodeURIComponent(existingId) : '';
+        fetch('/api/generate_mobile_qr/' + params)
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data.error) throw new Error(data.error);
+                if (hiddenInput) hiddenInput.value = data.upload_id;
+                var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + currentPrefix + '"]');
+                if (checkBtn) checkBtn.style.display = 'inline-block';
+                document.getElementById('qrLoadingSpinner').style.display = 'none';
+                document.getElementById('qrCodeImage').src = data.qr_image;
+                document.getElementById('qrUploadIdInfo').textContent = 'アップロードID: ' + data.upload_id;
+                document.getElementById('qrImageContainer').style.display = 'block';
+            })
+            .catch(function(err){
+                document.getElementById('qrLoadingSpinner').style.display = 'none';
+                var errEl = document.getElementById('qrErrorMsg');
+                errEl.textContent = err.message || 'エラーが発生しました';
+                errEl.style.display = 'block';
+            });
+    });
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.mobile-check-btn');
+        if (!btn) return;
+        const prefix = btn.dataset.formPrefix;
+        const hiddenInput = document.getElementById('id_' + prefix + '-mobile_upload_id');
+        const uploadId = hiddenInput ? hiddenInput.value.trim() : '';
+        if (!uploadId) return;
+        const statusEl = document.querySelector('.mobile-upload-status[data-form-prefix="' + prefix + '"]');
+        if (statusEl) statusEl.textContent = '確認中...';
+        btn.disabled = true;
+        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId))
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                btn.disabled = false;
+                if (data.count === 0) {
+                    if (statusEl) statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>まだアップロードされていません。</span>';
+                } else {
+                    var names = (data.items || []).map(function(i){ return i.filename; }).join(', ');
+                    if (statusEl) statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件アップロード済み: ' + names + '</span>';
+                }
+            })
+            .catch(function(err){
+                btn.disabled = false;
+                if (statusEl) statusEl.textContent = 'エラー: ' + (err.message || '不明');
+            });
+    });
+})();
 </script>
 {% endblock %}

@@ -92,7 +92,7 @@
                                 <div class="fw-bold text-primary" id="disp_dyn_{{ f.name }}"
                                      {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
                             {% else %}
-                                <div>{{ f.value }}</div>
+                                <div id="disp_dyn_{{ f.name }}">{{ f.value }}</div>
                             {% endif %}
                             {% if f.field_help_text %}<div class="text-muted small">{{ f.field_help_text }}</div>{% endif %}
                         </div>
@@ -116,7 +116,7 @@
                                         <th>日付</th>
                                         <th>金額</th>
                                         <th>目的</th>
-                                        <th>取引先</th>
+                                        <th>支払先</th>
                                         <th>勘定科目</th>
                                         <th>登録番号</th>
                                         <th>コーポレートカード</th>
@@ -127,7 +127,7 @@
                                     {% for detail in expense.details.all %}
                                     <tr>
                                         <td>{{ detail.date|date:"Y年m月d日" }}</td>
-                                        <td class="text-end">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+                                        <td class="text-end" data-amount="{{ detail.amount|default:0 }}">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
                                         <td>{{ detail.purpose }}</td>
                                         <td>{{ detail.shiharaisaki }}</td>
                                         <td>{{ detail.account.account_name }}</td>
@@ -199,15 +199,15 @@
                         {% for act in workflow_actions %}
                         <div class="approval-timeline-item">
                             <div class="approval-timeline-dot {{ act.action_status.status_cd|status_dot_class }}">
-                                {% if act.action_status.status_cd == 'APP' or act.action_status.status_cd == 'FNS' %}
+                                {% if act.action_status.status_cd == 'APPROVED' or act.action_status.status_cd == 'FNS' %}
                                     <i class="fas fa-check"></i>
-                                {% elif act.action_status.status_cd == 'REJ' %}
+                                {% elif act.action_status.status_cd == 'REJECTED' %}
                                     <i class="fas fa-times"></i>
-                                {% elif act.action_status.status_cd == 'RET' %}
+                                {% elif act.action_status.status_cd == 'RETURNED' %}
                                     <i class="fas fa-undo"></i>
-                                {% elif act.action_status.status_cd == 'SUB' %}
+                                {% elif act.action_status.status_cd == 'INPRO' %}
                                     <i class="fas fa-paper-plane"></i>
-                                {% elif act.action_status.status_cd == 'CAN' %}
+                                {% elif act.action_status.status_cd == 'CANCEL' %}
                                     <i class="fas fa-ban"></i>
                                 {% else %}
                                     <i class="fas fa-circle"></i>
@@ -224,8 +224,8 @@
                                 </div>
                                 {% if act.comment %}
                                 <div class="mt-2 p-2 bg-light rounded small border-start border-3
-                                    {% if act.action_status.status_cd == 'RET' %}border-info
-                                    {% elif act.action_status.status_cd == 'REJ' %}border-danger
+                                    {% if act.action_status.status_cd == 'RETURNED' %}border-info
+                                    {% elif act.action_status.status_cd == 'REJECTED' %}border-danger
                                     {% else %}border-secondary{% endif %}">
                                     {{ act.comment }}
                                 </div>
@@ -262,12 +262,15 @@
                 <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary me-2">
                     <i class="fas fa-list"></i> 一覧に戻る
                 </a>
-                {% if expense.status_cd.status_cd == 'DRA' and expense.applicant == request.user %}
+                {% if expense.status_cd.status_cd == 'DRAFT' and expense.applicant == request.user %}
                 <a href="{% url 'expenses:expense_edit' expense.expense_main_id %}" class="btn btn-primary me-2">
                     <i class="fas fa-edit"></i> 下書きを編集
                 </a>
+                <button type="button" class="btn btn-outline-danger me-2" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">
+                    <i class="fas fa-trash-alt"></i> 下書きを削除
+                </button>
                 {% endif %}
-                {% if expense.status_cd.status_cd == 'SUB' and expense.applicant == request.user %}
+                {% if expense.status_cd.status_cd == 'INPRO' and expense.applicant == request.user %}
                 <a href="{% url 'expenses:expense_edit' expense.expense_main_id %}" class="btn btn-warning me-2">
                     <i class="fas fa-edit"></i> 修正
                 </a>
@@ -275,15 +278,43 @@
                     <i class="fas fa-times"></i> 取り消し
                 </button>
                 {% endif %}
-                {% if expense.status_cd.status_cd == 'RET' and expense.applicant == request.user %}
+                {% if expense.status_cd.status_cd == 'RETURNED' and expense.applicant == request.user %}
                 <a href="{% url 'expenses:expense_edit' expense.expense_main_id %}" class="btn btn-warning me-2">
                     <i class="fas fa-edit"></i> 修正
                 </a>
                 {% endif %}
             </div>
 
+            <!-- 下書き削除確認モーダル -->
+            {% if expense.status_cd.status_cd == 'DRAFT' and expense.applicant == request.user %}
+            <div class="modal fade" id="deleteDraftModal" tabindex="-1" aria-labelledby="deleteDraftModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="deleteDraftModalLabel">
+                                <i class="fas fa-exclamation-triangle text-danger me-2"></i>下書きを削除
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>この下書きを削除します。削除したデータは復元できません。よろしいですか？</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                            <form method="post" action="{% url 'expenses:expense_delete' expense.expense_main_id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-trash-alt me-1"></i>削除する
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- 取り消し確認モーダル -->
-            {% if expense.status_cd.status_cd == 'SUB' and expense.applicant == request.user %}
+            {% if expense.status_cd.status_cd == 'INPRO' and expense.applicant == request.user %}
             <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
@@ -324,6 +355,12 @@
 (function(){
     // detail画面のdisp_dyn_*へのcalc_formula展開
     function evalDetailCalc(){
+        // {amount_total}: 明細金額合計 (data-amount 属性から取得)
+        var amountTotal = 0;
+        document.querySelectorAll('[data-amount]').forEach(function(el){
+            var v = parseFloat(el.getAttribute('data-amount'));
+            if (!isNaN(v)) amountTotal += v;
+        });
         // 同等: 入力値は disp_dyn_* の textContentから取得
         function getVal(name){
             var el = document.getElementById('disp_dyn_' + name);
@@ -331,23 +368,28 @@
             var raw = (el.textContent||'').replace(/[,\s]/g,'').match(/^-?[\d.]+/);
             return raw ? parseFloat(raw[0]) : 0;
         }
-        document.querySelectorAll('[data-calc-formula]').forEach(function(el){
-            var raw = el.getAttribute('data-calc-formula');
-            if(!raw) return;
-            var parts = raw.split('|');
-            var formula = parts[0].trim();
-            var suffix  = parts.length > 1 ? parts[1].trim() : '';
-            var expr = formula.replace(/\{(\w+)\}/g, function(_, name){ return getVal(name); });
-            try{
-                var result = Function('"use strict"; return (' + expr + ')')();
-                if(isFinite(result) && !isNaN(result)){
-                    var fmt = Number.isInteger(result)
-                        ? result.toLocaleString()
-                        : result.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-                    el.textContent = fmt + (suffix ? (' ' + suffix) : '');
-                } else { el.textContent = '-'; }
-            } catch(e){ el.textContent = '-'; }
-        });
+        // 計算の依存関係に合わせ、同じ計算エンジンで2回実行(前の結果が次に流入)
+        for (var pass=0; pass<2; pass++) {
+            document.querySelectorAll('[data-calc-formula]').forEach(function(el){
+                var raw = el.getAttribute('data-calc-formula');
+                if(!raw) return;
+                var parts = raw.split('|');
+                var formula = parts[0].trim();
+                var suffix  = parts.length > 1 ? parts[1].trim() : '';
+                // {amount_total} を置換
+                var expr = formula.replace(/\{amount_total\}/g, amountTotal);
+                expr = expr.replace(/\{(\w+)\}/g, function(_, name){ return getVal(name); });
+                try{
+                    var result = Function('"use strict"; return (' + expr + ')')();
+                    if(isFinite(result) && !isNaN(result)){
+                        var fmt = Number.isInteger(result)
+                            ? result.toLocaleString()
+                            : result.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                        el.textContent = fmt + (suffix ? (' ' + suffix) : '');
+                    } else { el.textContent = '-'; }
+                } catch(e){ el.textContent = '-'; }
+            });
+        }
     }
     document.addEventListener('DOMContentLoaded', evalDetailCalc);
 })();

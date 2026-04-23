@@ -1,0 +1,382 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid px-3">
+    <h2 class="mb-3">
+        {{ current_doc_type_name|default:"出張旅費精算" }}
+        {% if is_edit_mode %}<small class="text-muted fs-5"> 編集</small>{% endif %}
+    </h2>
+
+    {% if is_edit_mode and latest_return_action %}
+    <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJ' %}danger{% else %}info{% endif %} border-start border-4">
+        <strong>{{ latest_return_action.action_status.action_name|default:latest_return_action.action_status.status_name }}</strong>
+        <small class="text-muted ms-2">（{{ latest_return_action.approver_man_number.user_name }} / {{ latest_return_action.actioned_at|date:"Y/m/d H:i" }}）</small>
+        {% if latest_return_action.comment %}<div>{{ latest_return_action.comment }}</div>{% endif %}
+    </div>
+    {% endif %}
+
+    <form id="travel-expense-form" method="post" enctype="multipart/form-data" novalidate
+          {% if form_action %}action="{{ form_action }}"{% endif %}>
+        {% csrf_token %}
+        <input type="hidden" name="submission_id" value="{{ submission_id }}">
+        {{ formset.management_form }}
+
+        {% if error_message %}
+        <div class="alert alert-danger">
+            <strong>エラーがあります：</strong>
+            <p class="mb-0">{{ error_message }}</p>
+        </div>
+        {% endif %}
+
+        {% if formset.non_form_errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- 申請情報 -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title mb-3">申請情報</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="trip_title">出張件名 <span class="text-danger">*</span></label>
+                        <input type="text" id="trip_title" name="trip_title" class="form-control"
+                               maxlength="200"
+                               placeholder="例: 大阪出張 2026年4月"
+                               value="{% if is_edit_mode and expense %}{{ expense.title }}{% else %}{{ request.POST.trip_title }}{% endif %}"
+                               required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold" for="bumon_cd">負担部門 <span class="text-danger">*</span></label>
+                        <select class="form-select{% if error_message and '負担部門' in error_message %} is-invalid{% endif %}"
+                                id="bumon_cd" name="bumon_cd">
+                            <option value="">選択してください</option>
+                            {% for bumon in bumons %}
+                            <option value="{{ bumon.bumon_cd }}"
+                                {% if is_edit_mode and expense and expense.bumon_cd and expense.bumon_cd.bumon_cd == bumon.bumon_cd %}selected
+                                {% elif not is_edit_mode and request.POST.bumon_cd == bumon.bumon_cd %}selected
+                                {% elif not is_edit_mode and current_bumon_cd == bumon.bumon_cd %}selected{% endif %}>
+                                {{ bumon.bumon_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">負担部門を選択してください。</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="ringi_no">稟議No</label>
+                        <input type="text" id="ringi_no" name="ringi_no" class="form-control"
+                               maxlength="20" placeholder="例: W20260401"
+                               value="{% if is_edit_mode and expense %}{{ expense.ringi_no|default:'' }}{% else %}{{ request.POST.ringi_no }}{% endif %}">
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-12">
+                        <label class="form-label" for="memo">目的・用件</label>
+                        <textarea class="form-control" id="memo" name="memo" rows="2"
+                                  maxlength="200" placeholder="出張の目的・用件を入力してください（200文字以内）">{% if is_edit_mode and expense %}{{ expense.memo|default:'' }}{% else %}{{ request.POST.memo }}{% endif %}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 移動経路明細 -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title mb-2">移動経路明細</h5>
+
+                {% for formset_form in formset.forms %}
+                    {% if formset_form.errors %}
+                    <div class="alert alert-danger py-2 mb-2">
+                        <ul class="mb-0">
+                        {% for field, errors in formset_form.errors.items %}
+                            {% for error in errors %}<li>{{ forloop.parentloop.counter }}行目 {{ field }}: {{ error }}</li>{% endfor %}
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-2" id="travel-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="min-width:130px">日付</th>
+                                <th style="min-width:110px">発地</th>
+                                <th style="min-width:110px">着地</th>
+                                <th style="min-width:120px">交通手段</th>
+                                <th style="min-width:90px">所要時間</th>
+                                <th style="min-width:80px">適格番号</th>
+                                <th style="min-width:95px">運賃(円)</th>
+                                <th style="width:46px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="travel-details">
+                            {% for form in formset %}
+                            <tr class="travel-detail-row">
+                                {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                                <td>{{ form.date }}</td>
+                                <td>{{ form.departure }}</td>
+                                <td>{{ form.arrival }}</td>
+                                <td>{{ form.transport }}</td>
+                                <td>{{ form.duration }}</td>
+                                <td>{{ form.tekikaku_flag }}</td>
+                                <td>{{ form.amount }}</td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0"
+                                            data-remove-row title="この行を削除">×</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex align-items-center gap-3 mt-1">
+                    <button type="button" id="add-row-btn" class="btn btn-outline-primary btn-sm">
+                        + 行を追加
+                    </button>
+                    <span class="text-muted small">※ 行程に合わせて行を追加してください（最大30行）</span>
+                    <span class="ms-auto fw-semibold">
+                        合計金額: <span id="total-amount" class="text-primary">0</span> 円
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 承認者選択 -->
+        {% if workflow_steps and workflow_steps|length > 0 %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title mb-3">承認者選択</h5>
+                {% for s in workflow_steps %}
+                <div class="mb-3">
+                    <label class="form-label">
+                        承認 {{ s.step_order }}（{{ s.approver_post_name|default:'役職未設定' }}）以上
+                    </label>
+                    {% if s.allowed_bumon_scope == 'keiri' %}
+                        <div class="form-text">経理ステップは自動で回付されます（選択不要）。</div>
+                    {% elif s.allowed_bumon_scope == 'others' %}
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label small">所属部署を選択</label>
+                                <select class="form-select approver-group-select"
+                                        name="approver_step_{{ s.step_id }}_group"
+                                        data-step-id="{{ s.step_id }}">
+                                    <option value="">選択してください</option>
+                                    {% for g in groups %}
+                                    <option value="{{ g.group_cd }}" {% if s.selected_group_cd == g.group_cd %}selected{% endif %}>{{ g.group_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">承認者を選択</label>
+                                <select class="form-select approver-user-select"
+                                        name="approver_step_{{ s.step_id }}"
+                                        data-step-id="{{ s.step_id }}"
+                                        data-selected="{{ s.selected }}"
+                                        data-approver-required>
+                                    <option value="">部署を選択してください</option>
+                                </select>
+                                <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <select class="form-select" name="approver_step_{{ s.step_id }}" data-approver-required>
+                            <option value="">選択してください</option>
+                            {% for c in s.candidates %}
+                            <option value="{{ c.man_number }}" {% if s.selected == c.man_number %}selected{% endif %}>
+                                {{ c.user_name }}（{{ c.post_name }}）
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="approver-step-error text-danger small mt-1 d-none">承認者を選択してください。</div>
+                        {% if not s.candidates %}
+                        <div class="text-warning small mt-1">候補者が見つかりませんでした。</div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 送信ボタン -->
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn">
+                申請する
+            </button>
+            <button type="submit" name="action" value="draft" class="btn btn-outline-secondary">
+                下書き保存
+            </button>
+            <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary ms-auto">
+                キャンセル
+            </a>
+        </div>
+
+    </form>
+</div>
+
+{# ─── 空行テンプレート（JavaScript用: __prefix__ をインデックスに置換して使用） ─── #}
+<script type="text/x-django-formset-template" id="empty-travel-row-template">
+<tr class="travel-detail-row">
+    {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+    <td>{{ formset.empty_form.date }}</td>
+    <td>{{ formset.empty_form.departure }}</td>
+    <td>{{ formset.empty_form.arrival }}</td>
+    <td>{{ formset.empty_form.transport }}</td>
+    <td>{{ formset.empty_form.duration }}</td>
+    <td>{{ formset.empty_form.tekikaku_flag }}</td>
+    <td>{{ formset.empty_form.amount }}</td>
+    <td class="text-center">
+        <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0"
+                data-remove-row title="この行を削除">×</button>
+    </td>
+</tr>
+</script>
+
+<script>
+(function () {
+    'use strict';
+
+    const tbody        = document.getElementById('travel-details');
+    const totalFormsEl = document.getElementById('id_form-TOTAL_FORMS');
+    const addBtn       = document.getElementById('add-row-btn');
+    const totalAmountEl = document.getElementById('total-amount');
+    let formCount = parseInt(totalFormsEl.value, 10) || 1;
+
+    // ── 合計金額の再計算 ──────────────────────────────────────────────────
+    function updateTotal() {
+        let total = 0;
+        tbody.querySelectorAll('input[name$="-amount"]').forEach(function (el) {
+            const v = parseFloat(el.value.replace(/,/g, '')) || 0;
+            total += v;
+        });
+        totalAmountEl.textContent = total.toLocaleString('ja-JP');
+    }
+
+    // ── フォームインデックスの振り直し ────────────────────────────────────
+    function renumberForms() {
+        const rows = tbody.querySelectorAll('.travel-detail-row');
+        rows.forEach(function (row, i) {
+            row.querySelectorAll('[name]').forEach(function (el) {
+                const oldName = el.getAttribute('name');
+                el.setAttribute('name', oldName.replace(/form-\d+-/, 'form-' + i + '-'));
+                if (el.id) {
+                    el.id = el.id.replace(/id_form-\d+-/, 'id_form-' + i + '-');
+                }
+            });
+        });
+        formCount = rows.length;
+        totalFormsEl.value = String(formCount);
+    }
+
+    // ── 行追加 ───────────────────────────────────────────────────────────
+    addBtn.addEventListener('click', function () {
+        if (formCount >= 30) {
+            alert('1申請の最大行数（30行）に達しています。');
+            return;
+        }
+        const tmpl = document.getElementById('empty-travel-row-template').textContent;
+        const newHtml = tmpl.replace(/__prefix__/g, String(formCount));
+        tbody.insertAdjacentHTML('beforeend', newHtml);
+        formCount++;
+        totalFormsEl.value = String(formCount);
+        // 新しく追加された行に合計更新リスナーを付与
+        const newRow = tbody.lastElementChild;
+        newRow.querySelector('input[name$="-amount"]').addEventListener('input', updateTotal);
+        updateTotal();
+    });
+
+    // ── 行削除（イベント委譲） ────────────────────────────────────────────
+    tbody.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-remove-row]');
+        if (!btn) return;
+        const rows = tbody.querySelectorAll('.travel-detail-row');
+        if (rows.length <= 1) {
+            alert('最低1行は必要です。');
+            return;
+        }
+        const row = btn.closest('.travel-detail-row');
+        // 編集時: 既存行の id を delete_details に追加してサーバ側で削除
+        const hiddenId = row.querySelector('input[type="hidden"][name$="-id"]');
+        if (hiddenId && hiddenId.value) {
+            const inp = document.createElement('input');
+            inp.type  = 'hidden';
+            inp.name  = 'delete_details';
+            inp.value = hiddenId.value;
+            document.getElementById('travel-expense-form').appendChild(inp);
+        }
+        row.remove();
+        renumberForms();
+        updateTotal();
+    });
+
+    // ── 金額入力で合計更新（既存行） ──────────────────────────────────────
+    tbody.querySelectorAll('input[name$="-amount"]').forEach(function (el) {
+        el.addEventListener('input', updateTotal);
+    });
+
+    // ── 承認者候補の動的取得（'others' スコープ用） ──────────────────────
+    function bindOthersApproverSelectors() {
+        document.querySelectorAll('.approver-group-select').forEach(function (sel) {
+            sel.addEventListener('change', function () {
+                const stepId     = this.dataset.stepId;
+                const userSelect = document.querySelector('select.approver-user-select[data-step-id="' + stepId + '"]');
+                if (!userSelect) return;
+                const groupCd = this.value;
+                if (!groupCd) {
+                    userSelect.innerHTML = '<option value="">部署を選択してください</option>';
+                    return;
+                }
+                userSelect.innerHTML = '<option value="">読込中...</option>';
+                fetch('/api/approver_candidates/?step_id=' + encodeURIComponent(stepId) + '&group_cd=' + encodeURIComponent(groupCd))
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        const pre = userSelect.dataset.selected || '';
+                        let opts = '<option value="">選択してください</option>';
+                        if (data && Array.isArray(data.members)) {
+                            data.members.forEach(function (m) {
+                                const sel2 = pre && String(pre) === String(m.man_number) ? ' selected' : '';
+                                const post = m.post_name ? '（' + m.post_name + '）' : '';
+                                opts += '<option value="' + m.man_number + '"' + sel2 + '>' + m.user_name + post + '</option>';
+                            });
+                        }
+                        userSelect.innerHTML = opts;
+                    })
+                    .catch(function () {
+                        userSelect.innerHTML = '<option value="">取得に失敗しました</option>';
+                    });
+            });
+            if (sel.value) sel.dispatchEvent(new Event('change'));
+        });
+    }
+    bindOthersApproverSelectors();
+
+    // ── 申請ボタンのバリデーション ────────────────────────────────────────
+    document.getElementById('submit-btn').addEventListener('click', function (e) {
+        let valid = true;
+        // 承認者選択の必須チェック
+        document.querySelectorAll('[data-approver-required]').forEach(function (sel) {
+            const errEl = sel.parentElement.querySelector('.approver-step-error');
+            if (!sel.value) {
+                valid = false;
+                if (errEl) errEl.classList.remove('d-none');
+            } else {
+                if (errEl) errEl.classList.add('d-none');
+            }
+        });
+        if (!valid) {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+
+    // 初期合計計算
+    updateTotal();
+}());
+</script>
+{% endblock %}
