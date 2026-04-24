@@ -55,11 +55,9 @@
                     <div class="expense-detail-form card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center py-2">
                             <span class="fw-semibold small text-muted">明細 {{ forloop.counter }}</span>
-                            {% if not forloop.first %}
                             <button type="button" class="btn btn-sm btn-outline-danger" data-remove-detail>
                                 <i class="fas fa-trash-alt"></i> 削除
                             </button>
-                            {% endif %}
                         </div>
                         <div class="card-body">
                         {# 隠しフィールド（id等）を必ず送信。mobile_upload_id はQRエリアで出力するためここではスキップ #}
@@ -350,6 +348,10 @@
                                     {% endfor %}
                                 {% endif %}
                             </select>
+                            <div class="form-text small text-muted mt-1">
+                                給与振込：月末締め翌25日給与払い<br>
+                                経理受付：月初2営業日
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -552,59 +554,77 @@ function bindDropZones(context) {
     const root = context || document;
     const zones = root.querySelectorAll('[data-drop-zone]');
     zones.forEach(zone => {
+        if (zone._dropZoneBound) return;
+        zone._dropZoneBound = true;
         const input = zone.querySelector('input[type="file"].file-input');
         if (!input) return;
         const prompt = zone.querySelector('.drop-zone__prompt');
         const listContainer = document.createElement('div');
         listContainer.className = 'drop-zone__list';
         zone.appendChild(listContainer);
-        const setFiles = files => {
-            if (!files || files.length === 0) return;
-            try {
-                // 1) 可能なら DataTransfer を経由して FileList を設定
-                if (window.DataTransfer) {
-                    const dt = new DataTransfer();
-                    Array.from(files).forEach(f => dt.items.add(f));
-                    input.files = dt.files;
-                } else {
-                    // 2) Fallback: 一部ブラウザでは代入不可のため、UIのみ更新してクリック選択を促す
-                    console.warn('DataTransfer 未対応のため、ドラッグ&ドロップはプレビューのみです。ファイル選択をクリックしてください。');
-                }
-                // UI 更新
-                zone.classList.add('selected');
-                if (prompt) {
-                    prompt.innerHTML = `<span class="drop-zone__thumb"><i class=\"fas fa-paperclip me-2\"></i>${files.length} 件選択済み</span>`;
-                }
-                listContainer.innerHTML = '';
-                Array.from(files).forEach(f => {
-                    const chip = document.createElement('span');
-                    chip.className = 'drop-zone__chip';
-                    chip.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
-                    listContainer.appendChild(chip);
-                });
-                // 互換目的で change を明示発火
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-            } catch (err) {
-                console.error('ファイル設定時にエラー:', err);
-            }
+        let currentFiles = [];
+        const keyOf = f => `${f.name}|${f.size}|${f.lastModified || ''}`;
+        const applyToInput = () => {
+            if (!window.DataTransfer) return;
+            const dt = new DataTransfer();
+            currentFiles.forEach(f => dt.items.add(f));
+            input.files = dt.files;
         };
-        zone.addEventListener('click', () => input.click());
-        zone.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                input.click();
+        const render = () => {
+            if (currentFiles.length === 0) {
+                zone.classList.remove('selected');
+                if (prompt) prompt.innerHTML = '<i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択';
+                listContainer.innerHTML = '';
+                return;
             }
+            zone.classList.add('selected');
+            if (prompt) prompt.innerHTML = `<span class="drop-zone__thumb"><i class="fas fa-paperclip me-2"></i>${currentFiles.length} 件選択済み（クリックで追加）</span>`;
+            listContainer.innerHTML = '';
+            currentFiles.forEach((f, idx) => {
+                const chip = document.createElement('span');
+                chip.className = 'drop-zone__chip';
+                chip.innerHTML = `${f.name} (${Math.round(f.size/1024)} KB) <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-danger" data-remove-file-index="${idx}" aria-label="削除">×</button>`;
+                listContainer.appendChild(chip);
+            });
+        };
+        const addFiles = incoming => {
+            if (!incoming || incoming.length === 0) return;
+            const seen = new Set(currentFiles.map(keyOf));
+            Array.from(incoming).forEach(f => {
+                const k = keyOf(f);
+                if (seen.has(k)) return;
+                seen.add(k);
+                currentFiles.push(f);
+            });
+            applyToInput();
+            render();
+        };
+        listContainer.addEventListener('click', e => {
+            const btn = e.target.closest('[data-remove-file-index]');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(btn.getAttribute('data-remove-file-index'), 10);
+            if (isNaN(idx)) return;
+            currentFiles.splice(idx, 1);
+            applyToInput();
+            render();
+        });
+        zone.addEventListener('click', e => {
+            if (e.target.closest('[data-remove-file-index]')) return;
+            input.click();
+        });
+        zone.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
         });
         zone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
         zone.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); });
         zone.addEventListener('drop', e => {
-            e.preventDefault();
-            e.stopPropagation();
-            zone.classList.remove('dragover');
-            // ドロップされたファイルを割り当て
-            setFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null);
+            e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover');
+            addFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null);
         });
-        input.addEventListener('change', e => setFiles(e.target.files));
+        input.addEventListener('change', e => addFiles(e.target.files));
+        render();
     });
 }
 // 'others' 用: 部署選択に応じて承認者候補を取得
@@ -692,8 +712,8 @@ function addExpenseDetail() {
         if (element.type !== 'hidden' && element.type !== 'submit' && element.type !== 'button') {
             element.value = '';
         }
-        // 新規フォームなので、隠しIDは空にする
-        if (element.type === 'hidden' && /-id$/.test(element.name)) {
+        // 新規フォームなので、隠しPK（document_detail_id）は空にする
+        if (element.type === 'hidden' && /-document_detail_id$/.test(element.name)) {
             element.value = '';
         }
     });
@@ -725,7 +745,9 @@ function addExpenseDetail() {
     bindDropZones(newForm);
     // 追加したフォームにも削除ボタンを適用
     bindRemoveButtons(newForm);
-    
+    // 金額フィールド初期化
+    if (window.initAmountFields) window.initAmountFields(newForm);
+
     console.log('Added form, new count:', formCount);
 }
 

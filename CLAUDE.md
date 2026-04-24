@@ -18,8 +18,8 @@ expense_project2/
 ├── expense_project/       # Django project config (settings, urls, wsgi/asgi)
 ├── expenses/              # メインDjangoアプリ
 │   ├── models.py          # 全モデル定義 (~750行)
-│   ├── views.py           # ビューロジック (~2200行)
-│   ├── forms.py           # フォーム定義 (~350行)
+│   ├── views.py           # ビューロジック (~2400行)
+│   ├── forms.py           # フォーム定義 (~500行)
 │   ├── utils.py           # ワークフロー・通知・承認者候補ユーティリティ
 │   ├── urls.py            # URLルーティング
 │   ├── admin.py           # Django Admin設定
@@ -76,6 +76,10 @@ pip install -r requirements.txt && python3 manage.py collectstatic --no-input &&
 
 - DocType=4: `M_DocumentField` でフィールド定義 (text/number/date/select/label)、計算式、レイアウト制御
 - DocType=5: `_is_travel_doc_type()` で判定、`T_DocumentContent.content` に経路情報をJSON保存
+  - 移動経路明細: `content__has_key='departure'` でフィルタ (prefix: `travel`)
+  - 宿泊費明細: `content__row_type='accommodation'` でフィルタ (prefix: `accom`)
+  - 日当明細: `content__row_type='allowance'` でフィルタ (prefix: `allow`)
+  - 日当の単価: `M_Item.data_kbn='TRA'` の `content2` フィールドを使用
 - 勘定科目は `M_AccountDocument` でDocType毎にフィルタ
 
 ### Workflow (承認フロー)
@@ -150,3 +154,29 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - Django FormSet でフォーム明細行を管理
 - JSONField (`T_DocumentContent.content`) で可変データを保存
 - テンプレート内で Bootstrap ベースのレイアウト
+
+## Forms
+
+### カスタムフィールド
+
+- `CommaDecimalField(forms.DecimalField)`: カンマ区切り入力（例: "1,234"）を受け付ける。`to_python()` でカンマをstripしてからDecimal変換。
+- 金額入力は `type="text" inputmode="numeric"` でモバイルでも数字キーボード表示（英数字切替を防ぐ）。
+- `data-amount-input` 属性付き要素はJS側でカンマリアルタイム表示し、フォームsubmit時に自動strip。
+
+### FormSet構成 (DocType=5 出張旅費精算)
+
+| FormSet | prefix | クラス | 用途 |
+|---|---|---|---|
+| ExpenseDetailFormSet / EditFormSet | `travel` | BaseExpenseDetailFormSet | 移動経路明細 |
+| AccommodationFormSet / EditFormSet | `accom` | BaseModelFormSet | 宿泊費明細 |
+| AllowanceFormSet / EditFormSet | `allow` | BaseAllowanceFormSet | 日当明細 |
+
+- `BaseAllowanceFormSet._construct_form()` で `tra_items` を各フォームに注入（`BaseExpenseDetailFormSet` の `account_queryset` と同パターン）
+- 行削除: `delete_details` hidden input に削除対象IDをカンマ区切りで送信
+
+## JavaScript
+
+- `base.html` にグローバルJS（`window.initAmountFields`, `window.bindFormSubmitStrip`）を定義
+- 新明細行追加後に `window.initAmountFields(newForm)` を呼び出してカンマ書式を初期化
+- `travel_expense_form.html` の各セクション（宿泊費・日当）はIIFEパターンで独立実装
+- 移動経路明細・宿泊費の明細パネルは `setupToggle(btnId, inlineSelector)` で一括表示/非表示制御

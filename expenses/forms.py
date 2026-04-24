@@ -3,6 +3,14 @@ from django.forms import modelformset_factory, BaseModelFormSet
 from .models import T_Document, T_DocumentContent, M_Account
 
 
+class CommaDecimalField(forms.DecimalField):
+    """カンマ区切り入力（例: "1,234"）を受け付けるDecimalField。"""
+    def to_python(self, value):
+        if value not in (None, ''):
+            value = str(value).replace(',', '')
+        return super().to_python(value)
+
+
 class MultiFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -93,11 +101,31 @@ class ExpenseDetailForm(forms.ModelForm):
             "account": "勘定科目",
             "tekikaku_cd": "登録番号",
         }
+        widgets = {
+            'amount': forms.TextInput(attrs={
+                'class': 'form-control',
+                'inputmode': 'numeric',
+                'placeholder': '0',
+                'data-amount-input': '',
+                'autocomplete': 'off',
+            }),
+        }
 
     def __init__(self, *args, account_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
         if account_queryset is not None:
             self.fields['account'].queryset = account_queryset
+        self.fields['amount'] = CommaDecimalField(
+            required=False, max_digits=10, decimal_places=2,
+            label='金額',
+            widget=forms.TextInput(attrs={
+                'class': 'form-control',
+                'inputmode': 'numeric',
+                'placeholder': '0',
+                'data-amount-input': '',
+                'autocomplete': 'off',
+            }),
+        )
 
     def clean_amount(self):
         amount = self.cleaned_data.get("amount")
@@ -296,11 +324,12 @@ class TravelDetailForm(forms.ModelForm):
             'tekikaku_cd': '登録番号',
         }
         widgets = {
-            'amount': forms.NumberInput(attrs={
+            'amount': forms.TextInput(attrs={
                 'class': 'form-control form-control-sm',
+                'inputmode': 'numeric',
                 'placeholder': '0',
-                'min': '0',
-                'step': '1',
+                'data-amount-input': '',
+                'autocomplete': 'off',
             }),
             'shiharaisaki': forms.TextInput(attrs={
                 'class': 'form-control form-control-sm',
@@ -314,7 +343,17 @@ class TravelDetailForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['amount'].required = False
+        self.fields['amount'] = CommaDecimalField(
+            required=False, max_digits=10, decimal_places=2,
+            label='運賃(円)',
+            widget=forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'inputmode': 'numeric',
+                'placeholder': '0',
+                'data-amount-input': '',
+                'autocomplete': 'off',
+            }),
+        )
         self.fields['shiharaisaki'].required = False
         self.fields['tekikaku_cd'].required = False
         self.fields['corpo_card'].required = False
@@ -373,4 +412,241 @@ TravelDetailEditFormSet = modelformset_factory(
     min_num=0,
     validate_max=True,
     max_num=30,
+)
+
+
+# ─── 宿泊費 (DocType=5) ───────────────────────────────────────────────────────
+
+class AccommodationForm(forms.ModelForm):
+    date = forms.DateField(
+        label='日付',
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control form-control-sm'}),
+    )
+    nights = forms.IntegerField(
+        label='宿泊日数',
+        required=False,
+        min_value=1,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': '1',
+            'min': '1',
+        }),
+    )
+    receipt = MultiFileField(
+        label='領収書',
+        required=False,
+        widget=MultiFileInput(attrs={
+            'multiple': True,
+            'class': 'form-control file-input d-none',
+            'accept': 'image/*,.pdf',
+        }),
+    )
+    cloud_receipts = forms.CharField(label='Cloud領収書', required=False, widget=forms.HiddenInput())
+    mobile_upload_id = forms.CharField(required=False, widget=forms.HiddenInput())
+
+    CORPO_CARD_CHOICES = [
+        ('', '選択してください'),
+        (1, 'その他'),
+        (2, 'コーポレートカード支払い'),
+    ]
+    corpo_card = forms.TypedChoiceField(
+        label='コーポレートカード支払い',
+        required=False,
+        choices=CORPO_CARD_CHOICES,
+        coerce=int,
+        empty_value=None,
+        initial=1,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm', 'data-corpo-card-select': ''}),
+    )
+    corpo_card_no = forms.CharField(
+        label='カード番号',
+        required=False,
+        max_length=10,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': 'カード番号（下4桁等）',
+            'data-corpo-card-no': '',
+        }),
+    )
+
+    class Meta:
+        model = T_DocumentContent
+        fields = ['date', 'amount', 'shiharaisaki', 'tekikaku_cd', 'corpo_card', 'corpo_card_no']
+        labels = {'amount': '金額', 'shiharaisaki': '支払先', 'tekikaku_cd': '登録番号'}
+        widgets = {
+            'shiharaisaki': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '例: ○○ホテル'}),
+            'tekikaku_cd': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '登録番号'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['amount'] = CommaDecimalField(
+            required=False, max_digits=10, decimal_places=2,
+            label='金額',
+            widget=forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'inputmode': 'numeric',
+                'placeholder': '0',
+                'data-amount-input': '',
+                'autocomplete': 'off',
+            }),
+        )
+        self.fields['shiharaisaki'].required = False
+        self.fields['tekikaku_cd'].required = False
+        if self.instance and self.instance.pk and isinstance(self.instance.content, dict):
+            c = self.instance.content
+            self.initial['nights'] = c.get('nights', '')
+
+    def clean(self):
+        cleaned = super().clean()
+        corpo_card = cleaned.get('corpo_card')
+        corpo_card_no = (cleaned.get('corpo_card_no') or '').strip()
+        if corpo_card == 2 and not corpo_card_no:
+            self.add_error('corpo_card_no', 'コーポレートカード支払いを選択した場合、カード番号を入力してください。')
+        return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.content = {
+            'row_type': 'accommodation',
+            'nights': self.cleaned_data.get('nights') or '',
+        }
+        if commit:
+            instance.save()
+        return instance
+
+
+AccommodationFormSet = modelformset_factory(
+    T_DocumentContent,
+    form=AccommodationForm,
+    extra=1,
+    can_delete=False,
+    validate_min=False,
+    min_num=0,
+    validate_max=True,
+    max_num=10,
+)
+
+AccommodationEditFormSet = modelformset_factory(
+    T_DocumentContent,
+    form=AccommodationForm,
+    extra=0,
+    can_delete=False,
+    validate_min=False,
+    min_num=0,
+    validate_max=True,
+    max_num=10,
+)
+
+
+# ─── 日当 (DocType=5) ─────────────────────────────────────────────────────────
+
+class AllowanceForm(forms.ModelForm):
+    unit_price_key = forms.ChoiceField(
+        label='単価',
+        required=False,
+        choices=[('', '-- 選択 --')],
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm', 'data-allowance-unit-price': ''}),
+    )
+    days = forms.IntegerField(
+        label='日数',
+        required=False,
+        min_value=1,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': '1',
+            'min': '1',
+            'data-allowance-days': '',
+        }),
+    )
+
+    class Meta:
+        model = T_DocumentContent
+        fields = ['amount']
+        labels = {'amount': '金額（円）'}
+        widgets = {
+            'amount': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'inputmode': 'numeric',
+                'placeholder': '自動計算',
+                'data-amount-input': '',
+                'data-allowance-amount': '',
+                'readonly': 'readonly',
+                'autocomplete': 'off',
+            }),
+        }
+
+    def __init__(self, *args, tra_items=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['amount'] = CommaDecimalField(
+            required=False, max_digits=10, decimal_places=2,
+            label='金額（円）',
+            widget=forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'inputmode': 'numeric',
+                'placeholder': '自動計算',
+                'data-amount-input': '',
+                'data-allowance-amount': '',
+                'readonly': 'readonly',
+                'autocomplete': 'off',
+            }),
+        )
+        if tra_items is not None:
+            self.fields['unit_price_key'].choices = (
+                [('', '-- 選択 --')] +
+                [(item.key, item.content2) for item in tra_items]
+            )
+        if self.instance and self.instance.pk and isinstance(self.instance.content, dict):
+            c = self.instance.content
+            self.initial.update({
+                'unit_price_key': c.get('unit_price_key', ''),
+                'days': c.get('days', ''),
+            })
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.content = {
+            'row_type': 'allowance',
+            'unit_price_key': self.cleaned_data.get('unit_price_key') or '',
+            'days': self.cleaned_data.get('days') or '',
+        }
+        if commit:
+            instance.save()
+        return instance
+
+
+class BaseAllowanceFormSet(BaseModelFormSet):
+    def __init__(self, *args, tra_items=None, **kwargs):
+        self.tra_items = tra_items
+        super().__init__(*args, **kwargs)
+
+    def _construct_form(self, i, **kwargs):
+        if self.tra_items is not None:
+            kwargs['tra_items'] = self.tra_items
+        return super()._construct_form(i, **kwargs)
+
+
+AllowanceFormSet = modelformset_factory(
+    T_DocumentContent,
+    form=AllowanceForm,
+    formset=BaseAllowanceFormSet,
+    extra=1,
+    can_delete=False,
+    validate_min=False,
+    min_num=0,
+    validate_max=True,
+    max_num=10,
+)
+
+AllowanceEditFormSet = modelformset_factory(
+    T_DocumentContent,
+    form=AllowanceForm,
+    formset=BaseAllowanceFormSet,
+    extra=0,
+    can_delete=False,
+    validate_min=False,
+    min_num=0,
+    validate_max=True,
+    max_num=10,
 )

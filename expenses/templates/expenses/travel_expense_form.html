@@ -121,6 +121,10 @@
                                     {% endif %}
                                 {% endif %}
                             </select>
+                            <div class="form-text small text-muted mt-1">
+                                給与振込：月末締め翌25日給与払い<br>
+                                経理受付：月初2営業日
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -148,7 +152,12 @@
         <!-- 移動経路明細 -->
         <div class="card mt-4">
             <div class="card-body">
-                <h5 class="card-title mb-2">移動経路明細</h5>
+                <div class="d-flex align-items-center mb-2">
+                    <h5 class="card-title mb-0 me-3">移動経路明細</h5>
+                    <button type="button" id="toggle-travel-details" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-chevron-down me-1"></i>明細を全て非表示
+                    </button>
+                </div>
 
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-2" id="travel-table">
@@ -265,6 +274,134 @@
                 </div>
             </div>
         </div>
+
+        <!-- 宿泊費 -->
+        {% if accom_formset %}
+        <div class="card mt-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <h5 class="card-title mb-0 me-3">宿泊費</h5>
+                    <button type="button" id="toggle-accom-details" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-chevron-down me-1"></i>明細を全て非表示
+                    </button>
+                </div>
+                {{ accom_formset.management_form }}
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-2" id="accom-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:30%">日付</th>
+                                <th style="width:10%">宿泊日数</th>
+                                <th style="width:20%">金額(円)</th>
+                                <th style="width:40%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="accom-details">
+                            {% for aform in accom_formset %}
+                            <tr class="accom-detail-row">
+                                {% for hidden in aform.hidden_fields %}{{ hidden }}{% endfor %}
+                                <td>{{ aform.date }}</td>
+                                <td>{{ aform.nights }}</td>
+                                <td>{{ aform.amount }}</td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-success px-2 py-0 accom-expense-detail-btn" title="経費明細を入力">明細</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0" data-remove-accom title="削除">×</button>
+                                </td>
+                            </tr>
+                            <tr class="accom-expense-inline" style="display:none;">
+                                <td colspan="4" class="p-0">
+                                    <div class="accom-expense-detail-panel bg-light border-start border-4 border-success px-3 py-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="fw-semibold text-success me-2"><i class="fas fa-receipt me-1"></i>宿泊費明細</span>
+                                        </div>
+                                        {{ aform.cloud_receipts }}
+                                        {{ aform.mobile_upload_id }}
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">支払先</label>
+                                                {{ aform.shiharaisaki }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">登録番号</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">T</span>
+                                                    {{ aform.tekikaku_cd }}
+                                                </div>
+                                                <div class="form-text small">登録番号がない場合は「なし」と記載</div>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">{{ aform.corpo_card.label }}</label>
+                                                {{ aform.corpo_card }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">{{ aform.corpo_card_no.label }}</label>
+                                                {{ aform.corpo_card_no }}
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-2">
+                                            <div class="col-md-12">
+                                                <label class="form-label small mb-1">領収書</label>
+                                                <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
+                                                    <div class="drop-zone__prompt"><i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ、またはクリックして選択</div>
+                                                    {{ aform.receipt }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex align-items-center gap-3 mt-1">
+                    <button type="button" id="add-accom-btn" class="btn btn-outline-primary btn-sm">+ 行を追加</button>
+                    <span class="ms-auto fw-semibold">宿泊費合計: <span id="accom-total-amount" class="text-primary">0</span> 円</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 日当 -->
+        {% if allow_formset %}
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title mb-2">日当</h5>
+                {{ allow_formset.management_form }}
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-2" id="allow-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="min-width:180px">単価</th>
+                                <th style="min-width:80px">日数</th>
+                                <th style="min-width:110px">金額（円）</th>
+                                <th style="width:50px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="allow-details">
+                            {% for alform in allow_formset %}
+                            <tr class="allow-detail-row">
+                                {% for hidden in alform.hidden_fields %}{{ hidden }}{% endfor %}
+                                <td>{{ alform.unit_price_key }}</td>
+                                <td>{{ alform.days }}</td>
+                                <td>{{ alform.amount }}</td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0" data-remove-allow title="削除">×</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex align-items-center gap-3 mt-1">
+                    <button type="button" id="add-allow-btn" class="btn btn-outline-primary btn-sm">+ 行を追加</button>
+                    <span class="ms-auto fw-semibold">日当合計: <span id="allow-total-amount" class="text-primary">0</span> 円</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- 承認者選択 -->
         {% if workflow_steps and workflow_steps|length > 0 %}
@@ -471,6 +608,90 @@
 </tr>
 </script>
 
+{# 宿泊費の空行テンプレート #}
+{% if accom_formset %}
+<script type="text/x-django-formset-template" id="empty-accom-row-template">
+<tr class="accom-detail-row">
+    <input type="hidden" name="accom-__accom_prefix__-document_detail_id" id="id_accom-__accom_prefix__-document_detail_id">
+    <td><input type="date" name="accom-__accom_prefix__-date" id="id_accom-__accom_prefix__-date" class="form-control form-control-sm"></td>
+    <td><input type="number" name="accom-__accom_prefix__-nights" id="id_accom-__accom_prefix__-nights" class="form-control form-control-sm" placeholder="1" min="1"></td>
+    <td><input type="text" name="accom-__accom_prefix__-amount" id="id_accom-__accom_prefix__-amount" class="form-control form-control-sm" inputmode="numeric" placeholder="0" data-amount-input autocomplete="off"></td>
+    <td class="text-center">
+        <button type="button" class="btn btn-sm btn-outline-success px-2 py-0 accom-expense-detail-btn" title="経費明細を入力">明細</button>
+        <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0" data-remove-accom title="削除">×</button>
+    </td>
+</tr>
+<tr class="accom-expense-inline" style="display:none;">
+    <td colspan="4" class="p-0">
+        <div class="accom-expense-detail-panel bg-light border-start border-4 border-success px-3 py-3">
+            <div class="d-flex align-items-center mb-2">
+                <span class="fw-semibold text-success me-2"><i class="fas fa-receipt me-1"></i>宿泊費明細</span>
+            </div>
+            <input type="hidden" name="accom-__accom_prefix__-cloud_receipts" id="id_accom-__accom_prefix__-cloud_receipts">
+            <input type="hidden" name="accom-__accom_prefix__-mobile_upload_id" id="id_accom-__accom_prefix__-mobile_upload_id">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">支払先</label>
+                    <input type="text" name="accom-__accom_prefix__-shiharaisaki" class="form-control form-control-sm" placeholder="例: ○○ホテル">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">登録番号</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">T</span>
+                        <input type="text" name="accom-__accom_prefix__-tekikaku_cd" class="form-control form-control-sm" placeholder="登録番号">
+                    </div>
+                    <div class="form-text small">登録番号がない場合は「なし」と記載</div>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">コーポレートカード支払い</label>
+                    <select name="accom-__accom_prefix__-corpo_card" class="form-select form-select-sm" data-corpo-card-select>
+                        <option value="">選択してください</option>
+                        <option value="1">その他</option>
+                        <option value="2">コーポレートカード支払い</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">カード番号</label>
+                    <input type="text" name="accom-__accom_prefix__-corpo_card_no" class="form-control form-control-sm" placeholder="カード番号（下4桁等）" data-corpo-card-no disabled>
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-12">
+                    <label class="form-label small mb-1">領収書</label>
+                    <div class="drop-zone" data-drop-zone role="button" tabindex="0">
+                        <div class="drop-zone__prompt"><i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ、またはクリックして選択</div>
+                        <input type="file" name="accom-__accom_prefix__-receipt" class="file-input d-none" multiple accept="image/*,.pdf">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </td>
+</tr>
+</script>
+{% endif %}
+
+{# 日当の空行テンプレート #}
+{% if allow_formset %}
+<script type="text/x-django-formset-template" id="empty-allow-row-template">
+<tr class="allow-detail-row">
+    <input type="hidden" name="allow-__allow_prefix__-document_detail_id" id="id_allow-__allow_prefix__-document_detail_id">
+    <td>
+        <select name="allow-__allow_prefix__-unit_price_key" class="form-select form-select-sm" data-allowance-unit-price>
+            <option value="">-- 選択 --</option>
+            {% for item in tra_items %}<option value="{{ item.key }}">{{ item.content2 }}</option>{% endfor %}
+        </select>
+    </td>
+    <td><input type="number" name="allow-__allow_prefix__-days" id="id_allow-__allow_prefix__-days" class="form-control form-control-sm" placeholder="1" min="1" data-allowance-days></td>
+    <td><input type="text" name="allow-__allow_prefix__-amount" id="id_allow-__allow_prefix__-amount" class="form-control form-control-sm" inputmode="numeric" placeholder="自動計算" data-amount-input data-allowance-amount readonly autocomplete="off"></td>
+    <td class="text-center">
+        <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0" data-remove-allow title="削除">×</button>
+    </td>
+</tr>
+</script>
+{% endif %}
+
 <div id="autosave-bar">下書きを自動保存しました</div>
 {% endblock %}
 
@@ -514,32 +735,64 @@ function bindDropZones(context) {
         const listContainer = document.createElement('div');
         listContainer.className = 'drop-zone__list';
         zone.appendChild(listContainer);
-        const setFiles = function(files) {
-            if (!files || files.length === 0) return;
-            try {
-                if (window.DataTransfer) {
-                    const dt = new DataTransfer();
-                    Array.from(files).forEach(function(f) { dt.items.add(f); });
-                    input.files = dt.files;
-                }
-                zone.classList.add('selected');
-                if (prompt) prompt.innerHTML = '<span class="drop-zone__thumb"><i class="fas fa-paperclip me-2"></i>' + files.length + ' 件選択済み</span>';
-                listContainer.innerHTML = '';
-                Array.from(files).forEach(function(f) {
-                    const chip = document.createElement('span');
-                    chip.className = 'drop-zone__chip';
-                    chip.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
-                    listContainer.appendChild(chip);
-                });
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-            } catch(err) { console.error(err); }
+        let currentFiles = [];
+        const keyOf = function(f) { return f.name + '|' + f.size + '|' + (f.lastModified || ''); };
+        const applyToInput = function() {
+            if (!window.DataTransfer) return;
+            const dt = new DataTransfer();
+            currentFiles.forEach(function(f) { dt.items.add(f); });
+            input.files = dt.files;
         };
-        zone.addEventListener('click', function() { input.click(); });
+        const render = function() {
+            if (currentFiles.length === 0) {
+                zone.classList.remove('selected');
+                if (prompt) prompt.innerHTML = '<i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択';
+                listContainer.innerHTML = '';
+                return;
+            }
+            zone.classList.add('selected');
+            if (prompt) prompt.innerHTML = '<span class="drop-zone__thumb"><i class="fas fa-paperclip me-2"></i>' + currentFiles.length + ' 件選択済み（クリックで追加）</span>';
+            listContainer.innerHTML = '';
+            currentFiles.forEach(function(f, idx) {
+                const chip = document.createElement('span');
+                chip.className = 'drop-zone__chip';
+                chip.innerHTML = f.name + ' (' + Math.round(f.size/1024) + ' KB) <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-danger" data-remove-file-index="' + idx + '" aria-label="削除">×</button>';
+                listContainer.appendChild(chip);
+            });
+        };
+        const addFiles = function(incoming) {
+            if (!incoming || incoming.length === 0) return;
+            const seen = new Set(currentFiles.map(keyOf));
+            Array.from(incoming).forEach(function(f) {
+                const k = keyOf(f);
+                if (seen.has(k)) return;
+                seen.add(k);
+                currentFiles.push(f);
+            });
+            applyToInput();
+            render();
+        };
+        listContainer.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-remove-file-index]');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(btn.getAttribute('data-remove-file-index'), 10);
+            if (isNaN(idx)) return;
+            currentFiles.splice(idx, 1);
+            applyToInput();
+            render();
+        });
+        zone.addEventListener('click', function(e) {
+            if (e.target.closest('[data-remove-file-index]')) return;
+            input.click();
+        });
         zone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
         zone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
         zone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); });
-        zone.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); setFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null); });
-        input.addEventListener('change', function(e) { setFiles(e.target.files); });
+        zone.addEventListener('drop', function(e) { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); addFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null); });
+        input.addEventListener('change', function(e) { addFiles(e.target.files); });
+        render();
     });
 }
 
@@ -613,6 +866,8 @@ function bindDropZones(context) {
         }
         const amtInput = newRow.querySelector('input[name$="-amount"]');
         if (amtInput) amtInput.addEventListener('input', updateTotal);
+        // 金額フィールド初期化
+        if (window.initAmountFields) window.initAmountFields(newRow);
         updateTotal();
     });
 
@@ -622,7 +877,7 @@ function bindDropZones(context) {
         const rows = tbody.querySelectorAll('.travel-detail-row');
         if (rows.length <= 1) { alert('最低1行は必要です。'); return; }
         const row = btn.closest('.travel-detail-row');
-        const hiddenId = row.querySelector('input[type="hidden"][name$="-id"]');
+        const hiddenId = row.querySelector('input[type="hidden"][name$="-document_detail_id"]');
         if (hiddenId && hiddenId.value) {
             const inp = document.createElement('input');
             inp.type = 'hidden'; inp.name = 'delete_details'; inp.value = hiddenId.value;
@@ -907,5 +1162,255 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 })();
+
+// ── 宿泊費セクション ─────────────────────────────────────────────────────────
+(function(){
+    var tbody        = document.getElementById('accom-details');
+    var totalFormsEl = document.getElementById('id_accom-TOTAL_FORMS');
+    var addBtn       = document.getElementById('add-accom-btn');
+    var totalAmountEl = document.getElementById('accom-total-amount');
+    if (!tbody || !totalFormsEl || !addBtn) return;
+
+    var formCount = parseInt(totalFormsEl.value) || 0;
+
+    function updateAccomTotal() {
+        var total = 0;
+        tbody.querySelectorAll('input[name$="-amount"]').forEach(function(el) {
+            total += parseFloat((el.value || '').replace(/,/g, '')) || 0;
+        });
+        if (totalAmountEl) totalAmountEl.textContent = total.toLocaleString();
+    }
+
+    function renumberAccomForms() {
+        var rows = tbody.querySelectorAll('.accom-detail-row');
+        rows.forEach(function(row, idx) {
+            row.querySelectorAll('input, select, textarea, label').forEach(function(el) {
+                if (el.name) el.name = el.name.replace(/accom-\d+-/, 'accom-' + idx + '-');
+                if (el.id)   el.id   = el.id.replace(/accom-\d+-/, 'accom-' + idx + '-');
+                if (el.htmlFor) el.htmlFor = el.htmlFor.replace(/accom-\d+-/, 'accom-' + idx + '-');
+            });
+        });
+        formCount = rows.length;
+        totalFormsEl.value = String(formCount);
+        // INITIAL_FORMS は削除で変化しないため既存値を維持
+    }
+
+    // 空行テンプレートから新規行を追加
+    var accomTmplEl = document.getElementById('empty-accom-row-template');
+    if (addBtn && accomTmplEl) {
+        addBtn.addEventListener('click', function() {
+            var tmpl = accomTmplEl.textContent;
+            var newHtml = tmpl.replace(/__accom_prefix__/g, String(formCount));
+            tbody.insertAdjacentHTML('beforeend', newHtml);
+            formCount++;
+            totalFormsEl.value = String(formCount);
+            var allRows = tbody.querySelectorAll('.accom-detail-row');
+            var newRow = allRows[allRows.length - 1];
+            var newInline = newRow.nextElementSibling;
+            if (newInline && newInline.classList.contains('accom-expense-inline')) {
+                bindDropZones(newInline);
+                newInline.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+                    toggleCorpoCardNo(sel);
+                });
+            }
+            var amtInput = newRow.querySelector('input[name$="-amount"]');
+            if (amtInput) amtInput.addEventListener('input', updateAccomTotal);
+            if (window.initAmountFields) window.initAmountFields(newRow);
+            updateAccomTotal();
+        });
+    }
+
+    // 削除ボタン
+    tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-remove-accom]');
+        if (!btn) return;
+        var row = btn.closest('.accom-detail-row');
+        var hiddenId = row.querySelector('input[type="hidden"][name$="-document_detail_id"]');
+        if (hiddenId && hiddenId.value) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'delete_details'; inp.value = hiddenId.value;
+            document.getElementById('travel-expense-form').appendChild(inp);
+        }
+        var inlineRow = row.nextElementSibling;
+        if (inlineRow && inlineRow.classList.contains('accom-expense-inline')) inlineRow.remove();
+        row.remove();
+        renumberAccomForms();
+        updateAccomTotal();
+    });
+
+    // 明細ボタン
+    tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('.accom-expense-detail-btn');
+        if (!btn) return;
+        var row = btn.closest('.accom-detail-row');
+        var inlineRow = row.nextElementSibling;
+        if (!inlineRow || !inlineRow.classList.contains('accom-expense-inline')) return;
+        var isHidden = inlineRow.style.display === 'none' || inlineRow.style.display === '';
+        inlineRow.style.display = isHidden ? '' : 'none';
+        if (isHidden) {
+            btn.classList.remove('btn-outline-success'); btn.classList.add('btn-success');
+            bindDropZones(inlineRow);
+            inlineRow.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) { toggleCorpoCardNo(sel); });
+            inlineRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            btn.classList.remove('btn-success'); btn.classList.add('btn-outline-success');
+        }
+    });
+
+    tbody.querySelectorAll('input[name$="-amount"]').forEach(function(el) {
+        el.addEventListener('input', updateAccomTotal);
+    });
+    updateAccomTotal();
+}());
+
+// ── 日当セクション ───────────────────────────────────────────────────────────
+(function(){
+    var tbody        = document.getElementById('allow-details');
+    var totalFormsEl = document.getElementById('id_allow-TOTAL_FORMS');
+    var addBtn       = document.getElementById('add-allow-btn');
+    var totalAmountEl = document.getElementById('allow-total-amount');
+    if (!tbody || !totalFormsEl || !addBtn) return;
+
+    var formCount = parseInt(totalFormsEl.value) || 0;
+    // tra_items のデータ: key→content2 マッピング（amount 計算用）
+    var traItems = {% if tra_items %}[{% for item in tra_items %}{"key":"{{ item.key|escapejs }}","content2":"{{ item.content2|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %};
+
+    function getUnitPrice(key) {
+        for (var i = 0; i < traItems.length; i++) {
+            if (traItems[i].key === key) {
+                var v = parseFloat(traItems[i].content2.replace(/,/g, ''));
+                return isNaN(v) ? 0 : v;
+            }
+        }
+        return 0;
+    }
+
+    function updateRowAmount(row) {
+        var sel = row.querySelector('[data-allowance-unit-price]');
+        var daysEl = row.querySelector('[data-allowance-days]');
+        var amtEl = row.querySelector('[data-allowance-amount]');
+        if (!sel || !daysEl || !amtEl) return;
+        var unitPrice = getUnitPrice(sel.value);
+        var days = parseInt(daysEl.value) || 0;
+        var total = unitPrice * days;
+        amtEl.value = total > 0 ? total.toLocaleString() : '';
+        updateAllowTotal();
+    }
+
+    function updateAllowTotal() {
+        var total = 0;
+        tbody.querySelectorAll('input[data-allowance-amount]').forEach(function(el) {
+            total += parseFloat((el.value || '').replace(/,/g, '')) || 0;
+        });
+        if (totalAmountEl) totalAmountEl.textContent = total.toLocaleString();
+    }
+
+    function renumberAllowForms() {
+        var rows = tbody.querySelectorAll('.allow-detail-row');
+        rows.forEach(function(row, idx) {
+            row.querySelectorAll('input, select, textarea, label').forEach(function(el) {
+                if (el.name) el.name = el.name.replace(/allow-\d+-/, 'allow-' + idx + '-');
+                if (el.id)   el.id   = el.id.replace(/allow-\d+-/, 'allow-' + idx + '-');
+                if (el.htmlFor) el.htmlFor = el.htmlFor.replace(/allow-\d+-/, 'allow-' + idx + '-');
+            });
+        });
+        formCount = rows.length;
+        totalFormsEl.value = String(formCount);
+    }
+
+    var allowTmplEl = document.getElementById('empty-allow-row-template');
+    if (addBtn && allowTmplEl) {
+        addBtn.addEventListener('click', function() {
+            var tmpl = allowTmplEl.textContent;
+            var newHtml = tmpl.replace(/__allow_prefix__/g, String(formCount));
+            tbody.insertAdjacentHTML('beforeend', newHtml);
+            formCount++;
+            totalFormsEl.value = String(formCount);
+            var allRows = tbody.querySelectorAll('.allow-detail-row');
+            var newRow = allRows[allRows.length - 1];
+            newRow.querySelectorAll('[data-allowance-unit-price], [data-allowance-days]').forEach(function(el) {
+                el.addEventListener('input', function() { updateRowAmount(newRow); });
+                el.addEventListener('change', function() { updateRowAmount(newRow); });
+            });
+            updateAllowTotal();
+        });
+    }
+
+    // 削除ボタン
+    tbody.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-remove-allow]');
+        if (!btn) return;
+        var row = btn.closest('.allow-detail-row');
+        var hiddenId = row.querySelector('input[type="hidden"][name$="-document_detail_id"]');
+        if (hiddenId && hiddenId.value) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'delete_details'; inp.value = hiddenId.value;
+            document.getElementById('travel-expense-form').appendChild(inp);
+        }
+        row.remove();
+        renumberAllowForms();
+        updateAllowTotal();
+    });
+
+    // 既存行のイベント
+    tbody.querySelectorAll('.allow-detail-row').forEach(function(row) {
+        row.querySelectorAll('[data-allowance-unit-price], [data-allowance-days]').forEach(function(el) {
+            el.addEventListener('input', function() { updateRowAmount(row); });
+            el.addEventListener('change', function() { updateRowAmount(row); });
+        });
+    });
+
+    updateAllowTotal();
+}());
+
+// ── 明細パネル 表示/非表示トグル ────────────────────────────────────────────
+(function(){
+    function setupToggle(btnId, inlineSelector) {
+        var btn = document.getElementById(btnId);
+        if (!btn) return;
+        var allShown = true; // 初期状態: 全て非表示（inline は default:none）→ ボタンは「表示」にすべき
+        // 初期状態を確認（いずれか表示中なら allShown=true とする）
+        var panels = document.querySelectorAll(inlineSelector);
+        allShown = Array.from(panels).some(function(p) { return p.style.display !== 'none' && p.style.display !== ''; });
+        updateBtn();
+
+        function updateBtn() {
+            var icon = btn.querySelector('i');
+            if (allShown) {
+                btn.innerHTML = '<i class="fas fa-chevron-up me-1"></i>明細を全て非表示';
+            } else {
+                btn.innerHTML = '<i class="fas fa-chevron-down me-1"></i>明細を全て表示';
+            }
+        }
+
+        btn.addEventListener('click', function() {
+            allShown = !allShown;
+            document.querySelectorAll(inlineSelector).forEach(function(panel) {
+                panel.style.display = allShown ? '' : 'none';
+                // 明細ボタンのスタイルを同期
+                var row = panel.previousElementSibling;
+                if (!row) return;
+                var detailBtn = row.querySelector('.travel-expense-detail-btn, .accom-expense-detail-btn');
+                if (!detailBtn) return;
+                if (allShown) {
+                    detailBtn.classList.remove('btn-outline-success');
+                    detailBtn.classList.add('btn-success');
+                    // ドロップゾーン・コーポレートカード初期化
+                    if (window.bindDropZones) bindDropZones(panel);
+                    panel.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+                        if (window.toggleCorpoCardNo) toggleCorpoCardNo(sel);
+                    });
+                } else {
+                    detailBtn.classList.remove('btn-success');
+                    detailBtn.classList.add('btn-outline-success');
+                }
+            });
+            updateBtn();
+        });
+    }
+
+    setupToggle('toggle-travel-details', '#travel-details .travel-expense-inline');
+    setupToggle('toggle-accom-details',  '#accom-details  .accom-expense-inline');
+}());
 </script>
 {% endblock %}

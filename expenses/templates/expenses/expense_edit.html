@@ -68,11 +68,9 @@
                     <div class="expense-detail-form card mb-3">
                         <div class="card-header d-flex justify-content-between align-items-center py-2">
                             <span class="fw-semibold small text-muted">明細 {{ forloop.counter }}</span>
-                            {% if not forloop.first %}
                             <button type="button" class="btn btn-sm btn-outline-danger" data-remove-detail>
                                 <i class="fas fa-trash-alt"></i> 削除
                             </button>
-                            {% endif %}
                         </div>
                         <div class="card-body">
                         {# 隠しフィールド（id等）を必ず送信。mobile_upload_id はQRエリアで出力するためここではスキップ #}
@@ -401,6 +399,10 @@
                                     {% endfor %}
                                 {% endif %}
                             </select>
+                            <div class="form-text small text-muted mt-1">
+                                給与振込：月末締め翌25日給与払い<br>
+                                経理受付：月初2営業日
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -632,49 +634,78 @@ function bindDropZones(context) {
     const root = context || document;
     const zones = root.querySelectorAll('[data-drop-zone]');
     zones.forEach(zone => {
+        if (zone._dropZoneBound) return;
+        zone._dropZoneBound = true;
         const input = zone.querySelector('input[type="file"].file-input');
         if (!input) return;
         const prompt = zone.querySelector('.drop-zone__prompt');
         const listContainer = document.createElement('div');
         listContainer.className = 'drop-zone__list';
         zone.appendChild(listContainer);
-        const setFiles = files => {
-            if (!files || files.length === 0) return;
-            try {
-                if (window.DataTransfer) {
-                    const dt = new DataTransfer();
-                    Array.from(files).forEach(f => dt.items.add(f));
-                    input.files = dt.files;
-                } else {
-                    console.warn('DataTransfer 未対応のため、ドラッグ&ドロップはプレビューのみです。ファイル選択をクリックしてください。');
-                }
-                zone.classList.add('selected');
-                if (prompt) {
-                    prompt.innerHTML = `<span class=\"drop-zone__thumb\"><i class=\"fas fa-paperclip me-2\"></i>${files.length} 件選択済み</span>`;
-                }
-                listContainer.innerHTML = '';
-                Array.from(files).forEach(f => {
-                    const chip = document.createElement('span');
-                    chip.className = 'drop-zone__chip';
-                    chip.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
-                    listContainer.appendChild(chip);
-                });
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-            } catch (err) {
-                console.error('ファイル設定時にエラー:', err);
-            }
+        // 累積ファイル状態（input.files はこの配列から都度再構築する）
+        let currentFiles = [];
+        const keyOf = f => `${f.name}|${f.size}|${f.lastModified || ''}`;
+        const applyToInput = () => {
+            if (!window.DataTransfer) return;
+            const dt = new DataTransfer();
+            currentFiles.forEach(f => dt.items.add(f));
+            input.files = dt.files;
         };
-        zone.addEventListener('click', () => input.click());
-        zone.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                input.click();
+        const render = () => {
+            if (currentFiles.length === 0) {
+                zone.classList.remove('selected');
+                if (prompt) prompt.innerHTML = '<i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択';
+                listContainer.innerHTML = '';
+                return;
             }
+            zone.classList.add('selected');
+            if (prompt) prompt.innerHTML = `<span class="drop-zone__thumb"><i class="fas fa-paperclip me-2"></i>${currentFiles.length} 件選択済み（クリックで追加）</span>`;
+            listContainer.innerHTML = '';
+            currentFiles.forEach((f, idx) => {
+                const chip = document.createElement('span');
+                chip.className = 'drop-zone__chip';
+                chip.innerHTML = `${f.name} (${Math.round(f.size/1024)} KB) <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-danger" data-remove-file-index="${idx}" aria-label="削除">×</button>`;
+                listContainer.appendChild(chip);
+            });
+        };
+        const addFiles = incoming => {
+            if (!incoming || incoming.length === 0) return;
+            const seen = new Set(currentFiles.map(keyOf));
+            Array.from(incoming).forEach(f => {
+                const k = keyOf(f);
+                if (seen.has(k)) return;
+                seen.add(k);
+                currentFiles.push(f);
+            });
+            applyToInput();
+            render();
+        };
+        listContainer.addEventListener('click', e => {
+            const btn = e.target.closest('[data-remove-file-index]');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(btn.getAttribute('data-remove-file-index'), 10);
+            if (isNaN(idx)) return;
+            currentFiles.splice(idx, 1);
+            applyToInput();
+            render();
+        });
+        zone.addEventListener('click', e => {
+            if (e.target.closest('[data-remove-file-index]')) return;
+            input.click();
+        });
+        zone.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
         });
         zone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
         zone.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); });
-        zone.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); setFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null); });
-        input.addEventListener('change', e => setFiles(e.target.files));
+        zone.addEventListener('drop', e => {
+            e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover');
+            addFiles(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null);
+        });
+        input.addEventListener('change', e => addFiles(e.target.files));
+        render();
     });
 }
 // 承認者リストを更新
@@ -751,8 +782,8 @@ function addExpenseDetail() {
         if (element.type !== 'hidden' && element.type !== 'submit' && element.type !== 'button') {
             element.value = '';
         }
-        // 新規フォームなので、隠しIDは空にする
-        if (element.type === 'hidden' && /-id$/.test(element.name)) {
+        // 新規フォームなので、隠しPK（document_detail_id）は空にする
+        if (element.type === 'hidden' && /-document_detail_id$/.test(element.name)) {
             element.value = '';
         }
     });
@@ -784,9 +815,9 @@ function addExpenseDetail() {
     bindDropZones(newForm);
     // 追加したフォームにも削除ボタンを適用
     bindRemoveButtons(newForm);
-    // 追加したフォームにも削除ボタンを適用
-    bindRemoveButtons(newForm);
-    
+    // 金額フィールド初期化
+    if (window.initAmountFields) window.initAmountFields(newForm);
+
     console.log('Added form, new count:', formCount);
 }
 
@@ -861,73 +892,69 @@ window.addEventListener('load', function() {
     });
 });
 
-// 明細削除ボタンのバインドと再インデックス処理（編集画面）
+// 明細削除ボタンのバインドと再インデックス処理（編集画面）- イベント委譲方式
 // 既存行はDOMから完全に削除し、削除IDは form タグ直下に保持する hidden input で送信する。
 // 残った行は form-{i}-... を 0 から振り直してフォームセットの一貫性を保つ。
-function bindRemoveButtons(context) {
-    const root = context || document;
-    const buttons = root.querySelectorAll('[data-remove-detail]');
-    const detailsContainer = document.getElementById('expense-details');
-    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
-    if (!detailsContainer || !totalForms) return;
-
-    // 削除IDを保持する隠しコンテナ（form 要素の直下に配置）
-    function getDeleteContainer() {
-        let box = document.getElementById('deleted-details-container');
-        if (!box) {
-            box = document.createElement('div');
-            box.id = 'deleted-details-container';
-            box.style.display = 'none';
-            const formEl = detailsContainer.closest('form') || document.querySelector('form');
-            if (formEl) formEl.appendChild(box);
-            else detailsContainer.parentNode.appendChild(box);
-        }
-        return box;
-    }
-
-    const reindex = () => {
+(function bindRemoveDetailOnce(){
+    if (window._expenseEditRemoveBound) return;
+    window._expenseEditRemoveBound = true;
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-remove-detail]');
+        if (!btn) return;
+        const detailsContainer = document.getElementById('expense-details');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        const initialForms = document.getElementById('id_form-INITIAL_FORMS');
+        if (!detailsContainer || !totalForms) return;
+        e.preventDefault();
         const forms = detailsContainer.querySelectorAll('.expense-detail-form');
-        forms.forEach((formEl, idx) => {
-            const nodes = formEl.querySelectorAll('input, select, textarea, label');
+        if (forms.length <= 1) {
+            window.alert('少なくとも1件の明細が必要です。');
+            return;
+        }
+        const wrapper = btn.closest('.expense-detail-form');
+        if (!wrapper) return;
+        if (!window.confirm('この明細を削除します。よろしいですか？')) return;
+
+        const formEl = detailsContainer.closest('form') || document.querySelector('form');
+        // T_DocumentContent の PK は document_detail_id
+        const idInput = wrapper.querySelector('input[type="hidden"][name$="-document_detail_id"]');
+        const isExisting = !!(idInput && idInput.value);
+
+        if (isExisting && formEl) {
+            const del = document.createElement('input');
+            del.type = 'hidden';
+            del.name = 'delete_details';
+            del.value = idInput.value;
+            formEl.appendChild(del);
+            // INITIAL_FORMS を1件減らす（既存行を削除した場合）
+            if (initialForms) {
+                const cur = parseInt(initialForms.value || '0', 10) || 0;
+                initialForms.value = String(Math.max(0, cur - 1));
+            }
+            console.log('[remove-detail] delete_details appended:', idInput.value);
+        } else {
+            console.log('[remove-detail] new row removed (no id)');
+        }
+
+        wrapper.remove();
+
+        // 残った行を 0 から振り直す
+        const remaining = detailsContainer.querySelectorAll('.expense-detail-form');
+        remaining.forEach((fe, idx) => {
+            const nodes = fe.querySelectorAll('input, select, textarea, label');
             nodes.forEach(node => {
                 if (node.id) node.id = node.id.replace(/form-\d+-/, `form-${idx}-`);
                 if (node.name) node.name = node.name.replace(/form-\d+-/, `form-${idx}-`);
                 if (node.htmlFor) node.htmlFor = node.htmlFor.replace(/form-\d+-/, `form-${idx}-`);
             });
         });
-        formCount = forms.length;
+        formCount = remaining.length;
         totalForms.value = String(formCount);
-    };
-
-    buttons.forEach(btn => {
-        if (btn._boundRemove) return; // 二重バインド防止
-        btn._boundRemove = true;
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const forms = detailsContainer.querySelectorAll('.expense-detail-form');
-            if (forms.length <= 1) {
-                window.alert('少なくとも1件の明細が必要です。');
-                return;
-            }
-            const wrapper = this.closest('.expense-detail-form');
-            if (!wrapper) return;
-            if (!window.confirm('この明細を削除します。よろしいですか？')) return;
-            // 既存行なら delete_details に ID を登録
-            const idInput = wrapper.querySelector('input[type="hidden"][name$="-id"]');
-            if (idInput && idInput.value) {
-                const box = getDeleteContainer();
-                const del = document.createElement('input');
-                del.type = 'hidden';
-                del.name = 'delete_details';
-                del.value = idInput.value;
-                box.appendChild(del);
-            }
-            // DOM から行を削除し、残り行を 0 から振り直す
-            wrapper.remove();
-            reindex();
-        });
     });
-}
+})();
+
+// 旧来の bindRemoveButtons 呼び出しを無効化（イベント委譲で代替）
+function bindRemoveButtons(context) { /* noop: replaced by delegated listener above */ }
 
 // ======= モバイルQRアップロード =======
 (function(){

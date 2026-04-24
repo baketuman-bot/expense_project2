@@ -8,7 +8,12 @@ from .models import (
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
     T_DocumentAttachment
 )
-from .forms import ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm, TravelDetailFormSet, TravelDetailEditFormSet
+from .forms import (
+    ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
+    TravelDetailFormSet, TravelDetailEditFormSet,
+    AccommodationFormSet, AccommodationEditFormSet,
+    AllowanceFormSet, AllowanceEditFormSet,
+)
 from .utils import send_notification, steps_with_candidates, get_pending_approvers
 from django.utils import timezone
 import uuid
@@ -528,11 +533,48 @@ def expense_edit(request, pk):
         _aq_edit = _get_account_queryset(getattr(expense, 'document_type', None))
         _edit_doc_type_post = getattr(expense, 'document_type', None)
         expense_formset = None
+
+        # 明細削除IDをformset初期化より先に取得し、querysetとINITIAL_FORMSから除外する。
+        # これにより、削除対象行はformsetの処理対象外となり、再作成されることがない。
+        delete_detail_ids = [int(x) for x in request.POST.getlist('delete_details') if x.isdigit()]
+
+        accom_formset = None
+        allow_formset = None
+        tra_items_edit = M_Item.objects.filter(data_kbn='TRA').order_by('key')
         if _is_travel_doc_type(_edit_doc_type_post):
             _travel_qs = expense.contents.filter(content__has_key='departure')
-            formset = TravelDetailEditFormSet(request.POST, request.FILES, queryset=_travel_qs, prefix='travel')
+            if delete_detail_ids:
+                _travel_qs = _travel_qs.exclude(document_detail_id__in=delete_detail_ids)
+            _post_fs = request.POST
+            if delete_detail_ids:
+                # INITIAL_FORMSをquerysetの実件数に揃えて整合性を保つ
+                _post_fs = request.POST.copy()
+                _post_fs['travel-INITIAL_FORMS'] = str(_travel_qs.count())
+                # 宿泊費・日当の INITIAL_FORMS も調整
+                _accom_qs_cnt = expense.contents.filter(content__row_type='accommodation').exclude(document_detail_id__in=delete_detail_ids).count()
+                _allow_qs_cnt = expense.contents.filter(content__row_type='allowance').exclude(document_detail_id__in=delete_detail_ids).count()
+                _post_fs['accom-INITIAL_FORMS'] = str(_accom_qs_cnt)
+                _post_fs['allow-INITIAL_FORMS'] = str(_allow_qs_cnt)
+            formset = TravelDetailEditFormSet(_post_fs, request.FILES, queryset=_travel_qs, prefix='travel')
+            # 宿泊費フォームセット
+            _accom_qs = expense.contents.filter(content__row_type='accommodation')
+            if delete_detail_ids:
+                _accom_qs = _accom_qs.exclude(document_detail_id__in=delete_detail_ids)
+            accom_formset = AccommodationEditFormSet(_post_fs, request.FILES, queryset=_accom_qs, prefix='accom')
+            # 日当フォームセット
+            _allow_qs = expense.contents.filter(content__row_type='allowance')
+            if delete_detail_ids:
+                _allow_qs = _allow_qs.exclude(document_detail_id__in=delete_detail_ids)
+            allow_formset = AllowanceEditFormSet(_post_fs, request.FILES, queryset=_allow_qs, prefix='allow', tra_items=tra_items_edit)
         else:
-            formset = ExpenseDetailEditFormSet(request.POST, request.FILES, queryset=expense.contents.all(), account_queryset=_aq_edit)
+            _contents_qs = expense.contents.all()
+            if delete_detail_ids:
+                _contents_qs = _contents_qs.exclude(document_detail_id__in=delete_detail_ids)
+            _post_fs = request.POST
+            if delete_detail_ids:
+                _post_fs = request.POST.copy()
+                _post_fs['form-INITIAL_FORMS'] = str(_contents_qs.count())
+            formset = ExpenseDetailEditFormSet(_post_fs, request.FILES, queryset=_contents_qs, account_queryset=_aq_edit)
         
         # 通貨コードの検証
         tsuka_cd = (request.POST.get('tsuka_cd') or '').strip()
@@ -610,6 +652,13 @@ def expense_edit(request, pk):
                     if not any([_amt_e, _dt_e, _purpose_e, _shi_e, _acc_e]):
                         continue
                     _missing_fields_e = []
+                    _amt_valid_e = False
+                    try:
+                        _amt_valid_e = float(_amt_e) > 0
+                    except (ValueError, TypeError):
+                        _amt_valid_e = False
+                    if not _amt_valid_e:
+                        _missing_fields_e.append('金額')
                     if not _purpose_e:
                         _missing_fields_e.append('目的')
                     if not _shi_e:
@@ -669,7 +718,7 @@ def expense_edit(request, pk):
                     T_DocumentAttachment.objects.filter(attachment_id__in=delete_ids).delete()
 
                 # 1.5) 明細の削除（クライアントで隠され、delete_details に入っている既存ID）
-                delete_detail_ids = [int(x) for x in request.POST.getlist('delete_details') if x.isdigit()]
+                # delete_detail_ids は POST受信直後にformset初期化前で取得済み
                 if delete_detail_ids:
                     # 先に添付を削除してから明細行を削除
                     T_DocumentAttachment.objects.filter(detail_id__in=delete_detail_ids).delete()
@@ -774,6 +823,39 @@ def expense_edit(request, pk):
                         raise
                     except Exception:
                         raise
+
+                # 宿泊費・日当の保存
+                if _is_travel_save and accom_formset and accom_formset.is_valid():
+                    for aform in accom_formset.forms:
+                        if not (aform.is_valid() and aform.cleaned_data):
+                            continue
+                        adetail = aform.save(commit=False)
+                        adetail.document = expense
+                        if _account_670:
+                            adetail.account = _account_670
+                        adetail.purpose = '宿泊費'
+                        adetail.save()
+                        try:
+                            afiles = request.FILES.getlist(f"{aform.prefix}-receipt")
+                            afile_field = aform.cleaned_data.get('receipt')
+                            if not afiles and afile_field:
+                                afiles = [afile_field]
+                            for af in afiles:
+                                if af:
+                                    T_DocumentAttachment.objects.create(detail=adetail, file=af)
+                        except Exception:
+                            pass
+
+                if _is_travel_save and allow_formset and allow_formset.is_valid():
+                    for alform in allow_formset.forms:
+                        if not (alform.is_valid() and alform.cleaned_data):
+                            continue
+                        aldetail = alform.save(commit=False)
+                        aldetail.document = expense
+                        if _account_670:
+                            aldetail.account = _account_670
+                        aldetail.purpose = '日当'
+                        aldetail.save()
 
                 # 提出ボタン押下時は INPRO へ状態遷移し、ワークフローを生成
                 if action == 'submit':
@@ -956,6 +1038,9 @@ def expense_edit(request, pk):
         _aq_edit = _get_account_queryset(getattr(expense, 'document_type', None))
         _edit_doc_type_get = getattr(expense, 'document_type', None)
         expense_formset = None
+        accom_formset = None
+        allow_formset = None
+        tra_items_edit = M_Item.objects.filter(data_kbn='TRA').order_by('key')
         if _is_travel_doc_type(_edit_doc_type_get):
             _travel_qs = expense.contents.filter(content__has_key='departure')
             # 下書き等で明細が1件もない場合は空フォームを1件表示（追加ボタンの複製元）
@@ -967,6 +1052,12 @@ def expense_edit(request, pk):
                 formset = _TempFS(queryset=_TDC.objects.none(), prefix='travel')
             else:
                 formset = TravelDetailEditFormSet(queryset=_travel_qs, prefix='travel')
+            # 宿泊費フォームセット（GET）
+            _accom_qs = expense.contents.filter(content__row_type='accommodation')
+            accom_formset = AccommodationEditFormSet(queryset=_accom_qs, prefix='accom')
+            # 日当フォームセット（GET）
+            _allow_qs = expense.contents.filter(content__row_type='allowance')
+            allow_formset = AllowanceEditFormSet(queryset=_allow_qs, prefix='allow', tra_items=tra_items_edit)
         else:
             _qs = expense.contents.all()
             if not _qs.exists():
@@ -1067,6 +1158,9 @@ def expense_edit(request, pk):
     return render(request, _edit_template, {
         "formset": formset,
         "expense_formset": expense_formset,
+        "accom_formset": accom_formset,
+        "allow_formset": allow_formset,
+        "tra_items": tra_items_edit if _is_travel_doc_type(getattr(expense, 'document_type', None)) else [],
         "expense": expense,
         "is_edit_mode": True,
         "error_message": error_message,
@@ -1189,8 +1283,13 @@ def expense_create(request, document_type_id=None):
         # ExpenseFormは不要になったため削除
         _aq = _get_account_queryset(resolved_doc_type)
         expense_formset = None
+        accom_formset = None
+        allow_formset = None
+        tra_items = M_Item.objects.filter(data_kbn='TRA').order_by('key')
         if _is_travel_doc_type(resolved_doc_type):
             formset = TravelDetailFormSet(request.POST, request.FILES, prefix='travel')
+            accom_formset = AccommodationFormSet(request.POST, request.FILES, prefix='accom')
+            allow_formset = AllowanceFormSet(request.POST, request.FILES, prefix='allow', tra_items=tra_items)
         else:
             formset = ExpenseDetailFormSet(request.POST, request.FILES, account_queryset=_aq)
         print("Formset is valid:", formset.is_valid())
@@ -1281,6 +1380,13 @@ def expense_create(request, document_type_id=None):
                     if not any([_amt_c, _dt_c, _purpose_c, _shi_c, _acc_c]):
                         continue
                     _missing_fields = []
+                    _amt_valid_c = False
+                    try:
+                        _amt_valid_c = float(_amt_c) > 0
+                    except (ValueError, TypeError):
+                        _amt_valid_c = False
+                    if not _amt_valid_c:
+                        _missing_fields.append('金額')
                     if not _purpose_c:
                         _missing_fields.append('目的')
                     if not _shi_c:
@@ -1456,6 +1562,41 @@ def expense_create(request, document_type_id=None):
                                 raise
 
                             print("Detail saved:", detail.document_detail_id)
+
+                    # 宿泊費・日当の保存（新規）
+                    if _is_travel_save_c and accom_formset and accom_formset.is_valid():
+                        for aform in accom_formset.forms:
+                            if not (aform.is_valid() and aform.cleaned_data):
+                                continue
+                            adetail = aform.save(commit=False)
+                            adetail.document = expense
+                            if _account_670_c:
+                                adetail.account = _account_670_c
+                            adetail.purpose = '宿泊費'
+                            adetail.save()
+                            try:
+                                from .models import T_DocumentAttachment
+                                afiles = request.FILES.getlist(f"{aform.prefix}-receipt")
+                                afile_field = aform.cleaned_data.get('receipt')
+                                if not afiles and afile_field:
+                                    afiles = [afile_field]
+                                for af in afiles:
+                                    if af:
+                                        T_DocumentAttachment.objects.create(detail=adetail, file=af)
+                            except Exception:
+                                pass
+
+                    if _is_travel_save_c and allow_formset and allow_formset.is_valid():
+                        for alform in allow_formset.forms:
+                            if not (alform.is_valid() and alform.cleaned_data):
+                                continue
+                            aldetail = alform.save(commit=False)
+                            aldetail.document = expense
+                            if _account_670_c:
+                                aldetail.account = _account_670_c
+                            aldetail.purpose = '日当'
+                            aldetail.save()
+
                     # 下書き時: 選択済みの承認者をドラフトとして保存
                     if is_draft and doc_type.workflow_template_id:
                         wf = doc_type.workflow_template_id
@@ -1639,10 +1780,15 @@ def expense_create(request, document_type_id=None):
     else:
         _aq = _get_account_queryset(resolved_doc_type)
         expense_formset = None
+        accom_formset = None
+        allow_formset = None
+        tra_items = M_Item.objects.filter(data_kbn='TRA').order_by('key')
         if _is_travel_doc_type(resolved_doc_type):
             formset = TravelDetailFormSet(queryset=T_DocumentContent.objects.none(), prefix='travel')
             if len(formset.forms) > 1:
                 formset.forms = formset.forms[:1]
+            accom_formset = AccommodationFormSet(queryset=T_DocumentContent.objects.none(), prefix='accom')
+            allow_formset = AllowanceFormSet(queryset=T_DocumentContent.objects.none(), prefix='allow', tra_items=tra_items)
         else:
             formset = ExpenseDetailFormSet(queryset=T_DocumentContent.objects.none(), account_queryset=_aq)
             # 空のフォームが1つだけ表示されるように調整
@@ -1701,6 +1847,9 @@ def expense_create(request, document_type_id=None):
     return render(request, _create_template, {
         "formset": formset,
         "expense_formset": expense_formset,
+        "accom_formset": accom_formset,
+        "allow_formset": allow_formset,
+        "tra_items": tra_items if _is_travel_doc_type(doc_type or resolved_doc_type) else [],
         "is_edit_mode": False,
         "expense": None,
         "error_message": error_message,
