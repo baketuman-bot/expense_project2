@@ -1141,7 +1141,7 @@ document.addEventListener('change', function(e) {
         // 明細金額を合計
         var amountTotal = 0;
         document.querySelectorAll('input[name$="-amount"]').forEach(function(inp) {
-            var v = parseFloat(inp.value);
+            var v = parseFloat(inp.value.replace(/,/g, ''));
             if (!isNaN(v)) amountTotal += v;
         });
 

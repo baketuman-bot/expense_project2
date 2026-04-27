@@ -24,4 +24,9 @@ urlpatterns = [
     # API: モバイル QR アップロード
     path("api/generate_mobile_qr/", views.generate_mobile_upload_qr, name="generate_mobile_qr"),
     path("api/check_mobile_uploads/", views.check_mobile_uploads, name="check_mobile_uploads"),
+    # 管理者画面 (設定)
+    path("settings/", views.settings_home, name="settings_home"),
+    path("settings/export/", views.settings_export, name="settings_export"),
+    path("settings/approval_admin/", views.settings_approval_admin, name="settings_approval_admin"),
+    path("settings/approval_admin/<int:pk>/action/", views.settings_force_action, name="settings_force_action"),
 ]

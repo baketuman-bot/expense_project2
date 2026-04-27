@@ -2495,3 +2495,223 @@ def check_mobile_uploads(request):
         debug_info['traceback'] = tb.format_exc()
         logger.error('[check_mobile_uploads] error: %s', tb.format_exc())
         return JsonResponse({'error': str(e), 'debug': debug_info}, status=500)
+
+
+# ============================================================
+#  管理者画面 (設定メニュー)
+# ============================================================
+
+@login_required
+def settings_home(request):
+    return redirect('expenses:settings_export')
+
+
+@login_required
+def settings_export(request):
+    """管理: データ出力（全申請一覧＋CSVダウンロード）"""
+    doc_types = M_DocumentType.objects.all().order_by('document_type_id')
+    statuses = M_Status.objects.all().order_by('order_by', 'status_cd')
+    bumons = M_Bumon.objects.all().order_by('bumon_cd')
+
+    qs = T_Document.objects.select_related(
+        'status_cd', 'document_type', 'man_number', 'bumon_cd'
+    ).prefetch_related('contents').order_by('-created_at')
+
+    date_from     = request.GET.get('date_from', '')
+    date_to       = request.GET.get('date_to', '')
+    doc_type_filter = request.GET.get('doc_type', '')
+    status_filter = request.GET.get('status', '')
+    bumon_filter  = request.GET.get('bumon', '')
+    keyword       = request.GET.get('keyword', '')
+
+    if doc_type_filter:
+        qs = qs.filter(document_type__document_type_id=doc_type_filter)
+    if status_filter:
+        qs = qs.filter(status_cd__status_cd=status_filter)
+    if bumon_filter:
+        qs = qs.filter(bumon_cd__bumon_cd=bumon_filter)
+    qs = _apply_created_at_date_range(qs, date_from, date_to)
+    if keyword:
+        qs = qs.filter(
+            Q(title__icontains=keyword) |
+            Q(man_number__user_name__icontains=keyword) |
+            Q(contents__purpose__icontains=keyword) |
+            Q(memo__icontains=keyword)
+        ).distinct()
+
+    if 'csv' in request.GET:
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="admin_export.csv"'
+        writer = csv.writer(response)
+        writer.writerow([
+            '申請ID', '申請種別', '申請者', '社員番号', '部門',
+            '申請日時', '合計金額', '通貨', 'ステータス', '備考',
+            '明細ID', '明細日付', '勘定科目', '支払先', '目的', '明細金額', '登録番号', 'コーポレートカード',
+        ])
+        for exp in qs:
+            doc_fields = [
+                exp.document_id,
+                exp.document_type.document_type_name if exp.document_type else '',
+                exp.man_number.user_name if exp.man_number else '',
+                exp.man_number.man_number if exp.man_number else '',
+                exp.bumon_cd.bumon_name if exp.bumon_cd else '',
+                timezone.localtime(exp.created_at).strftime('%Y/%m/%d %H:%M'),
+                exp.total_amount,
+                exp.tsuka_cd or '',
+                exp.status_cd.status_name if exp.status_cd else '',
+                exp.memo or '',
+            ]
+            contents = list(exp.contents.select_related('account').order_by('document_detail_id'))
+            if contents:
+                for c in contents:
+                    corpo = {None: '', 0: '', 1: '使用'}.get(c.corpo_card, '')
+                    writer.writerow(doc_fields + [
+                        c.document_detail_id,
+                        c.date.strftime('%Y/%m/%d') if c.date else '',
+                        c.account.account_name if c.account else '',
+                        c.shiharaisaki or '',
+                        c.purpose or '',
+                        c.amount if c.amount is not None else '',
+                        c.tekikaku_cd or '',
+                        corpo,
+                    ])
+            else:
+                writer.writerow(doc_fields + ['', '', '', '', '', '', '', ''])
+        return response
+
+    paginator = Paginator(qs, 30)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    return render(request, 'expenses/settings_export.html', {
+        'page_obj': page_obj,
+        'doc_types': doc_types,
+        'statuses': statuses,
+        'bumons': bumons,
+        'date_from': date_from,
+        'date_to': date_to,
+        'doc_type_filter': doc_type_filter,
+        'status_filter': status_filter,
+        'bumon_filter': bumon_filter,
+        'keyword': keyword,
+        'total_count': qs.count(),
+    })
+
+
+@login_required
+def settings_approval_admin(request):
+    """管理: 承認管理（全申請一覧＋強制操作）"""
+    doc_types = M_DocumentType.objects.all().order_by('document_type_id')
+    statuses = M_Status.objects.all().order_by('order_by', 'status_cd')
+    bumons = M_Bumon.objects.all().order_by('bumon_cd')
+
+    qs = T_Document.objects.select_related(
+        'status_cd', 'document_type', 'man_number', 'bumon_cd'
+    ).prefetch_related('contents').order_by('-created_at')
+
+    date_from     = request.GET.get('date_from', '')
+    date_to       = request.GET.get('date_to', '')
+    doc_type_filter = request.GET.get('doc_type', '')
+    status_filter = request.GET.get('status', '')
+    bumon_filter  = request.GET.get('bumon', '')
+    keyword       = request.GET.get('keyword', '')
+
+    if doc_type_filter:
+        qs = qs.filter(document_type__document_type_id=doc_type_filter)
+    if status_filter:
+        qs = qs.filter(status_cd__status_cd=status_filter)
+    if bumon_filter:
+        qs = qs.filter(bumon_cd__bumon_cd=bumon_filter)
+    qs = _apply_created_at_date_range(qs, date_from, date_to)
+    if keyword:
+        qs = qs.filter(
+            Q(title__icontains=keyword) |
+            Q(man_number__user_name__icontains=keyword) |
+            Q(contents__purpose__icontains=keyword)
+        ).distinct()
+
+    paginator = Paginator(qs, 30)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    # 各申請の現在のワークフローステップ情報を付加
+    doc_ids = [doc.document_id for doc in page_obj]
+    latest_instances = {}
+    for inst in T_WorkflowInstance.objects.filter(
+        document_id__in=doc_ids
+    ).select_related('step').order_by('document_id', '-started_at'):
+        if inst.document_id_id not in latest_instances:
+            latest_instances[inst.document_id_id] = inst
+
+    return render(request, 'expenses/settings_approval_admin.html', {
+        'page_obj': page_obj,
+        'doc_types': doc_types,
+        'statuses': statuses,
+        'bumons': bumons,
+        'date_from': date_from,
+        'date_to': date_to,
+        'doc_type_filter': doc_type_filter,
+        'status_filter': status_filter,
+        'bumon_filter': bumon_filter,
+        'keyword': keyword,
+        'latest_instances': latest_instances,
+        'total_count': qs.count(),
+    })
+
+
+@login_required
+def settings_force_action(request, pk):
+    """管理: 強制承認・却下・削除"""
+    if request.method != 'POST':
+        return redirect('expenses:settings_approval_admin')
+
+    expense = get_object_or_404(T_Document, pk=pk)
+    action = request.POST.get('action')
+    comment = request.POST.get('comment', '').strip()
+
+    if action == 'approve':
+        fns = M_Status.objects.get_or_create(
+            status_cd='FNS', defaults={'status_name': '承認済み', 'action_name': '承認'}
+        )[0]
+        expense.status_cd = fns
+        expense.save()
+        try:
+            instance = T_WorkflowInstance.objects.filter(
+                document_id=expense
+            ).order_by('-started_at').first()
+            if instance:
+                T_WorkflowAction.objects.create(
+                    instance=instance,
+                    step=instance.step,
+                    approver_man_number=request.user,
+                    action_status=fns,
+                    comment=comment or '管理者による強制承認',
+                )
+        except Exception:
+            pass
+
+    elif action == 'reject':
+        rej = M_Status.objects.get_or_create(
+            status_cd='REJECTED', defaults={'status_name': '却下', 'action_name': '却下'}
+        )[0]
+        expense.status_cd = rej
+        expense.save()
+        try:
+            instance = T_WorkflowInstance.objects.filter(
+                document_id=expense
+            ).order_by('-started_at').first()
+            if instance:
+                T_WorkflowAction.objects.create(
+                    instance=instance,
+                    step=instance.step,
+                    approver_man_number=request.user,
+                    action_status=rej,
+                    comment=comment or '管理者による却下',
+                )
+        except Exception:
+            pass
+
+    elif action == 'delete':
+        expense.delete()
+
+    qs_str = request.POST.get('return_qs', '')
+    base_url = '/expenses/settings/approval_admin/'
+    return redirect(f"{base_url}?{qs_str}" if qs_str else base_url)

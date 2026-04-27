@@ -171,6 +171,14 @@ body.no-sidebar .precision-sidebar{display:none;}
   padding-top:10px;
   border-top:1px solid var(--line);
 }
+.precision-section-label{
+  padding:0 22px 4px;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
 
 /* User block */
 .precision-user{
