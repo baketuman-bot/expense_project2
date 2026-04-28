@@ -41,7 +41,7 @@
                     <select name="status" class="form-select form-select-sm">
                         <option value="">全て</option>
                         {% for st in statuses %}
-                            <option value="{{ st.status_cd }}" {% if status_filter == st.status_cd %}selected{% endif %}>
+                            <option value="{{ st.status_name }}" {% if status_filter == st.status_name %}selected{% endif %}>
                                 {{ st.status_name }}
                             </option>
                         {% endfor %}
@@ -110,7 +110,7 @@
                             {% elif doc.status_cd.status_cd == 'DRAFT' %}
                                 <span class="badge bg-light text-dark border fw-normal">{{ doc.status_cd.status_name }}</span>
                             {% else %}
-                                <span class="badge bg-warning text-dark fw-normal">{{ doc.status_cd.status_name }}</span>
+                                <span class="badge badge-inprogress fw-normal">{{ doc.status_cd.status_name }}</span>
                             {% endif %}
                         </td>
                         <td>

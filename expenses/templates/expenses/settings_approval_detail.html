@@ -1,0 +1,457 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+{% load expense_extras %}
+
+{% block extra_css %}
+<style>
+.receipt-thumbnail {
+    transition: transform 0.2s ease-in-out;
+    max-width: 100%;
+    height: auto;
+    max-height: 80vh;
+    border: 1px solid #dee2e6;
+    object-fit: contain;
+    background-color: #f8f9fa;
+}
+.receipt-image-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    overflow: hidden;
+    background-color: #f8f9fa;
+    text-align: center;
+}
+.receipt-image-link:hover .receipt-thumbnail { transform: scale(1.05); }
+.approval-timeline {
+    position: relative;
+    padding-left: 0;
+    padding-bottom: 8px;
+}
+.approval-timeline-item {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 0;
+    position: relative;
+}
+.approval-timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: 36px;
+    bottom: -4px;
+    width: 2px;
+    background: #dee2e6;
+    z-index: 0;
+}
+.approval-timeline-pending:not(:last-child)::before {
+    background: repeating-linear-gradient(to bottom, #ffc107 0, #ffc107 4px, transparent 4px, transparent 8px);
+}
+.approval-timeline-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 13px;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+.approval-timeline-body {
+    flex: 1;
+    padding-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{% if dynamic_fields_display %}
+<script>
+(function(){
+    function evalDetailCalc(){
+        var amountTotal = 0;
+        document.querySelectorAll('[data-amount]').forEach(function(el){
+            var v = parseFloat(el.getAttribute('data-amount'));
+            if (!isNaN(v)) amountTotal += v;
+        });
+        function getVal(name){
+            var el = document.getElementById('disp_dyn_' + name);
+            if(!el) return 0;
+            var raw = (el.textContent||'').replace(/[,\s]/g,'').match(/^-?[\d.]+/);
+            return raw ? parseFloat(raw[0]) : 0;
+        }
+        for (var pass=0; pass<2; pass++) {
+            document.querySelectorAll('[data-calc-formula]').forEach(function(el){
+                var raw = el.getAttribute('data-calc-formula');
+                if(!raw) return;
+                var parts = raw.split('|');
+                var formula = parts[0].trim();
+                var suffix  = parts.length > 1 ? parts[1].trim() : '';
+                var expr = formula.replace(/\{amount_total\}/g, amountTotal);
+                expr = expr.replace(/\{(\w+)\}/g, function(_, name){ return getVal(name); });
+                try{
+                    var result = Function('"use strict"; return (' + expr + ')')();
+                    if(isFinite(result) && !isNaN(result)){
+                        var fmt = Number.isInteger(result)
+                            ? result.toLocaleString()
+                            : result.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                        el.textContent = fmt + (suffix ? (' ' + suffix) : '');
+                    } else { el.textContent = '-'; }
+                } catch(e){ el.textContent = '-'; }
+            });
+        }
+    }
+    document.addEventListener('DOMContentLoaded', evalDetailCalc);
+})();
+</script>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+
+            <!-- ヘッダー -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-shield-alt text-primary"></i>
+                        承認管理 — 詳細
+                    </h2>
+                    <p class="text-muted mb-0">申請ID: #{{ expense.expense_main_id }}</p>
+                </div>
+                <a href="{% url 'expenses:settings_approval_admin' %}{% if return_qs %}?{{ return_qs }}{% endif %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> 一覧に戻る
+                </a>
+            </div>
+
+            <!-- 申請情報 -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-file-alt"></i> 申請情報</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">申請者</label>
+                                <p class="mb-0"><i class="fas fa-user text-muted me-2"></i>{{ expense.applicant.user_name }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">申請日時</label>
+                                <p class="mb-0"><i class="fas fa-calendar text-muted me-2"></i>{{ expense.created_at|date:"Y年m月d日 H:i" }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">合計金額</label>
+                                <p class="mb-0">
+                                    <span class="fs-4 fw-bold text-success">
+                                        {{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">現在のステータス</label>
+                                <p class="mb-0">
+                                    {% if expense.status_cd.status_cd == 'FNS' %}
+                                        <span class="badge bg-success fs-6">{{ expense.status_cd.status_name }}</span>
+                                    {% elif expense.status_cd.status_cd == 'REJECTED' %}
+                                        <span class="badge bg-danger fs-6">{{ expense.status_cd.status_name }}</span>
+                                    {% elif expense.status_cd.status_cd == 'DRAFT' %}
+                                        <span class="badge bg-secondary fs-6">{{ expense.status_cd.status_name }}</span>
+                                    {% else %}
+                                        <span class="badge badge-inprogress fs-6"><i class="fas fa-clock"></i> {{ expense.status_cd.status_name }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if dynamic_fields_display %}
+            <!-- 追加入力項目 -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">追加入力項目</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                    {% for f in dynamic_fields_display %}
+                        {% if f.row_break %}</div><div class="row mt-2">{% endif %}
+                        <div class="col-md-{{ f.col_width }} mb-3">
+                            <div class="fw-semibold text-muted small mb-1">{{ f.label }}</div>
+                            {% if f.is_label %}
+                                <div class="fw-bold text-primary" id="disp_dyn_{{ f.name }}"
+                                     {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
+                            {% else %}
+                                <div id="disp_dyn_{{ f.name }}">{{ f.value }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 経費明細 -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> 経費明細</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if expense.details.all %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>日付</th>
+                                    <th>勘定科目</th>
+                                    <th>目的</th>
+                                    <th>支払先</th>
+                                    <th>コーポレートカード</th>
+                                    <th class="text-end">金額</th>
+                                    <th class="text-center">添付書類</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detail in expense.details.all %}
+                                <tr>
+                                    <td>{{ detail.date|date:"Y/m/d" }}</td>
+                                    <td><span class="badge bg-info">{{ detail.account.account_name }}</span></td>
+                                    <td>{{ detail.purpose|default:"-" }}</td>
+                                    <td>{{ detail.shiharaisaki|default:"-" }}</td>
+                                    <td>
+                                        {% if detail.corpo_card == 2 %}
+                                            <span class="badge bg-primary">コーポレートカード支払い</span>
+                                            {% if detail.corpo_card_no %}<br><small>{{ detail.corpo_card_no }}</small>{% endif %}
+                                        {% else %}その他{% endif %}
+                                    </td>
+                                    <td class="text-end fw-bold" data-amount="{{ detail.amount|default:0 }}">
+                                        {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if detail.attachments.all %}
+                                            <span class="badge bg-success me-1"><i class="fas fa-paperclip"></i> {{ detail.attachments.all|length }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary"><i class="fas fa-times"></i> なし</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th colspan="5" class="text-end">合計金額</th>
+                                    <th class="text-end text-success">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <p class="text-muted mb-0">経費明細が登録されていません。</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 添付書類一覧 -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-images"></i> 添付書類一覧</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        {% for detail in expense.details.all %}
+                            {% if detail.attachments.all %}
+                                {% for att in detail.attachments.all %}
+                                <div class="col-12">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <small class="text-muted">{{ detail.shiharaisaki|default:"-" }}</small>
+                                        </div>
+                                        <div class="card-body text-center p-2">
+                                            {% with ext=att.file.name|lower %}
+                                                {% if att.thumbnail %}
+                                                    <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link">
+                                                        <img src="{{ att.thumbnail.url }}" alt="添付" class="img-fluid rounded receipt-thumbnail" style="max-height:85vh; width:auto;">
+                                                    </a>
+                                                {% elif ext|slice:"-4:" == ".jpg" or ext|slice:"-5:" == ".jpeg" or ext|slice:"-4:" == ".png" or ext|slice:"-4:" == ".gif" or ext|slice:"-5:" == ".webp" %}
+                                                    <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link">
+                                                        <img src="{{ att.file.url }}" alt="添付" class="img-fluid rounded receipt-thumbnail" style="max-height:85vh; width:auto;">
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{{ att.file.url }}" target="_blank" class="btn btn-lg btn-outline-primary d-block py-4">
+                                                        <i class="fas fa-file fa-3x mb-2"></i><br>ファイルを表示
+                                                    </a>
+                                                {% endif %}
+                                            {% endwith %}
+                                        </div>
+                                        <div class="card-footer bg-light">
+                                            <small class="text-muted">
+                                                日付: {{ detail.date|date:"Y/m/d" }}<br>
+                                                勘定科目: {{ detail.account.account_name }}<br>
+                                                支払先: {{ detail.shiharaisaki|default:"-" }}<br>
+                                                目的: {{ detail.purpose|truncatechars:30 }}<br>
+                                                金額: {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% empty %}
+                            <div class="col-12 text-center py-5">
+                                <p class="text-muted mb-0">添付書類がありません</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 承認フロー -->
+            {% if workflow_actions or pending_approvers %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="fas fa-stream me-2 text-primary"></i>承認フロー</h5>
+                </div>
+                <div class="card-body pb-0">
+                    <div class="approval-timeline">
+                        {% for act in workflow_actions %}
+                        <div class="approval-timeline-item">
+                            <div class="approval-timeline-dot {{ act.action_status.status_cd|status_dot_class }}">
+                                {% if act.action_status.status_cd == 'APPROVED' or act.action_status.status_cd == 'FNS' %}
+                                    <i class="fas fa-check"></i>
+                                {% elif act.action_status.status_cd == 'REJECTED' %}
+                                    <i class="fas fa-times"></i>
+                                {% elif act.action_status.status_cd == 'RETURNED' %}
+                                    <i class="fas fa-undo"></i>
+                                {% elif act.action_status.status_cd == 'INPRO' %}
+                                    <i class="fas fa-paper-plane"></i>
+                                {% elif act.action_status.status_cd == 'CANCEL' %}
+                                    <i class="fas fa-ban"></i>
+                                {% else %}
+                                    <i class="fas fa-circle"></i>
+                                {% endif %}
+                            </div>
+                            <div class="approval-timeline-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold">{{ act.action_status.action_name|default:act.action_status.status_name }}</span>
+                                    <small class="text-muted">{{ act.actioned_at|date:"Y/m/d H:i" }}</small>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-user me-1"></i>{{ act.approver_man_number.user_name }}
+                                    {% if act.step %}<span class="ms-2 badge bg-light text-dark border">Step {{ act.step.step_order }}</span>{% endif %}
+                                </div>
+                                {% if act.comment %}
+                                <div class="mt-2 p-2 bg-light rounded small border-start border-3
+                                    {% if act.action_status.status_cd == 'RETURNED' %}border-info
+                                    {% elif act.action_status.status_cd == 'REJECTED' %}border-danger
+                                    {% else %}border-secondary{% endif %}">
+                                    {{ act.comment }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {% for pa in pending_approvers %}
+                        <div class="approval-timeline-item approval-timeline-pending">
+                            <div class="approval-timeline-dot bg-light border border-warning">
+                                <i class="fas fa-clock text-warning"></i>
+                            </div>
+                            <div class="approval-timeline-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold text-muted">承認待ち</span>
+                                    <span class="badge badge-step-wait">Step {{ pa.step_order }}</span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <i class="fas fa-user me-1"></i>{{ pa.man_number.user_name }}
+                                    {% if pa.man_number.post_cd %}<span class="ms-1">（{{ pa.man_number.post_cd.post_name }}）</span>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 強制操作ボタン -->
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-primary bg-opacity-10">
+                    <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>管理者強制操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <!-- 強制承認 -->
+                        <div class="col-md-5">
+                            <form method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="approve">
+                                <input type="hidden" name="return_qs" value="{{ return_qs }}">
+                                <label class="form-label fw-bold text-success"><i class="fas fa-check-circle me-1"></i>強制承認</label>
+                                <p class="text-muted small mb-2">残ステップをスキップして最終承認済みにします。</p>
+                                <textarea name="comment" class="form-control form-control-sm mb-2" rows="2" placeholder="コメント（省略可）"></textarea>
+                                <button type="submit" class="btn btn-success px-4"
+                                        onclick="return confirm('この申請を強制承認しますか？')">
+                                    <i class="fas fa-check me-1"></i>強制承認する
+                                </button>
+                            </form>
+                        </div>
+                        <!-- 却下 -->
+                        <div class="col-md-5">
+                            <form method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reject">
+                                <input type="hidden" name="return_qs" value="{{ return_qs }}">
+                                <label class="form-label fw-bold text-warning"><i class="fas fa-ban me-1"></i>却下</label>
+                                <p class="text-muted small mb-2">この申請を却下します。</p>
+                                <textarea name="comment" class="form-control form-control-sm mb-2" rows="2" placeholder="コメント（省略可）"></textarea>
+                                <button type="submit" class="btn btn-warning px-4"
+                                        onclick="return confirm('この申請を却下しますか？')">
+                                    <i class="fas fa-times me-1"></i>却下する
+                                </button>
+                            </form>
+                        </div>
+                        <!-- 削除 -->
+                        <div class="col-md-2 d-flex flex-column justify-content-end">
+                            <form method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="return_qs" value="{{ return_qs }}">
+                                <label class="form-label fw-bold text-danger"><i class="fas fa-trash-alt me-1"></i>削除</label>
+                                <p class="text-muted small mb-2">申請・履歴をすべて削除します。取り消し不可。</p>
+                                <button type="submit" class="btn btn-outline-danger"
+                                        onclick="return confirm('削除すると元に戻せません。本当に削除しますか？')">
+                                    <i class="fas fa-trash-alt me-1"></i>削除する
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 戻るボタン -->
+            <div class="text-center mb-5">
+                <a href="{% url 'expenses:settings_approval_admin' %}{% if return_qs %}?{{ return_qs }}{% endif %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> 一覧に戻る
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

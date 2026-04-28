@@ -145,7 +145,7 @@
                                     <div class="mb-3">
                                         <label class="form-label fw-bold">現在のステータス</label>
                                         <p class="mb-0">
-                                            <span class="badge bg-warning fs-6">
+                                            <span class="badge badge-inprogress fs-6">
                                                 <i class="fas fa-clock"></i>
                                                 {{ expense.status_cd.status_name }}
                                             </span>
@@ -426,7 +426,7 @@
                             <div class="approval-timeline-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="fw-semibold text-muted">承認待ち</span>
-                                    <span class="badge bg-warning text-dark">Step {{ pa.step_order }}</span>
+                                    <span class="badge badge-step-wait">Step {{ pa.step_order }}</span>
                                 </div>
                                 <div class="text-muted small mt-1">
                                     <i class="fas fa-user me-1"></i>{{ pa.man_number.user_name }}

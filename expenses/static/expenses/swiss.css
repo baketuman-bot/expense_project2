@@ -566,6 +566,23 @@ tr.table-row-link:hover td{ background:var(--panel); }
   padding:3px 8px;
 }
 
+/* ステータスバッジ: 申請中・承認中（青系） */
+.badge-inprogress{
+  background:#1d56d1;
+  color:#fff;
+}
+/* ステータスバッジ: 承認待ちステップ表示 */
+.badge-step-wait{
+  background:#e0e7ff;
+  color:#3730a3;
+  border:none;
+}
+/* status-pill: 承認中（中間ステップ用 = FNS 緑と区別） */
+.status-pill-mid-approved{
+  color:#1e40af;
+  background:#dbeafe;
+}
+
 /* ===== Pagination ===== */
 .precision-main .pagination{
   gap:2px;

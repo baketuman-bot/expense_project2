@@ -14,7 +14,7 @@ from .forms import (
     AccommodationFormSet, AccommodationEditFormSet,
     AllowanceFormSet, AllowanceEditFormSet,
 )
-from .utils import send_notification, steps_with_candidates, get_pending_approvers
+from .utils import send_notification, steps_with_candidates, get_pending_approvers, candidates_for_step
 from django.utils import timezone
 import uuid
 from django.db import transaction
@@ -2509,8 +2509,15 @@ def settings_home(request):
 @login_required
 def settings_export(request):
     """管理: データ出力（全申請一覧＋CSVダウンロード）"""
+    from django.db.models import Min
     doc_types = M_DocumentType.objects.all().order_by('document_type_id')
-    statuses = M_Status.objects.all().order_by('order_by', 'status_cd')
+    # status_name 単位で重複除去（expense_list と同ロジック）
+    statuses = (
+        M_Status.objects
+        .values('status_name')
+        .annotate(min_order=Min('order_by'))
+        .order_by('min_order', 'status_name')
+    )
     bumons = M_Bumon.objects.all().order_by('bumon_cd')
 
     qs = T_Document.objects.select_related(
@@ -2546,7 +2553,8 @@ def settings_export(request):
         writer.writerow([
             '申請ID', '申請種別', '申請者', '社員番号', '部門',
             '申請日時', '合計金額', '通貨', 'ステータス', '備考',
-            '明細ID', '明細日付', '勘定科目', '支払先', '目的', '明細金額', '登録番号', 'コーポレートカード',
+            '明細ID', '明細日付', '勘定科目', '支払先', '目的', '明細金額',
+            '登録番号', 'コーポレートカード', 'カード下4桁',
         ])
         for exp in qs:
             doc_fields = [
@@ -2565,6 +2573,13 @@ def settings_export(request):
             if contents:
                 for c in contents:
                     corpo = {None: '', 0: '', 1: '使用'}.get(c.corpo_card, '')
+                    # 登録番号: 数値変換（"なし"等の非数値はそのまま文字列）
+                    tekikaku = c.tekikaku_cd or ''
+                    if tekikaku:
+                        try:
+                            tekikaku = int(tekikaku)
+                        except (ValueError, TypeError):
+                            pass
                     writer.writerow(doc_fields + [
                         c.document_detail_id,
                         c.date.strftime('%Y/%m/%d') if c.date else '',
@@ -2572,11 +2587,12 @@ def settings_export(request):
                         c.shiharaisaki or '',
                         c.purpose or '',
                         c.amount if c.amount is not None else '',
-                        c.tekikaku_cd or '',
+                        tekikaku,
                         corpo,
+                        c.corpo_card_no or '',
                     ])
             else:
-                writer.writerow(doc_fields + ['', '', '', '', '', '', '', ''])
+                writer.writerow(doc_fields + ['', '', '', '', '', '', '', '', ''])
         return response
 
     paginator = Paginator(qs, 30)
@@ -2597,63 +2613,200 @@ def settings_export(request):
     })
 
 
+def _build_approval_flow(doc_ids):
+    """doc_id → 承認フローリスト を返す。keiri ステップも補完する。
+    各要素: {'name': str, 'status': 'APPROVED'|'REJECTED'|'pending', 'step_order': int, 'is_keiri': bool}
+    """
+    from .models import M_WorkflowStep
+    if not doc_ids:
+        return {}
+
+    # ① T_DocumentApprover から登録済み承認者を収集
+    approvers_by_doc = {}
+    covered_steps = {}  # doc_id -> set of step_id
+    for ap in T_DocumentApprover.objects.filter(
+        document_id__in=doc_ids
+    ).select_related('man_number').order_by('document_id', 'step_order', 'id'):
+        doc_id = ap.document_id_id
+        if doc_id not in approvers_by_doc:
+            approvers_by_doc[doc_id] = []
+            covered_steps[doc_id] = set()
+        approvers_by_doc[doc_id].append({
+            'name': ap.man_number.user_name if ap.man_number else '-',
+            'status': ap.status or 'pending',
+            'step_order': ap.step_order,
+            'approved_at': ap.approved_at,
+            'is_keiri': False,
+        })
+        if ap.step_id_id:
+            covered_steps[doc_id].add(ap.step_id_id)
+
+    # ② ワークフローインスタンスからテンプレートを取得
+    inst_by_doc = {}
+    for inst in T_WorkflowInstance.objects.filter(
+        document_id__in=doc_ids
+    ).select_related('workflow_template').order_by('document_id', '-started_at'):
+        if inst.document_id_id not in inst_by_doc:
+            inst_by_doc[inst.document_id_id] = inst
+
+    # ③ 各テンプレートの keiri ステップを取得
+    template_ids = {inst.workflow_template_id for inst in inst_by_doc.values() if inst.workflow_template_id}
+    keiri_by_template = {}
+    for step in M_WorkflowStep.objects.filter(
+        workflow_template__in=template_ids,
+        allowed_bumon_scope='keiri'
+    ).order_by('step_order'):
+        tid = step.workflow_template_id
+        keiri_by_template.setdefault(tid, []).append(step)
+
+    # ④ 承認済み keiri ステップを特定
+    done_keiri = {}  # doc_id -> set of step_id
+    for act in T_WorkflowAction.objects.filter(
+        instance__document_id__in=doc_ids,
+        action_status_id='APPROVED'
+    ).values('instance__document_id_id', 'step_id'):
+        doc_id = act['instance__document_id_id']
+        done_keiri.setdefault(doc_id, set()).add(act['step_id'])
+
+    # ⑤ keiri ステップを補完
+    for doc_id in doc_ids:
+        inst = inst_by_doc.get(doc_id)
+        if not inst:
+            continue
+        keiri_steps = keiri_by_template.get(inst.workflow_template_id, [])
+        covered = covered_steps.get(doc_id, set())
+        done = done_keiri.get(doc_id, set())
+        for step in keiri_steps:
+            if step.step_id in covered:
+                continue
+            approvers_by_doc.setdefault(doc_id, []).append({
+                'name': '[経理]',
+                'status': 'APPROVED' if step.step_id in done else 'pending',
+                'step_order': step.step_order,
+                'approved_at': None,
+                'is_keiri': True,
+            })
+
+    # ⑥ step_order 順に整列
+    for doc_id in approvers_by_doc:
+        approvers_by_doc[doc_id].sort(key=lambda x: (x['step_order'], x['name']))
+
+    return approvers_by_doc
+
+
+def _get_last_action_dates(doc_ids):
+    """doc_id → 最終処理日時 (datetime|None) を返す。"""
+    from django.db.models import Max
+    result = {}
+    rows = (T_WorkflowAction.objects
+            .filter(instance__document_id__in=doc_ids)
+            .values('instance__document_id_id')
+            .annotate(last_at=Max('actioned_at')))
+    for row in rows:
+        result[row['instance__document_id_id']] = row['last_at']
+    return result
+
+
+def _build_filter_qs(request, base_qs):
+    """共通フィルターを base_qs に適用して (qs, params_dict) を返す。"""
+    params = {
+        'date_from':      request.GET.get('date_from', ''),
+        'date_to':        request.GET.get('date_to', ''),
+        'doc_type_filter': request.GET.get('doc_type', ''),
+        'status_filter':  request.GET.get('status', ''),
+        'bumon_filter':   request.GET.get('bumon', ''),
+        'keyword':        request.GET.get('keyword', ''),
+    }
+    qs = base_qs
+    if params['doc_type_filter']:
+        qs = qs.filter(document_type__document_type_id=params['doc_type_filter'])
+    if params['status_filter']:
+        # status_name 単位で絞り込み（同名ステータスが複数あっても一括対応）
+        qs = qs.filter(status_cd__status_name=params['status_filter'])
+    if params['bumon_filter']:
+        qs = qs.filter(bumon_cd__bumon_cd=params['bumon_filter'])
+    qs = _apply_created_at_date_range(qs, params['date_from'], params['date_to'])
+    if params['keyword']:
+        qs = qs.filter(
+            Q(title__icontains=params['keyword']) |
+            Q(man_number__user_name__icontains=params['keyword']) |
+            Q(contents__purpose__icontains=params['keyword'])
+        ).distinct()
+    return qs, params
+
+
 @login_required
 def settings_approval_admin(request):
-    """管理: 承認管理（全申請一覧＋強制操作）"""
+    """管理: 承認管理一覧（承認フロー表示付き）"""
+    from django.db.models import Min
     doc_types = M_DocumentType.objects.all().order_by('document_type_id')
-    statuses = M_Status.objects.all().order_by('order_by', 'status_cd')
+    statuses = (
+        M_Status.objects
+        .values('status_name')
+        .annotate(min_order=Min('order_by'))
+        .order_by('min_order', 'status_name')
+    )
     bumons = M_Bumon.objects.all().order_by('bumon_cd')
 
-    qs = T_Document.objects.select_related(
+    base_qs = T_Document.objects.select_related(
         'status_cd', 'document_type', 'man_number', 'bumon_cd'
     ).prefetch_related('contents').order_by('-created_at')
 
-    date_from     = request.GET.get('date_from', '')
-    date_to       = request.GET.get('date_to', '')
-    doc_type_filter = request.GET.get('doc_type', '')
-    status_filter = request.GET.get('status', '')
-    bumon_filter  = request.GET.get('bumon', '')
-    keyword       = request.GET.get('keyword', '')
+    qs, params = _build_filter_qs(request, base_qs)
+    # DRAFT はデフォルトで非表示（明示的に status=DRAFT を選んだ場合のみ表示）
+    if not params['status_filter']:
+        qs = qs.exclude(status_cd__status_cd='DRAFT')
+    total_count = qs.count()
 
-    if doc_type_filter:
-        qs = qs.filter(document_type__document_type_id=doc_type_filter)
-    if status_filter:
-        qs = qs.filter(status_cd__status_cd=status_filter)
-    if bumon_filter:
-        qs = qs.filter(bumon_cd__bumon_cd=bumon_filter)
-    qs = _apply_created_at_date_range(qs, date_from, date_to)
-    if keyword:
-        qs = qs.filter(
-            Q(title__icontains=keyword) |
-            Q(man_number__user_name__icontains=keyword) |
-            Q(contents__purpose__icontains=keyword)
-        ).distinct()
-
-    paginator = Paginator(qs, 30)
+    paginator = Paginator(qs, 20)
     page_obj = paginator.get_page(request.GET.get('page', 1))
 
-    # 各申請の現在のワークフローステップ情報を付加
     doc_ids = [doc.document_id for doc in page_obj]
-    latest_instances = {}
-    for inst in T_WorkflowInstance.objects.filter(
-        document_id__in=doc_ids
-    ).select_related('step').order_by('document_id', '-started_at'):
-        if inst.document_id_id not in latest_instances:
-            latest_instances[inst.document_id_id] = inst
+    approvers_by_doc = _build_approval_flow(doc_ids)
+    last_action_by_doc = _get_last_action_dates(doc_ids)
 
     return render(request, 'expenses/settings_approval_admin.html', {
         'page_obj': page_obj,
         'doc_types': doc_types,
         'statuses': statuses,
         'bumons': bumons,
-        'date_from': date_from,
-        'date_to': date_to,
-        'doc_type_filter': doc_type_filter,
-        'status_filter': status_filter,
-        'bumon_filter': bumon_filter,
-        'keyword': keyword,
-        'latest_instances': latest_instances,
-        'total_count': qs.count(),
+        'approvers_by_doc': approvers_by_doc,
+        'last_action_by_doc': last_action_by_doc,
+        'total_count': total_count,
+        **params,
+    })
+
+
+@login_required
+def settings_approval_detail(request, pk):
+    """管理: 承認詳細（approval_detail 相当 + 強制操作ボタン）"""
+    expense = get_object_or_404(
+        T_Document.objects.select_related('status_cd', 'document_type', 'man_number', 'bumon_cd'),
+        pk=pk
+    )
+
+    # ワークフロー履歴
+    workflow_actions = (
+        T_WorkflowAction.objects
+        .filter(instance__document_id=expense)
+        .select_related('action_status', 'approver_man_number', 'step', 'instance')
+        .order_by('actioned_at')
+    )
+
+    # 承認予定者（keiri ステップ補完込み）
+    try:
+        pending_approvers = get_pending_approvers(expense)
+    except Exception:
+        pending_approvers = []
+
+    dynamic_fields_display = _build_dynamic_fields_display(expense)
+
+    return render(request, 'expenses/settings_approval_detail.html', {
+        'expense': expense,
+        'workflow_actions': workflow_actions,
+        'pending_approvers': pending_approvers,
+        'dynamic_fields_display': dynamic_fields_display,
+        'return_qs': request.GET.get('return_qs', ''),
     })
 
 
@@ -2666,52 +2819,172 @@ def settings_force_action(request, pk):
     expense = get_object_or_404(T_Document, pk=pk)
     action = request.POST.get('action')
     comment = request.POST.get('comment', '').strip()
+    return_qs = request.POST.get('return_qs', '')
 
     if action == 'approve':
-        fns = M_Status.objects.get_or_create(
-            status_cd='FNS', defaults={'status_name': '承認済み', 'action_name': '承認'}
-        )[0]
-        expense.status_cd = fns
-        expense.save()
-        try:
-            instance = T_WorkflowInstance.objects.filter(
-                document_id=expense
-            ).order_by('-started_at').first()
-            if instance:
-                T_WorkflowAction.objects.create(
-                    instance=instance,
-                    step=instance.step,
-                    approver_man_number=request.user,
-                    action_status=fns,
-                    comment=comment or '管理者による強制承認',
+        from .models import M_WorkflowStep
+        now = timezone.now()
+
+        instance = T_WorkflowInstance.objects.filter(
+            document_id=expense
+        ).select_related('step', 'workflow_template').order_by('-started_at').first()
+
+        if instance:
+            current_order = instance.step_order or (
+                instance.step.step_order if instance.step else None
+            )
+
+            # ① 現ステップの承認アクションとして記録（action_status は APPROVED）
+            approved_st = M_Status.objects.get_or_create(
+                status_cd='APPROVED', defaults={'status_name': '回覧中', 'action_name': '承認'}
+            )[0]
+            T_WorkflowAction.objects.create(
+                instance=instance,
+                step=instance.step,
+                approver_man_number=request.user,
+                action_status=approved_st,
+                comment=comment or '管理者による強制承認',
+            )
+
+            # ② 現ステップの pending T_DocumentApprover を APPROVED に
+            T_DocumentApprover.objects.filter(
+                document_id=expense,
+                step_id=instance.step,
+                step_order=current_order,
+                status__in=['pending', 'draft'],
+            ).update(status='APPROVED', approved_at=now)
+
+            # ③ 次ステップを探す
+            next_step = None
+            if current_order is not None:
+                next_step = (
+                    M_WorkflowStep.objects
+                    .filter(
+                        workflow_template=instance.workflow_template,
+                        step_order__gt=current_order,
+                    )
+                    .order_by('step_order')
+                    .first()
                 )
-        except Exception:
-            pass
+
+            if next_step:
+                # ④a 次ステップへ進む（中間承認継続）
+                instance.step = next_step
+                instance.step_order = next_step.step_order
+                instance.save(update_fields=['step', 'step_order'])
+
+                expense.status_cd = approved_st
+                expense.updated_at = now
+                expense.save(update_fields=['status_cd', 'updated_at'])
+
+                # 次ステップの承認者にメール通知
+                try:
+                    subject, body = _build_approval_request_mail(
+                        expense, f"【次の承認ステップ ({next_step.step_order})】"
+                    )
+                    # T_DocumentApprover に登録済みの承認者を優先
+                    next_approvers = T_DocumentApprover.objects.filter(
+                        document_id=expense,
+                        step_id=next_step,
+                        step_order=next_step.step_order,
+                    ).select_related('man_number')
+                    if next_approvers.exists():
+                        for a in next_approvers:
+                            to_addr = getattr(a.man_number, 'email', None)
+                            if to_addr:
+                                send_notification(to_addr.strip(), subject, body)
+                    else:
+                        # 未登録の場合は candidates_for_step で実際の候補者を探す（keiri ステップ等）
+                        candidates = candidates_for_step(expense.man_number, next_step)
+                        sent = False
+                        for cand in candidates:
+                            to_addr = getattr(cand, 'email', None)
+                            if to_addr:
+                                send_notification(to_addr.strip(), subject, body)
+                                sent = True
+                        if not sent:
+                            # 候補が見つからない場合のみ申請者へ
+                            to_addr = getattr(expense.man_number, 'email', None)
+                            if to_addr:
+                                send_notification(to_addr.strip(), subject, body)
+                except Exception:
+                    pass
+            else:
+                # ④b 最終ステップだった → FNS 完了
+                fns = M_Status.objects.get_or_create(
+                    status_cd='FNS', defaults={'status_name': '承認済み', 'action_name': '承認'}
+                )[0]
+                instance.status = fns
+                instance.completed_at = now
+                instance.save(update_fields=['status', 'completed_at'])
+
+                expense.status_cd = fns
+                expense.updated_at = now
+                expense.save(update_fields=['status_cd', 'updated_at'])
+
+                # 申請者へ最終承認メール
+                try:
+                    send_notification(
+                        expense.man_number.email,
+                        "[経費精算] 申請結果（最終承認）",
+                        f"申請ID:{expense.document_id} が最終承認されました。\nコメント: {comment or 'なし'}"
+                    )
+                except Exception:
+                    pass
+
+        return redirect('expenses:settings_approval_detail', pk=pk)
 
     elif action == 'reject':
+        now = timezone.now()
         rej = M_Status.objects.get_or_create(
             status_cd='REJECTED', defaults={'status_name': '却下', 'action_name': '却下'}
         )[0]
+
+        # ① 文書ステータスを REJECTED に
         expense.status_cd = rej
-        expense.save()
+        expense.updated_at = now
+        expense.save(update_fields=['status_cd', 'updated_at'])
+
+        instance = T_WorkflowInstance.objects.filter(
+            document_id=expense
+        ).order_by('-started_at').first()
+
+        if instance:
+            # ② ワークフローアクション記録
+            T_WorkflowAction.objects.create(
+                instance=instance,
+                step=instance.step,
+                approver_man_number=request.user,
+                action_status=rej,
+                comment=comment or '管理者による却下',
+            )
+            # ③ 現ステップの T_DocumentApprover を REJECTED に更新
+            T_DocumentApprover.objects.filter(
+                document_id=expense,
+                step_id=instance.step,
+                status__in=['pending', 'draft'],
+            ).update(status='REJECTED', approved_at=now)
+
+            # ④ ワークフローインスタンスを完了（却下）状態に
+            instance.status = rej
+            instance.completed_at = now
+            instance.save(update_fields=['status', 'completed_at'])
+
+        # ⑤ 申請者へ却下の結果メール
         try:
-            instance = T_WorkflowInstance.objects.filter(
-                document_id=expense
-            ).order_by('-started_at').first()
-            if instance:
-                T_WorkflowAction.objects.create(
-                    instance=instance,
-                    step=instance.step,
-                    approver_man_number=request.user,
-                    action_status=rej,
-                    comment=comment or '管理者による却下',
-                )
+            send_notification(
+                expense.man_number.email,
+                "[経費精算] 申請結果（却下）",
+                f"申請ID:{expense.document_id} が却下されました。\nコメント: {comment or 'なし'}"
+            )
         except Exception:
             pass
 
+        return redirect('expenses:settings_approval_detail', pk=pk)
+
     elif action == 'delete':
         expense.delete()
+        base_url = '/expenses/settings/approval_admin/'
+        return redirect(f"{base_url}?{return_qs}" if return_qs else base_url)
 
-    qs_str = request.POST.get('return_qs', '')
-    base_url = '/expenses/settings/approval_admin/'
-    return redirect(f"{base_url}?{qs_str}" if qs_str else base_url)
+    return redirect('expenses:settings_approval_detail', pk=pk)

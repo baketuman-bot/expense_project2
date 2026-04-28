@@ -4,6 +4,13 @@ from django.template.defaultfilters import stringfilter
 register = template.Library()
 
 @register.filter
+def get_item(dictionary, key):
+    """辞書のキー参照フィルター: {{ my_dict|get_item:variable_key }}"""
+    if dictionary is None:
+        return None
+    return dictionary.get(key)
+
+@register.filter
 @stringfilter
 def is_image(filename):
     """
@@ -40,13 +47,13 @@ def currency_display(tsuka_cd):
 def status_badge_class(status_cd):
     """ステータスコードからステータスピルクラスを返す。"""
     mapping = {
-        'INPRO': 'status-pill status-pill-pending',
-        'APPROVED': 'status-pill status-pill-approved',
+        'INPRO':    'status-pill status-pill-pending',
+        'APPROVED': 'status-pill status-pill-mid-approved',
         'REJECTED': 'status-pill status-pill-rejected',
         'RETURNED': 'status-pill status-pill-review',
-        'CANCEL': 'status-pill status-pill-cancelled',
-        'FNS': 'status-pill status-pill-approved',
-        'DRAFT': 'status-pill status-pill-draft',
+        'CANCEL':   'status-pill status-pill-cancelled',
+        'FNS':      'status-pill status-pill-approved',
+        'DRAFT':    'status-pill status-pill-draft',
     }
     return mapping.get(status_cd or '', 'status-pill status-pill-draft')
 

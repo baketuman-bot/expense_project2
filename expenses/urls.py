@@ -28,5 +28,6 @@ urlpatterns = [
     path("settings/", views.settings_home, name="settings_home"),
     path("settings/export/", views.settings_export, name="settings_export"),
     path("settings/approval_admin/", views.settings_approval_admin, name="settings_approval_admin"),
+    path("settings/approval_admin/<int:pk>/", views.settings_approval_detail, name="settings_approval_detail"),
     path("settings/approval_admin/<int:pk>/action/", views.settings_force_action, name="settings_force_action"),
 ]
