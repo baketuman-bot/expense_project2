@@ -2,9 +2,7 @@
 {% load expense_extras %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
+<div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2 class="mb-0">
                     <i class="fas fa-file-invoice text-primary"></i>
@@ -54,7 +52,7 @@
             </div>
 
             {% if expenses %}
-                <div class="card">
+                <div class="card" style="display:inline-block; min-width:480px; max-width:100%;">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="fas fa-list"></i>
@@ -64,7 +62,7 @@
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0">
+                            <table class="table table-hover mb-0" style="width:auto; min-width:100%;">
                                 <thead class="table-light">
                                     <tr>
                                         <th class="text-center" style="width:80px">申請ID</th>
@@ -183,8 +181,6 @@
                     </a>
                 </div>
             {% endif %}
-        </div>
-    </div>
 </div>
 {% endblock %}
 

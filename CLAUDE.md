@@ -18,14 +18,14 @@ expense_project2/
 ├── expense_project/       # Django project config (settings, urls, wsgi/asgi)
 ├── expenses/              # メインDjangoアプリ
 │   ├── models.py          # 全モデル定義 (~750行)
-│   ├── views.py           # ビューロジック (~2400行)
+│   ├── views.py           # ビューロジック (~3000行)
 │   ├── forms.py           # フォーム定義 (~500行)
 │   ├── utils.py           # ワークフロー・通知・承認者候補ユーティリティ
 │   ├── urls.py            # URLルーティング
 │   ├── admin.py           # Django Admin設定
 │   ├── auth_backends.py   # 社員番号(man_number)認証バックエンド
 │   ├── cloud_receipts.py  # GCS領収書ハンドリング
-│   ├── templates/expenses/  # HTMLテンプレート (9ファイル)
+│   ├── templates/expenses/  # HTMLテンプレート (15ファイル)
 │   ├── static/expenses/     # CSS/JS
 │   ├── templatetags/        # カスタムテンプレートタグ
 │   ├── management/commands/ # load_initial_master, superuser, migrate_legacy
@@ -129,6 +129,16 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 /api/approver_candidates/  → 承認者候補 (JSON API)
 /api/generate_mobile_qr/   → モバイルアップロード用QR (JSON API)
 /api/check_mobile_uploads/ → モバイルアップロード確認 (JSON API)
+/settings/                 → 管理者設定ホーム (→ データ出力にリダイレクト)
+/settings/export/          → データ出力 (全申請CSV含む)
+/settings/approval_admin/  → 承認管理一覧 (承認フロー表示・強制操作)
+/settings/approval_admin/<id>/        → 承認管理詳細
+/settings/approval_admin/<id>/action/ → 強制承認・却下・削除 (POST)
+/settings/master/                     → マスタ設定ホーム
+/settings/master/<key>/               → マスタ一覧
+/settings/master/<key>/create/        → マスタ新規作成
+/settings/master/<key>/<pk>/edit/     → マスタ編集
+/settings/master/<key>/<pk>/delete/   → マスタ削除 (POST)
 ```
 
 ### Authentication
@@ -180,3 +190,52 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - 新明細行追加後に `window.initAmountFields(newForm)` を呼び出してカンマ書式を初期化
 - `travel_expense_form.html` の各セクション（宿泊費・日当）はIIFEパターンで独立実装
 - 移動経路明細・宿泊費の明細パネルは `setupToggle(btnId, inlineSelector)` で一括表示/非表示制御
+- calc_formula エンジン内の `amountTotal` 集計では `parseFloat(inp.value.replace(/,/g, ''))` でカンマを除去してから計算（カンマ書式バグ対策）
+
+## TemplateTag (expense_extras.py)
+
+- `get_item`: 辞書の変数キー参照 `{{ dict|get_item:variable }}`（管理画面のコンテキストdict参照に使用）
+- `status_badge_class`: ステータスコード → CSS クラス変換。APPROVED(中間)は `status-pill-mid-approved`（青）、FNS は `status-pill-approved`（緑）で区別
+- `currency_display`, `amount_format`, `status_dot_class`, `is_image`, `is_pdf`: 既存フィルター
+
+## CSS (swiss.css) ステータスバッジ
+
+- `.badge-inprogress`: 申請中・承認中バッジ（青 #1d56d1・白文字）
+- `.badge-step-wait`: 承認待ちStep表示（淡青 #e0e7ff・紺文字）
+- `.status-pill-mid-approved`: 中間承認ステータス（青系、FNS緑と区別）
+- `.precision-section-label`: サイドバーのセクション見出し（小文字・グレー）
+
+## 管理者設定 (Admin Panel)
+
+サイドバーに「管理者設定」セクションを追加。現時点では全ユーザーに表示（後でM_Userに管理者フラグを追加して制御予定）。
+
+### データ出力 (`/settings/export/`)
+
+- 全申請を対象（自分の申請のみでなく全員分）
+- フィルター: 日付・申請種別・ステータス・部門・キーワード
+- ステータスフィルターは `status_name` 単位で重複除去（expense_list と同ロジック）
+- CSVは **T_DocumentContent 1行 = CSV 1行**で明細展開
+- CSV列: 申請ID・申請種別コード・申請種別・申請者・社員番号・部門コード・部門・申請日時・合計金額・通貨・ステータスコード・ステータス・備考・明細ID・明細日付・勘定科目コード・勘定科目・支払先・目的・明細金額・登録番号（数値型）・コーポレートカード・カード下4桁
+
+### 承認管理 (`/settings/approval_admin/`)
+
+- **一覧**: 全申請（DRAFT除外がデフォルト）+ 承認経路状況表示
+  - 経路表示: `▶▶▶`（青=承認済）/ `◀◀◀`（赤=却下）/ `▷▷▷`（灰=承認待ち）
+  - keiri ステップ（`M_WorkflowStep.allowed_bumon_scope='keiri'`）も `[経理]` として補完表示
+  - `_build_approval_flow(doc_ids)` で一括取得（T_DocumentApprover + keiri補完）
+  - `_get_last_action_dates(doc_ids)` で最終処理日を一括取得
+- **詳細**: approval_detail.html 相当（申請情報・経費明細・添付・承認フロータイムライン）
+- **強制操作** (POST `/settings/approval_admin/<id>/action/`):
+  - `approve`: 現ステップのみ承認 → 次ステップへ進む（最終なら FNS）→ 次承認者にメール
+  - `reject`: 現ステップを却下 → REJECTED → 申請者にメール
+  - `delete`: 文書を削除（関連レコードも CASCADE）
+
+### マスタ設定 (`/settings/master/`)
+
+- `M_Item.data_kbn='MST'` のレコードでメニューを生成
+  - `content` = マスタキー（`MASTER_REGISTRY` のキーと一致）
+  - `content2` = 表示名
+- `MASTER_REGISTRY`（views.py内）で各マスタのモデル・一覧フィールド・フォームフィールド・PKを定義
+- `modelform_factory` でフォームを動的生成・Bootstrap クラスを自動付与
+- 対応マスタキー: `m_bumon`, `m_post`, `m_account`, `m_status`, `m_item`, `m_group`, `m_belong_to`, `m_workflow_template`, `m_workflow_step`, `m_document_type`, `m_document_field`, `m_account_document`, `m_user`
+- 編集時はユーザー定義PK（CharField型）フォームから除外してPK変更を防止

@@ -30,4 +30,10 @@ urlpatterns = [
     path("settings/approval_admin/", views.settings_approval_admin, name="settings_approval_admin"),
     path("settings/approval_admin/<int:pk>/", views.settings_approval_detail, name="settings_approval_detail"),
     path("settings/approval_admin/<int:pk>/action/", views.settings_force_action, name="settings_force_action"),
+    # マスタ設定
+    path("settings/master/", views.settings_master_home, name="settings_master_home"),
+    path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),
+    path("settings/master/<str:master_key>/create/", views.settings_master_create, name="settings_master_create"),
+    path("settings/master/<str:master_key>/<str:pk>/edit/", views.settings_master_edit, name="settings_master_edit"),
+    path("settings/master/<str:master_key>/<str:pk>/delete/", views.settings_master_delete, name="settings_master_delete"),
 ]

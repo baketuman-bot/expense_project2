@@ -152,6 +152,18 @@
             <div class="precision-section-label">管理者設定</div>
             <ul class="precision-nav">
                 <li>
+                    <a class="precision-link {% if current == 'settings_master_home' or current == 'settings_master_list' or current == 'settings_master_create' or current == 'settings_master_edit' %}is-active{% endif %}" href="{% url 'expenses:settings_master_home' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                            </svg>
+                        </span>
+                        <span>マスタ設定</span>
+                    </a>
+                </li>
+                <li>
                     <a class="precision-link {% if current == 'settings_export' %}is-active{% endif %}" href="{% url 'expenses:settings_export' %}">
                         <span class="precision-ico" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

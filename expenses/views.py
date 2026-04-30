@@ -4,9 +4,9 @@ from django.core.exceptions import PermissionDenied
 from django.conf import settings
 from .models import (
     M_User, M_Status, M_Account, T_Document, T_DocumentContent,
-    M_Group, M_Bumon, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
+    M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
-    T_DocumentAttachment
+    T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -19,8 +19,9 @@ from django.utils import timezone
 import uuid
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse, Http404
 from django.core.paginator import Paginator
+from django.forms import modelform_factory
 import csv
 
 from django.core.files.base import ContentFile
@@ -2551,21 +2552,29 @@ def settings_export(request):
         response['Content-Disposition'] = 'attachment; filename="admin_export.csv"'
         writer = csv.writer(response)
         writer.writerow([
-            '申請ID', '申請種別', '申請者', '社員番号', '部門',
-            '申請日時', '合計金額', '通貨', 'ステータス', '備考',
-            '明細ID', '明細日付', '勘定科目', '支払先', '目的', '明細金額',
+            '申請ID', '申請種別コード', '申請種別',
+            '申請者', '社員番号',
+            '部門コード', '部門',
+            '申請日時', '合計金額', '通貨',
+            'ステータスコード', 'ステータス', '備考',
+            '明細ID', '明細日付',
+            '勘定科目コード', '勘定科目',
+            '支払先', '目的', '明細金額',
             '登録番号', 'コーポレートカード', 'カード下4桁',
         ])
         for exp in qs:
             doc_fields = [
                 exp.document_id,
+                exp.document_type.document_type_id if exp.document_type else '',
                 exp.document_type.document_type_name if exp.document_type else '',
                 exp.man_number.user_name if exp.man_number else '',
                 exp.man_number.man_number if exp.man_number else '',
+                exp.bumon_cd.bumon_cd if exp.bumon_cd else '',
                 exp.bumon_cd.bumon_name if exp.bumon_cd else '',
                 timezone.localtime(exp.created_at).strftime('%Y/%m/%d %H:%M'),
                 exp.total_amount,
                 exp.tsuka_cd or '',
+                exp.status_cd.status_cd if exp.status_cd else '',
                 exp.status_cd.status_name if exp.status_cd else '',
                 exp.memo or '',
             ]
@@ -2583,6 +2592,7 @@ def settings_export(request):
                     writer.writerow(doc_fields + [
                         c.document_detail_id,
                         c.date.strftime('%Y/%m/%d') if c.date else '',
+                        c.account.account_cd if c.account else '',
                         c.account.account_name if c.account else '',
                         c.shiharaisaki or '',
                         c.purpose or '',
@@ -2592,7 +2602,7 @@ def settings_export(request):
                         c.corpo_card_no or '',
                     ])
             else:
-                writer.writerow(doc_fields + ['', '', '', '', '', '', '', '', ''])
+                writer.writerow(doc_fields + ['', '', '', '', '', '', '', '', '', ''])
         return response
 
     paginator = Paginator(qs, 30)
@@ -2988,3 +2998,235 @@ def settings_force_action(request, pk):
         return redirect(f"{base_url}?{return_qs}" if return_qs else base_url)
 
     return redirect('expenses:settings_approval_detail', pk=pk)
+
+
+# ============================================================
+#  マスタ設定（汎用CRUD）
+# ============================================================
+
+MASTER_REGISTRY = {
+    'm_bumon': {
+        'model': M_Bumon,
+        'list_fields': [('bumon_cd', '部門コード'), ('bumon_name', '部門名')],
+        'form_fields': ['bumon_cd', 'bumon_name'],
+        'pk_attr': 'bumon_cd',
+    },
+    'm_post': {
+        'model': M_Post,
+        'list_fields': [('post_cd', '役職コード'), ('post_name', '役職名'), ('post_order', '職位順')],
+        'form_fields': ['post_cd', 'post_name', 'post_order'],
+        'pk_attr': 'post_cd',
+    },
+    'm_account': {
+        'model': M_Account,
+        'list_fields': [('account_cd', '勘定科目コード'), ('account_name', '勘定科目名')],
+        'form_fields': ['account_cd', 'account_name'],
+        'pk_attr': 'account_cd',
+    },
+    'm_status': {
+        'model': M_Status,
+        'list_fields': [('status_cd', 'コード'), ('status_name', '名称'), ('action_name', 'アクション名'), ('order_by', '表示順')],
+        'form_fields': ['status_cd', 'status_name', 'action_name', 'order_by'],
+        'pk_attr': 'status_cd',
+    },
+    'm_item': {
+        'model': M_Item,
+        'list_fields': [('data_kbn', '区分'), ('key', 'キー'), ('content', '内容'), ('content2', '内容2')],
+        'form_fields': ['data_kbn', 'key', 'content', 'content2'],
+        'pk_attr': 'pk',
+    },
+    'm_group': {
+        'model': M_Group,
+        'list_fields': [('group_cd', '部署コード'), ('group_name', '部署名'), ('upper_group_cd', '上位部署コード')],
+        'form_fields': ['group_cd', 'group_name', 'upper_group_cd'],
+        'pk_attr': 'group_cd',
+    },
+    'm_belong_to': {
+        'model': M_BelongTo,
+        'list_fields': [('man_number', '社員'), ('group_cd', '所属部署')],
+        'form_fields': ['man_number', 'group_cd'],
+        'pk_attr': 'belong_id',
+    },
+    'm_workflow_template': {
+        'model': M_WorkflowTemplate,
+        'list_fields': [('workflow_template_id', 'ID'), ('workflow_template_name', 'テンプレート名'), ('description', '説明')],
+        'form_fields': ['workflow_template_name', 'description'],
+        'pk_attr': 'workflow_template_id',
+    },
+    'm_workflow_step': {
+        'model': M_WorkflowStep,
+        'list_fields': [('step_id', 'ID'), ('workflow_template', 'テンプレート'), ('step_order', '順序'), ('step_type', '種別'), ('allowed_bumon_scope', '部門範囲'), ('approver_post', '承認役職')],
+        'form_fields': ['workflow_template', 'step_order', 'step_type', 'allowed_bumon_scope', 'approver_post', 'allowed_post', 'condition_expr', 'group_id'],
+        'pk_attr': 'step_id',
+    },
+    'm_document_type': {
+        'model': M_DocumentType,
+        'list_fields': [('document_type_id', 'ID'), ('document_type_name', '申請種別名'), ('workflow_template_id', 'ワークフロー'), ('bumon_scope', '部門スコープ')],
+        'form_fields': ['document_type_name', 'description', 'workflow_template_id', 'bumon_scope'],
+        'pk_attr': 'document_type_id',
+    },
+    'm_document_field': {
+        'model': M_DocumentField,
+        'list_fields': [('document_type', '申請種別'), ('field_name', 'フィールド名'), ('field_type', '型'), ('field_order', '順序'), ('col_width', '幅')],
+        'form_fields': ['document_type', 'field_name', 'field_type', 'field_name_view', 'field_order', 'col_width', 'row_break', 'required', 'placeholder', 'field_help_text', 'calc_formula'],
+        'pk_attr': 'pk',
+    },
+    'm_account_document': {
+        'model': M_AccountDocument,
+        'list_fields': [('document_type', '申請種別'), ('account_cd', '勘定科目')],
+        'form_fields': ['document_type', 'account_cd'],
+        'pk_attr': 'pk',
+    },
+    'm_user': {
+        'model': M_User,
+        'list_fields': [('man_number', '社員番号'), ('user_name', '氏名'), ('bumon_cd', '部門'), ('post_cd', '役職'), ('role', '権限'), ('is_active', '有効')],
+        'form_fields': ['man_number', 'username', 'user_name', 'email', 'bumon_cd', 'post_cd', 'role', 'is_active'],
+        'pk_attr': 'pk',
+    },
+}
+
+
+def _master_get_form_class(cfg, is_create):
+    """ModelFormClassを生成。編集時はユーザー定義PKフィールドを除外。"""
+    from django import forms as dj_forms
+    form_fields = list(cfg['form_fields'])
+    pk_attr = cfg['pk_attr']
+    if not is_create and pk_attr != 'pk' and pk_attr in form_fields:
+        form_fields = [f for f in form_fields if f != pk_attr]
+    return modelform_factory(cfg['model'], fields=form_fields)
+
+
+def _master_add_bootstrap(form):
+    """フォームウィジェットにBootstrapクラスを付与。"""
+    from django import forms as dj_forms
+    for field in form.fields.values():
+        w = field.widget
+        cls = w.attrs.get('class', '')
+        if isinstance(w, (dj_forms.Select, dj_forms.SelectMultiple)):
+            w.attrs['class'] = (cls + ' form-select').strip()
+        elif isinstance(w, dj_forms.CheckboxInput):
+            w.attrs['class'] = (cls + ' form-check-input').strip()
+        else:
+            w.attrs['class'] = (cls + ' form-control').strip()
+    return form
+
+
+def _master_get_obj(cfg, pk_str):
+    """pk文字列からモデルオブジェクトを取得。"""
+    pk_attr = cfg['pk_attr']
+    if pk_attr == 'pk':
+        return get_object_or_404(cfg['model'], pk=pk_str)
+    return get_object_or_404(cfg['model'], **{pk_attr: pk_str})
+
+
+@login_required
+def settings_master_home(request):
+    """マスタ設定ホーム: M_Item(data_kbn='MST') からメニュー生成"""
+    raw = M_Item.objects.filter(data_kbn='MST').order_by('key')
+    masters = [
+        {'key': m.content, 'display_name': m.content2, 'in_registry': m.content in MASTER_REGISTRY}
+        for m in raw
+    ]
+    return render(request, 'expenses/settings_master_home.html', {'masters': masters})
+
+
+@login_required
+def settings_master_list(request, master_key):
+    """マスタ一覧"""
+    cfg = MASTER_REGISTRY.get(master_key)
+    if not cfg:
+        raise Http404
+    item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
+    display_name = item.content2 if item else master_key
+
+    qs = cfg['model'].objects.all()
+    paginator = Paginator(qs, 50)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    pk_attr = cfg['pk_attr']
+    list_fields = cfg['list_fields']
+
+    rows = []
+    for obj in page_obj:
+        pk_val = str(getattr(obj, pk_attr, obj.pk))
+        vals = [str(getattr(obj, fn, '') or '') for fn, _ in list_fields]
+        rows.append({'pk': pk_val, 'values': vals})
+
+    return render(request, 'expenses/settings_master_list.html', {
+        'master_key': master_key,
+        'display_name': display_name,
+        'headers': [label for _, label in list_fields],
+        'rows': rows,
+        'page_obj': page_obj,
+    })
+
+
+@login_required
+def settings_master_create(request, master_key):
+    """マスタ新規作成"""
+    cfg = MASTER_REGISTRY.get(master_key)
+    if not cfg:
+        raise Http404
+    item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
+    display_name = item.content2 if item else master_key
+    FormClass = _master_get_form_class(cfg, is_create=True)
+
+    if request.method == 'POST':
+        form = FormClass(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('expenses:settings_master_list', master_key=master_key)
+    else:
+        form = FormClass()
+
+    _master_add_bootstrap(form)
+    return render(request, 'expenses/settings_master_form.html', {
+        'master_key': master_key,
+        'display_name': display_name,
+        'form': form,
+        'is_create': True,
+    })
+
+
+@login_required
+def settings_master_edit(request, master_key, pk):
+    """マスタ編集"""
+    cfg = MASTER_REGISTRY.get(master_key)
+    if not cfg:
+        raise Http404
+    obj = _master_get_obj(cfg, pk)
+    item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
+    display_name = item.content2 if item else master_key
+    FormClass = _master_get_form_class(cfg, is_create=False)
+
+    if request.method == 'POST':
+        form = FormClass(request.POST, instance=obj)
+        if form.is_valid():
+            form.save()
+            return redirect('expenses:settings_master_list', master_key=master_key)
+    else:
+        form = FormClass(instance=obj)
+
+    _master_add_bootstrap(form)
+    return render(request, 'expenses/settings_master_form.html', {
+        'master_key': master_key,
+        'display_name': display_name,
+        'form': form,
+        'is_create': False,
+        'obj': obj,
+        'obj_pk': pk,
+    })
+
+
+@login_required
+def settings_master_delete(request, master_key, pk):
+    """マスタ削除（POSTのみ）"""
+    cfg = MASTER_REGISTRY.get(master_key)
+    if not cfg:
+        raise Http404
+    if request.method == 'POST':
+        obj = _master_get_obj(cfg, pk)
+        try:
+            obj.delete()
+        except Exception:
+            pass
+    return redirect('expenses:settings_master_list', master_key=master_key)
