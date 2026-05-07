@@ -34,7 +34,7 @@
                                     <td>{{ exp.man_number.user_name }}</td>
                                     <td>{{ exp.created_at|date:"Y/m/d" }}</td>
                                     <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
-                                    <td><span class="{{ exp.status_cd.status_cd|status_badge_class }}">{{ exp.status_cd.status_name }}</span></td>
+                                    <td><span class="{{ exp.status_cd.status_cd|status_badge_class }}">{% status_label exp progress_by_doc %}</span></td>
                                     <td><a href="{% url 'expenses:approval_detail' exp.pk %}" class="btn btn-sm btn-outline-primary">詳細</a></td>
                                 </tr>
                                 {% endfor %}
@@ -81,7 +81,7 @@
                                     <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
                                     <td>
                                         <span class="{{ exp.status_cd.status_cd|status_badge_class }}">
-                                            {{ exp.status_cd.status_name }}
+                                            {% status_label exp progress_by_doc %}
                                         </span>
                                     </td>
                                     <td><a href="{% url 'expenses:expense_detail' exp.pk %}" class="btn btn-sm btn-outline-primary">詳細</a></td>

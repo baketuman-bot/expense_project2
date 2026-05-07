@@ -103,7 +103,7 @@
                                         </td>
                                         <td>
                                             <span class="{{ approval.status_cd.status_cd|status_badge_class }}">
-                                                {{ approval.status_cd.status_name }}
+                                                {% status_label approval progress_by_doc %}
                                             </span>
                                         </td>
                                     </tr>

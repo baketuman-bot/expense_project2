@@ -164,13 +164,13 @@
                                 <label class="form-label fw-bold">現在のステータス</label>
                                 <p class="mb-0">
                                     {% if expense.status_cd.status_cd == 'FNS' %}
-                                        <span class="badge bg-success fs-6">{{ expense.status_cd.status_name }}</span>
+                                        <span class="badge bg-success fs-6">{% status_label expense progress %}</span>
                                     {% elif expense.status_cd.status_cd == 'REJECTED' %}
-                                        <span class="badge bg-danger fs-6">{{ expense.status_cd.status_name }}</span>
+                                        <span class="badge bg-danger fs-6">{% status_label expense progress %}</span>
                                     {% elif expense.status_cd.status_cd == 'DRAFT' %}
-                                        <span class="badge bg-secondary fs-6">{{ expense.status_cd.status_name }}</span>
+                                        <span class="badge bg-secondary fs-6">{% status_label expense progress %}</span>
                                     {% else %}
-                                        <span class="badge badge-inprogress fs-6"><i class="fas fa-clock"></i> {{ expense.status_cd.status_name }}</span>
+                                        <span class="badge badge-inprogress fs-6"><i class="fas fa-clock"></i> {% status_label expense progress %}</span>
                                     {% endif %}
                                 </p>
                             </div>

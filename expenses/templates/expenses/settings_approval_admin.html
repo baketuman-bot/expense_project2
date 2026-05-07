@@ -105,13 +105,13 @@
                         </td>
                         <td>
                             {% if doc.status_cd.status_cd == 'FNS' %}
-                                <span class="badge bg-success fw-normal" style="font-size:11px">{{ doc.status_cd.status_name }}</span>
+                                <span class="badge bg-success fw-normal" style="font-size:11px">{% status_label doc progress_by_doc %}</span>
                             {% elif doc.status_cd.status_cd == 'REJECTED' %}
-                                <span class="badge bg-danger fw-normal" style="font-size:11px">{{ doc.status_cd.status_name }}</span>
+                                <span class="badge bg-danger fw-normal" style="font-size:11px">{% status_label doc progress_by_doc %}</span>
                             {% elif doc.status_cd.status_cd == 'DRAFT' or doc.status_cd.status_cd == 'CANCEL' %}
-                                <span class="badge bg-light text-dark border fw-normal" style="font-size:11px">{{ doc.status_cd.status_name }}</span>
+                                <span class="badge bg-light text-dark border fw-normal" style="font-size:11px">{% status_label doc progress_by_doc %}</span>
                             {% else %}
-                                <span class="badge badge-inprogress fw-normal" style="font-size:11px">{{ doc.status_cd.status_name }}</span>
+                                <span class="badge badge-inprogress fw-normal" style="font-size:11px">{% status_label doc progress_by_doc %}</span>
                             {% endif %}
                         </td>
                         <td class="flow-cell">

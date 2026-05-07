@@ -251,10 +251,11 @@ def home(request):
     ).order_by('created_at')[:5]
 
     # 申請中一覧（自分の申請で承認完了・下書き・取消以外）
+    # ※ APPROVED は中間承認として扱っていた旧データの可能性があるため除外しない
     in_progress_expenses = T_Document.objects.filter(
         man_number=request.user,
     ).exclude(
-        status_cd__status_cd__in=['APPROVED', 'DRAFT', 'CANCEL', 'FNS', 'REJECTED']
+        status_cd__status_cd__in=['DRAFT', 'CANCEL', 'FNS', 'REJECTED']
     ).order_by('-created_at')[:5]
 
     # 下書き一覧（自分の下書き）
@@ -263,11 +264,19 @@ def home(request):
         status_cd__status_cd='DRAFT',
     ).order_by('-created_at')[:5]
 
+    # 承認進行マップ（pending_approvals + in_progress_expenses 両方）
+    home_doc_ids = (
+        [d.document_id for d in pending_approvals] +
+        [d.document_id for d in in_progress_expenses]
+    )
+    progress_by_doc = _get_step_progress_map(home_doc_ids)
+
     context = {
         'user': request.user,
         'pending_approvals': pending_approvals,
         'in_progress_expenses': in_progress_expenses,
         'draft_expenses': draft_expenses,
+        'progress_by_doc': progress_by_doc,
     }
     return render(request, "expenses/home.html", context)
 
@@ -309,6 +318,9 @@ def expense_list(request):
         .order_by('min_order', 'status_name')
     )
 
+    # 承認進行マップ（ステータスバッジに current/total を表示するため）
+    progress_by_doc = _get_step_progress_map([d.document_id for d in page_obj])
+
     return render(request, "expenses/expense_list.html", {
         "expenses": page_obj,
         "page_obj": page_obj,
@@ -317,6 +329,7 @@ def expense_list(request):
         "date_from": date_from,
         "date_to": date_to,
         "keyword": keyword,
+        "progress_by_doc": progress_by_doc,
     })
 
 
@@ -455,7 +468,8 @@ def expense_detail(request, pk):
 
     dynamic_fields_display = _build_dynamic_fields_display(expense)
 
-    return render(request, "expenses/expense_detail.html", {"expense": expense, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "currency_name": currency_name, "dynamic_fields_display": dynamic_fields_display})
+    progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
+    return render(request, "expenses/expense_detail.html", {"expense": expense, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "currency_name": currency_name, "dynamic_fields_display": dynamic_fields_display, "progress": progress})
 
 @login_required
 def expense_edit(request, pk):
@@ -2081,6 +2095,8 @@ def approval_list(request):
         .order_by('min_order', 'status_name')
     )
 
+    progress_by_doc = _get_step_progress_map([d.document_id for d in page_obj])
+
     return render(request, "expenses/approval_list.html", {
         "approvals": page_obj,
         "page_obj": page_obj,
@@ -2089,6 +2105,7 @@ def approval_list(request):
         "date_from": date_from,
         "date_to": date_to,
         "keyword": keyword,
+        "progress_by_doc": progress_by_doc,
     })
 
 
@@ -2177,9 +2194,8 @@ def approval_detail(request, pk):
                     action_name=default_actions.get(status_code, status_code),
                 )
             comment = form.cleaned_data["comment"]
-            # 状態更新とワークフローアクションに記録
-            expense.status_cd = status
-            expense.save()
+            # 文書ステータスは各アクション分岐で適切に更新する
+            # （中間 APPROVED は INPRO のまま、最終承認/却下/差戻しは各 elif で確定）
             try:
                 from .models import T_WorkflowInstance, T_WorkflowAction, M_WorkflowStep, T_DocumentApprover
                 instance = T_WorkflowInstance.objects.filter(document_id=expense).order_by('-started_at').first()
@@ -2231,6 +2247,13 @@ def approval_detail(request, pk):
                                 instance.step = next_step
                                 instance.step_order = next_step.step_order
                                 instance.save(update_fields=['step', 'step_order'])
+                                # 中間承認: 文書ステータスは「申請中(INPRO)」のまま継続
+                                inpro = M_Status.objects.get_or_create(
+                                    status_cd='INPRO', defaults={'status_name': '申請中', 'action_name': '提出'}
+                                )[0]
+                                expense.status_cd = inpro
+                                expense.updated_at = now
+                                expense.save(update_fields=['status_cd', 'updated_at'])
                                 # 次の承認者に通知
                                 try:
                                     from .models import T_DocumentApprover
@@ -2377,7 +2400,8 @@ def approval_detail(request, pk):
 
     dynamic_fields_display = _build_dynamic_fields_display(expense)
 
-    return render(request, "expenses/approval_detail.html", {"expense": expense, "form": form, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "dynamic_fields_display": dynamic_fields_display})
+    progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
+    return render(request, "expenses/approval_detail.html", {"expense": expense, "form": form, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "dynamic_fields_display": dynamic_fields_display, "progress": progress})
 
 
 @login_required
@@ -2717,6 +2741,39 @@ def _get_last_action_dates(doc_ids):
     return result
 
 
+def _get_step_progress_map(doc_ids):
+    """doc_id → {'current': N, 'total': M} を返す。承認進行表示用。
+    確定不能（インスタンス無し・テンプレート無し・総ステップ0）はキー不在。
+    """
+    if not doc_ids:
+        return {}
+    from django.db.models import Count
+    # 各文書の最新ワークフローインスタンス
+    inst_by_doc = {}
+    for inst in (T_WorkflowInstance.objects
+                 .filter(document_id__in=doc_ids)
+                 .order_by('document_id', '-started_at')):
+        if inst.document_id_id not in inst_by_doc:
+            inst_by_doc[inst.document_id_id] = inst
+    # テンプレート毎の総ステップ数
+    template_ids = {inst.workflow_template_id for inst in inst_by_doc.values()
+                    if inst.workflow_template_id}
+    total_by_template = {}
+    if template_ids:
+        for row in (M_WorkflowStep.objects
+                    .filter(workflow_template__in=template_ids)
+                    .values('workflow_template_id')
+                    .annotate(c=Count('step_id'))):
+            total_by_template[row['workflow_template_id']] = row['c']
+    result = {}
+    for doc_id, inst in inst_by_doc.items():
+        total = total_by_template.get(inst.workflow_template_id, 0)
+        current = inst.step_order or 0
+        if total > 0 and current > 0:
+            result[doc_id] = {'current': current, 'total': total}
+    return result
+
+
 def _build_filter_qs(request, base_qs):
     """共通フィルターを base_qs に適用して (qs, params_dict) を返す。"""
     params = {
@@ -2774,6 +2831,7 @@ def settings_approval_admin(request):
     doc_ids = [doc.document_id for doc in page_obj]
     approvers_by_doc = _build_approval_flow(doc_ids)
     last_action_by_doc = _get_last_action_dates(doc_ids)
+    progress_by_doc = _get_step_progress_map(doc_ids)
 
     return render(request, 'expenses/settings_approval_admin.html', {
         'page_obj': page_obj,
@@ -2782,6 +2840,7 @@ def settings_approval_admin(request):
         'bumons': bumons,
         'approvers_by_doc': approvers_by_doc,
         'last_action_by_doc': last_action_by_doc,
+        'progress_by_doc': progress_by_doc,
         'total_count': total_count,
         **params,
     })
@@ -2810,12 +2869,14 @@ def settings_approval_detail(request, pk):
         pending_approvers = []
 
     dynamic_fields_display = _build_dynamic_fields_display(expense)
+    progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
 
     return render(request, 'expenses/settings_approval_detail.html', {
         'expense': expense,
         'workflow_actions': workflow_actions,
         'pending_approvers': pending_approvers,
         'dynamic_fields_display': dynamic_fields_display,
+        'progress': progress,
         'return_qs': request.GET.get('return_qs', ''),
     })
 
@@ -2883,7 +2944,11 @@ def settings_force_action(request, pk):
                 instance.step_order = next_step.step_order
                 instance.save(update_fields=['step', 'step_order'])
 
-                expense.status_cd = approved_st
+                # 中間承認: 文書ステータスは INPRO（申請中）のまま継続
+                inpro_st = M_Status.objects.get_or_create(
+                    status_cd='INPRO', defaults={'status_name': '申請中', 'action_name': '提出'}
+                )[0]
+                expense.status_cd = inpro_st
                 expense.updated_at = now
                 expense.save(update_fields=['status_cd', 'updated_at'])
 

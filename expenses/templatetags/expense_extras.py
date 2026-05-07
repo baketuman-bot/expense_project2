@@ -10,6 +10,27 @@ def get_item(dictionary, key):
         return None
     return dictionary.get(key)
 
+
+@register.simple_tag
+def status_label(document, progress=None):
+    """ステータス表示。中間承認/申請中/差戻し中は進行 (current/total) を付加。
+    progress は dict (doc_id→{current,total}) でも単独 {current,total} でも可。
+    """
+    if not document or not getattr(document, 'status_cd', None):
+        return ''
+    code = document.status_cd.status_cd
+    name = document.status_cd.status_name
+    if code in ('INPRO', 'APPROVED', 'RETURNED') and progress:
+        prog = None
+        if isinstance(progress, dict):
+            if 'current' in progress and 'total' in progress:
+                prog = progress
+            else:
+                prog = progress.get(document.document_id)
+        if prog and prog.get('total'):
+            return f"{name} ({prog['current']}/{prog['total']})"
+    return name
+
 @register.filter
 @stringfilter
 def is_image(filename):
