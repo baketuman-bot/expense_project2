@@ -2743,6 +2743,7 @@ def _get_last_action_dates(doc_ids):
 
 def _get_step_progress_map(doc_ids):
     """doc_id → {'current': N, 'total': M} を返す。承認進行表示用。
+    current は「承認済み件数」を表す（step_order は待機中ステップなので -1 する）。
     確定不能（インスタンス無し・テンプレート無し・総ステップ0）はキー不在。
     """
     if not doc_ids:
@@ -2768,9 +2769,12 @@ def _get_step_progress_map(doc_ids):
     result = {}
     for doc_id, inst in inst_by_doc.items():
         total = total_by_template.get(inst.workflow_template_id, 0)
-        current = inst.step_order or 0
-        if total > 0 and current > 0:
-            result[doc_id] = {'current': current, 'total': total}
+        step_order = inst.step_order or 0
+        if total > 0 and step_order > 0:
+            # step_order は「現在待機中のステップ番号」なので、承認済み = step_order - 1
+            # データ異常 (step_order > total) があっても total を上限にcap
+            approved = max(0, min(step_order - 1, total))
+            result[doc_id] = {'current': approved, 'total': total}
     return result
 
 
