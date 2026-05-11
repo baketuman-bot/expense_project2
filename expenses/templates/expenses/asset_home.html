@@ -1,0 +1,128 @@
+{% extends "expenses/base.html" %}
+{% load expense_extras %}
+
+{% block content %}
+<div class="container">
+
+    <!-- 新規申請ボタン群 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle text-primary me-2"></i>新規申請</h5>
+                </div>
+                <div class="card-body">
+                    {% if asset_doc_types %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for dt in asset_doc_types %}
+                        <a href="{% url 'expenses:asset_create_by_type' dt.document_type_id %}" class="btn btn-outline-primary">
+                            <i class="fas fa-file-alt me-1"></i>{{ dt.document_type_name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">申請種別が設定されていません。マスタ設定から「固定資産」カテゴリの文書種別を追加してください。</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 申請中一覧 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-paper-plane text-primary me-2"></i>申請中 <span class="badge border border-primary text-primary">上位5件</span></h5>
+                    <a href="{% url 'expenses:asset_list' %}" class="btn btn-sm btn-outline-primary">一覧を見る</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if in_progress_expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>申請ID</th>
+                                    <th>申請日付</th>
+                                    <th>申請種別</th>
+                                    <th>目的</th>
+                                    <th class="text-end">金額</th>
+                                    <th>ステータス</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exp in in_progress_expenses %}
+                                <tr>
+                                    <td>{{ exp.document_id }}</td>
+                                    <td>{{ exp.created_at|date:"Y/m/d" }}</td>
+                                    <td>{{ exp.document_type.document_type_name }}</td>
+                                    <td>{{ exp.contents.first.purpose|default:"-"|truncatechars:30 }}</td>
+                                    <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
+                                    <td>
+                                        <span class="{{ exp.status_cd.status_cd|status_badge_class }}">
+                                            {% status_label exp progress_by_doc %}
+                                        </span>
+                                    </td>
+                                    <td><a href="{% url 'expenses:expense_detail' exp.pk %}" class="btn btn-sm btn-outline-primary">詳細</a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3 mb-0">申請中の申請はありません。</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下書き一覧 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-edit text-secondary me-2"></i>下書き <span class="badge border border-secondary text-secondary">上位5件</span></h5>
+                    <a href="{% url 'expenses:asset_list' %}" class="btn btn-sm btn-outline-secondary">一覧を見る</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if draft_expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>申請ID</th>
+                                    <th>申請日付</th>
+                                    <th>申請種別</th>
+                                    <th>目的</th>
+                                    <th class="text-end">金額</th>
+                                    <th>ステータス</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exp in draft_expenses %}
+                                <tr>
+                                    <td>{{ exp.document_id }}</td>
+                                    <td>{{ exp.created_at|date:"Y/m/d" }}</td>
+                                    <td>{{ exp.document_type.document_type_name }}</td>
+                                    <td>{{ exp.contents.first.purpose|default:"-"|truncatechars:30 }}</td>
+                                    <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
+                                    <td><span class="badge bg-secondary">{{ exp.status_cd.status_name }}</span></td>
+                                    <td><a href="{% url 'expenses:expense_edit' exp.pk %}" class="btn btn-sm btn-outline-secondary">編集</a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3 mb-0">下書きはありません。</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

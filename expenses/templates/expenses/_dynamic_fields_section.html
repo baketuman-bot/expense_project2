@@ -1,0 +1,42 @@
+{% load form_tags %}
+{% if dynamic_fields %}
+<!-- 追加入力項目（DocTypeに応じて動的） -->
+<div class="card mt-4">
+    <div class="card-body">
+        <h3 class="card-title mb-4">追加入力項目</h3>
+        <div class="row mb-1">
+            <div class="col-12">
+                <div class="alert alert-info py-2 mb-3">この文書種別の追加項目</div>
+            </div>
+            {% for f in dynamic_fields %}
+                {% if f.section_header %}</div></div><div class="card-body pt-0"><h6 class="text-muted border-bottom pb-1 mt-3 mb-3">{{ f.section_header }}</h6><div class="row mb-1">{% elif f.row_break %}</div><div class="row mb-1">{% endif %}
+                <div class="col-md-{{ f.col_width }} mb-3">
+                    <label class="form-label{% if f.required %} fw-semibold{% endif %}" for="id_dyn_{{ f.name }}">
+                        {{ f.label }}{% if f.required %}<span class="text-danger ms-1">*</span>{% endif %}
+                    </label>
+                    {% if f.type == 'select' %}
+                        <select class="form-select" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}"{% if f.required %} required{% endif %}>
+                            <option value="">選択してください</option>
+                            {% for opt in f.options %}
+                                <option value="{{ opt.key }}" {% if f.value == opt.key %}selected{% endif %}>{{ opt.content }}</option>
+                            {% endfor %}
+                        </select>
+                    {% elif f.type == 'number' %}
+                        <input type="number" step="any" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
+                    {% elif f.type == 'date' %}
+                        <input type="date" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}>
+                    {% elif f.type == 'label' %}
+                        <div class="form-control bg-light fw-bold text-primary" id="id_dyn_{{ f.name }}"
+                             {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
+                    {% else %}
+                        <input type="text" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
+                    {% endif %}
+                    {% if f.field_help_text %}
+                        <div class="form-text text-muted small">{{ f.field_help_text }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}

@@ -45,10 +45,10 @@
             {% endif %}
         {% endfor %}
 
-        <!-- 経費明細 -->
+        <!-- 経費明細 / 固定資産明細 -->
         <div class="card">
             <div class="card-body">
-                <h3 class="card-title mb-4">経費明細</h3>
+                <h3 class="card-title mb-4">{{ detail_section_title|default:"経費明細" }}</h3>
 
                 <div id="expense-details">
                     {% for detail_form in formset %}
@@ -66,6 +66,10 @@
                                 {{ hidden }}
                             {% endif %}
                         {% endfor %}
+                        {% if hide_detail_fields %}
+                        <input type="hidden" name="{{ detail_form.date.html_name }}" value="">
+                        <input type="hidden" name="{{ detail_form.amount.html_name }}" value="0">
+                        {% else %}
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -94,11 +98,12 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <div class="row mt-3">
                             <div class="col-md-12">
                                 <div class="form-group">
-                                    {{ detail_form.purpose.label_tag }}
+                                    {% if purpose_label %}<label for="{{ detail_form.purpose.id_for_label }}">{{ purpose_label }}</label>{% else %}{{ detail_form.purpose.label_tag }}{% endif %}
                                     {% if detail_form.purpose.errors %}
                                         {{ detail_form.purpose|add_class:"form-control is-invalid" }}
                                         {% for error in detail_form.purpose.errors %}
@@ -111,6 +116,7 @@
                             </div>
                         </div>
 
+                        {% if not hide_detail_fields %}
                         <div class="row mt-3">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -190,11 +196,12 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
 
                         <div class="row mt-3">
                             <div class="col-md-12">
                                 <div class="form-group">
-                                    {{ detail_form.receipt.label_tag }}
+                                    {% if receipt_label %}<label>{{ receipt_label }}</label>{% else %}{{ detail_form.receipt.label_tag }}{% endif %}
                                     <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
                                         <div class="drop-zone__prompt">
                                             <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
@@ -259,47 +266,7 @@
             </div>
         </div>
 
-        {% if dynamic_fields %}
-        <!-- 追加入力項目（DocTypeに応じて動的） -->
-        <div class="card mt-4">
-            <div class="card-body">
-                <h3 class="card-title mb-4">追加入力項目</h3>
-                <div class="row mb-1">
-                    <div class="col-12">
-                        <div class="alert alert-info py-2 mb-3">この文書種別の追加項目</div>
-                    </div>
-                    {% for f in dynamic_fields %}
-                        {% if f.row_break %}</div><div class="row mb-1">{% endif %}
-                        <div class="col-md-{{ f.col_width }} mb-3">
-                            <label class="form-label{% if f.required %} fw-semibold{% endif %}" for="id_dyn_{{ f.name }}">
-                                {{ f.label }}{% if f.required %}<span class="text-danger ms-1">*</span>{% endif %}
-                            </label>
-                            {% if f.type == 'select' %}
-                                <select class="form-select" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}"{% if f.required %} required{% endif %}>
-                                    <option value="">選択してください</option>
-                                    {% for opt in f.options %}
-                                        <option value="{{ opt.key }}" {% if f.value == opt.key %}selected{% endif %}>{{ opt.content }}</option>
-                                    {% endfor %}
-                                </select>
-                            {% elif f.type == 'number' %}
-                                <input type="number" step="any" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
-                            {% elif f.type == 'date' %}
-                                <input type="date" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}>
-                            {% elif f.type == 'label' %}
-                                <div class="form-control bg-light fw-bold text-primary" id="id_dyn_{{ f.name }}"
-                                     {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
-                            {% else %}
-                                <input type="text" class="form-control" name="dyn_{{ f.name }}" id="id_dyn_{{ f.name }}" value="{{ f.value }}"{% if f.required %} required{% endif %}{% if f.placeholder %} placeholder="{{ f.placeholder }}"{% endif %}>
-                            {% endif %}
-                            {% if f.field_help_text %}
-                                <div class="form-text text-muted small">{{ f.field_help_text }}</div>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        {% endif %}
+        {% if not reorder_sections %}{% include "expenses/_dynamic_fields_section.html" %}{% endif %}
 
         <!-- 申請情報 -->
         <div class="card mt-4">
@@ -320,6 +287,9 @@
                             <div id="bumon_cd_error" class="invalid-feedback {% if error_message and '負担部門' in error_message %}d-block{% endif %}">負担部門を選択してください。</div>
                         </div>
                     </div>
+                    {% if hide_currency %}
+                    <input type="hidden" name="tsuka_cd" value="{{ request.POST.tsuka_cd|default:copy_from_tsuka_cd|default:'00' }}">
+                    {% else %}
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="tsuka_cd">通貨</label>
@@ -335,6 +305,10 @@
                             </select>
                         </div>
                     </div>
+                    {% endif %}
+                    {% if hide_pay_kbn %}
+                    <input type="hidden" name="pay_kbn" value="{{ request.POST.pay_kbn|default:'01' }}">
+                    {% else %}
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="pay_kbn">精算方法</label>
@@ -354,6 +328,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
                 <div class="row mt-3">
                     <div class="col-md-12">
@@ -373,6 +348,8 @@
                 </div>
             </div>
         </div>
+
+        {% if reorder_sections %}{% include "expenses/_dynamic_fields_section.html" %}{% endif %}
 
         <!-- 承認者選択（ワークフロー定義に基づく） -->
         {% if workflow_steps and workflow_steps|length > 0 %}

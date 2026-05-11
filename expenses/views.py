@@ -33,6 +33,36 @@ def _is_travel_doc_type(doc_type):
     return bool(doc_type and getattr(doc_type, 'document_type_id', None) == 5)
 
 
+def _has_dynamic_fields(doc_type):
+    """M_DocumentField でフィールド定義されている DocType かどうか判定する。"""
+    if not doc_type:
+        return False
+    return M_DocumentField.objects.filter(document_type=doc_type).exists()
+
+
+def _asset_form_context(doc_type):
+    """カテゴリが 'assets' の DocType に適用するフォーム表示制御コンテキストを返す。"""
+    if doc_type and getattr(doc_type, 'category', None) == 'assets':
+        return {
+            'hide_currency': True,
+            'hide_pay_kbn': True,
+            'purpose_label': '固定資産名',
+            'receipt_label': '資産画像',
+            'detail_section_title': '固定資産明細',
+            'hide_detail_fields': True,
+            'reorder_sections': True,
+        }
+    return {
+        'hide_currency': False,
+        'hide_pay_kbn': False,
+        'purpose_label': None,
+        'receipt_label': None,
+        'detail_section_title': None,
+        'hide_detail_fields': False,
+        'reorder_sections': False,
+    }
+
+
 def _apply_created_at_date_range(qs, date_from, date_to):
     """created_at に対する日付範囲フィルタを、MySQL の timezone テーブル有無に依存しない形で適用する。
 
@@ -250,17 +280,18 @@ def home(request):
         status_cd__status_cd='INPRO',
     ).order_by('created_at')[:5]
 
-    # 申請中一覧（自分の申請で承認完了・下書き・取消以外）
-    # ※ APPROVED は中間承認として扱っていた旧データの可能性があるため除外しない
+    # 申請中一覧（自分の費用精算カテゴリ申請で承認完了・下書き・取消以外）
     in_progress_expenses = T_Document.objects.filter(
         man_number=request.user,
+        document_type__category='expense',
     ).exclude(
         status_cd__status_cd__in=['DRAFT', 'CANCEL', 'FNS', 'REJECTED']
     ).order_by('-created_at')[:5]
 
-    # 下書き一覧（自分の下書き）
+    # 下書き一覧（自分の費用精算カテゴリ下書き）
     draft_expenses = T_Document.objects.filter(
         man_number=request.user,
+        document_type__category='expense',
         status_cd__status_cd='DRAFT',
     ).order_by('-created_at')[:5]
 
@@ -282,7 +313,10 @@ def home(request):
 
 @login_required
 def expense_list(request):
-    qs = T_Document.objects.filter(man_number=request.user).select_related(
+    qs = T_Document.objects.filter(
+        man_number=request.user,
+        document_type__category='expense',
+    ).select_related(
         'status_cd', 'document_type', 'bumon_cd'
     ).prefetch_related('contents').order_by("-created_at")
 
@@ -487,7 +521,7 @@ def expense_edit(request, pk):
     dynamic_fields = []
     try:
         doc_type_for_dyn = getattr(expense, 'document_type', None)
-        if doc_type_for_dyn and getattr(doc_type_for_dyn, 'document_type_id', None) == 4:
+        if _has_dynamic_fields(doc_type_for_dyn):
             # 既存の（先頭明細の）content を初期値として取り出す
             try:
                 first_detail = expense.contents.order_by('document_detail_id').first()
@@ -537,6 +571,7 @@ def expense_edit(request, pk):
                     'placeholder':   d.placeholder or '',
                     'field_help_text': d.field_help_text or '',
                     'calc_formula':  d.calc_formula or '',
+                    'section_header': d.section_header or '',
                 })
     except Exception:
         dynamic_fields = []
@@ -777,7 +812,7 @@ def expense_edit(request, pk):
                     # DocType=4 の動的値は最初の明細の content に保存（1回のみ）
                     try:
                         doc_type_local = getattr(expense, 'document_type', None)
-                        if doc_type_local and getattr(doc_type_local, 'document_type_id', None) == 4 and not used_dynamic:
+                        if _has_dynamic_fields(doc_type_local) and not used_dynamic:
                             existing = detail.content if getattr(detail, 'content', None) else {}
                             if isinstance(existing, dict):
                                 existing.update(dynamic_values)
@@ -1190,6 +1225,8 @@ def expense_edit(request, pk):
         "current_doc_type_name": getattr(getattr(expense, 'document_type', None), 'document_type_name', None),
         "form_action": "",
         "submission_id": str(uuid.uuid4()),
+        # カテゴリ別フィールド制御
+        **_asset_form_context(getattr(expense, 'document_type', None)),
     })
 
 @login_required
@@ -1238,7 +1275,7 @@ def expense_create(request, document_type_id=None):
             resolved_doc_type = M_DocumentType.objects.filter(document_type_id=document_type_id).first()
         if not resolved_doc_type:
             resolved_doc_type = M_DocumentType.objects.filter(document_type_name="経費精算書").first()
-        if resolved_doc_type and getattr(resolved_doc_type, 'document_type_id', None) == 4:
+        if _has_dynamic_fields(resolved_doc_type):
             # 型マッピングと select のオプション解決。全定義をテンプレートへ渡す
             defs = M_DocumentField.objects.filter(document_type=resolved_doc_type).order_by('field_order', 'field_name')
             for d in defs:
@@ -1280,6 +1317,7 @@ def expense_create(request, document_type_id=None):
                     'placeholder':   d.placeholder or '',
                     'field_help_text': d.field_help_text or '',
                     'calc_formula':  d.calc_formula or '',
+                    'section_header': d.section_header or '',
                 })
     except Exception:
         dynamic_fields = []
@@ -1512,7 +1550,7 @@ def expense_create(request, document_type_id=None):
                             detail.document = expense
                             # DocType=4 の動的値は最初の明細の content に保存
                             try:
-                                if (resolved_doc_type or doc_type) and getattr((resolved_doc_type or doc_type), 'document_type_id', None) == 4 and not used_dynamic:
+                                if _has_dynamic_fields(resolved_doc_type or doc_type) and not used_dynamic:
                                     existing = detail.content if getattr(detail, 'content', None) else {}
                                     if isinstance(existing, dict):
                                         existing.update(dynamic_values)
@@ -1889,6 +1927,8 @@ def expense_create(request, document_type_id=None):
         "copy_from_memo": "",
         "copy_from_ringi_no": "",
         "form_action": "",
+        # カテゴリ別フィールド制御
+        **_asset_form_context(doc_type or resolved_doc_type),
     })
 
 @login_required
@@ -1990,7 +2030,7 @@ def expense_copy(request, pk):
     # DocType=4: 動的フィールド定義をコピー元の値でプリセット
     dynamic_fields_for_copy = []
     try:
-        if doc_type and getattr(doc_type, 'document_type_id', None) == 4:
+        if _has_dynamic_fields(doc_type):
             first_detail = source.contents.order_by('document_detail_id').first()
             existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
             defs = M_DocumentField.objects.filter(document_type=doc_type).order_by('field_order', 'field_name')
@@ -2024,6 +2064,7 @@ def expense_copy(request, pk):
                     'placeholder':   d.placeholder or '',
                     'field_help_text': d.field_help_text or '',
                     'calc_formula':  d.calc_formula or '',
+                    'section_header': d.section_header or '',
                 })
     except Exception:
         dynamic_fields_for_copy = []
@@ -2046,6 +2087,8 @@ def expense_copy(request, pk):
         "form_action": form_action,
         "current_doc_type_name": getattr(doc_type, 'document_type_name', '経費申請') + "（コピー）",
         "doc1_wf_id": None,
+        # カテゴリ別フィールド制御
+        **_asset_form_context(doc_type),
     })
 
 @login_required
@@ -2525,6 +2568,85 @@ def check_mobile_uploads(request):
 # ============================================================
 #  管理者画面 (設定メニュー)
 # ============================================================
+
+@login_required
+def asset_home(request):
+    """固定資産カテゴリのトップページ"""
+    from .models import T_DocumentApprover
+    in_progress = T_Document.objects.filter(
+        man_number=request.user,
+        document_type__category='assets',
+    ).exclude(
+        status_cd__status_cd__in=['DRAFT', 'CANCEL', 'FNS', 'REJECTED']
+    ).order_by('-created_at')[:5]
+
+    drafts = T_Document.objects.filter(
+        man_number=request.user,
+        document_type__category='assets',
+        status_cd__status_cd='DRAFT',
+    ).order_by('-created_at')[:5]
+
+    home_doc_ids = [d.document_id for d in in_progress]
+    progress_by_doc = _get_step_progress_map(home_doc_ids)
+
+    asset_doc_types = M_DocumentType.objects.filter(category='assets').order_by('document_type_id')
+
+    return render(request, "expenses/asset_home.html", {
+        'in_progress_expenses': in_progress,
+        'draft_expenses': drafts,
+        'progress_by_doc': progress_by_doc,
+        'asset_doc_types': asset_doc_types,
+    })
+
+
+@login_required
+def asset_list(request):
+    """固定資産カテゴリの申請一覧"""
+    qs = T_Document.objects.filter(
+        man_number=request.user,
+        document_type__category='assets',
+    ).select_related(
+        'status_cd', 'document_type', 'bumon_cd'
+    ).prefetch_related('contents').order_by("-created_at")
+
+    status_filter = request.GET.get('status', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    keyword = request.GET.get('keyword', '')
+
+    if status_filter:
+        qs = qs.filter(status_cd__status_name=status_filter)
+    qs = _apply_created_at_date_range(qs, date_from, date_to)
+    if keyword:
+        qs = qs.filter(
+            Q(title__icontains=keyword) |
+            Q(contents__purpose__icontains=keyword) |
+            Q(memo__icontains=keyword)
+        ).distinct()
+
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    from django.db.models import Min
+    statuses = (
+        M_Status.objects
+        .values('status_name')
+        .annotate(min_order=Min('order_by'))
+        .order_by('min_order', 'status_name')
+    )
+    progress_by_doc = _get_step_progress_map([d.document_id for d in page_obj])
+
+    return render(request, "expenses/asset_list.html", {
+        "expenses": page_obj,
+        "page_obj": page_obj,
+        "statuses": statuses,
+        "status_filter": status_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "keyword": keyword,
+        "progress_by_doc": progress_by_doc,
+    })
+
 
 @login_required
 def settings_home(request):
@@ -3130,14 +3252,14 @@ MASTER_REGISTRY = {
     },
     'm_document_type': {
         'model': M_DocumentType,
-        'list_fields': [('document_type_id', 'ID'), ('document_type_name', '申請種別名'), ('workflow_template_id', 'ワークフロー'), ('bumon_scope', '部門スコープ')],
-        'form_fields': ['document_type_name', 'description', 'workflow_template_id', 'bumon_scope'],
+        'list_fields': [('document_type_id', 'ID'), ('document_type_name', '申請種別名'), ('category', 'カテゴリ'), ('workflow_template_id', 'ワークフロー'), ('bumon_scope', '部門スコープ')],
+        'form_fields': ['document_type_name', 'description', 'category', 'workflow_template_id', 'bumon_scope'],
         'pk_attr': 'document_type_id',
     },
     'm_document_field': {
         'model': M_DocumentField,
-        'list_fields': [('document_type', '申請種別'), ('field_name', 'フィールド名'), ('field_type', '型'), ('field_order', '順序'), ('col_width', '幅')],
-        'form_fields': ['document_type', 'field_name', 'field_type', 'field_name_view', 'field_order', 'col_width', 'row_break', 'required', 'placeholder', 'field_help_text', 'calc_formula'],
+        'list_fields': [('document_type', '申請種別'), ('field_name', 'フィールド名'), ('field_type', '型'), ('field_order', '順序'), ('col_width', '幅'), ('section_header', 'セクション見出し')],
+        'form_fields': ['document_type', 'field_name', 'field_type', 'field_name_view', 'field_order', 'col_width', 'row_break', 'required', 'placeholder', 'field_help_text', 'calc_formula', 'section_header'],
         'pk_attr': 'pk',
     },
     'm_account_document': {

@@ -132,6 +132,12 @@ class M_DocumentType(models.Model):
         (BUMON_SCOPE_GROUP, '自グループ絞り込み'),
         (BUMON_SCOPE_ALL,   '全部門'),
     ]
+    CATEGORY_EXPENSE = 'expense'
+    CATEGORY_ASSET = 'assets'
+    CATEGORY_CHOICES = [
+        ('expense', '費用精算'),
+        ('assets', '固定資産'),
+    ]
 
     document_type_id = models.AutoField("文書種別ID", primary_key=True, db_column='document_type_id')
     document_type_name = models.CharField("文書種別名", max_length=100)
@@ -149,6 +155,12 @@ class M_DocumentType(models.Model):
         choices=BUMON_SCOPE_CHOICES,
         default=BUMON_SCOPE_GROUP,
         help_text="0: 自グループ絞り込み / 1: 全部門表示",
+    )
+    category = models.CharField(
+        "カテゴリ",
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='expense',
     )
 
     def __str__(self):
@@ -181,6 +193,8 @@ class M_DocumentField(models.Model):
     field_help_text = models.CharField("補助テキスト", max_length=200, blank=True, default='')
     # label型専用: 計算式 例) {client_num}+{staff_num}|人  {amount_total}/{total_num}|円/人
     calc_formula   = models.CharField("計算式(label型用)", max_length=200, blank=True, default='')
+    # セクション見出し: 設定するとこのフィールドの直前に区切り見出しを表示
+    section_header = models.CharField("セクション見出し", max_length=100, blank=True, default='')
 
     def __str__(self):
         try:

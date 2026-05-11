@@ -130,6 +130,38 @@
             </li>
         </ul>
 
+        <div class="precision-section">
+            <div class="precision-section-label">固定資産</div>
+            <ul class="precision-nav">
+                <li>
+                    <a class="precision-link {% if current == 'asset_home' %}is-active{% endif %}" href="{% url 'expenses:asset_home' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 11.5 12 4l9 7.5"></path>
+                                <path d="M5 10.5V20h14v-9.5"></path>
+                            </svg>
+                        </span>
+                        <span>トップ</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="precision-link {% if current == 'asset_list' %}is-active{% endif %}" href="{% url 'expenses:asset_list' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 6h13"></path>
+                                <path d="M8 12h13"></path>
+                                <path d="M8 18h13"></path>
+                                <path d="M3 6h.01"></path>
+                                <path d="M3 12h.01"></path>
+                                <path d="M3 18h.01"></path>
+                            </svg>
+                        </span>
+                        <span>取得報告書一覧</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
         {% if user.role in 'approver,accountant,final_approver' %}
         <div class="precision-section">
             <ul class="precision-nav">
