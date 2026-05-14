@@ -885,6 +885,7 @@ def expense_edit(request, pk):
                             adetail.account = _account_670
                         adetail.purpose = '宿泊費'
                         adetail.save()
+                        # ファイルアップロード（直接）
                         try:
                             afiles = request.FILES.getlist(f"{aform.prefix}-receipt")
                             afile_field = aform.cleaned_data.get('receipt')
@@ -893,8 +894,36 @@ def expense_edit(request, pk):
                             for af in afiles:
                                 if af:
                                     T_DocumentAttachment.objects.create(detail=adetail, file=af)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"[WARN] accom receipt save error (edit): {e}", flush=True)
+                        # Cloud領収書（連番指定）
+                        try:
+                            raw_cloud = aform.cleaned_data.get('cloud_receipts')
+                            for token in parse_cloud_receipt_tokens(raw_cloud):
+                                seq = normalize_seq(token)
+                                if not seq:
+                                    raise CloudReceiptFetchError(
+                                        f"Cloud領収書の指定が不正です: '{token}'（例: 000123）"
+                                    )
+                                cf = fetch_receipt_by_seq(seq)
+                                att = T_DocumentAttachment(detail=adetail)
+                                att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                        except CloudReceiptFetchError:
+                            raise
+                        except Exception as e:
+                            print(f"[WARN] accom cloud receipt error (edit): {e}", flush=True)
+                        # モバイルQRアップロードID経由
+                        try:
+                            mobile_upload_id = (aform.cleaned_data.get('mobile_upload_id') or '').strip()
+                            if mobile_upload_id:
+                                mobile_files = fetch_receipts_by_upload_id(mobile_upload_id)
+                                for cf in mobile_files:
+                                    att = T_DocumentAttachment(detail=adetail)
+                                    att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                        except CloudReceiptFetchError:
+                            raise
+                        except Exception as e:
+                            print(f"[WARN] accom mobile upload error (edit): {e}", flush=True)
 
                 if _is_travel_save and allow_formset and allow_formset.is_valid():
                     for alform in allow_formset.forms:
@@ -1575,12 +1604,13 @@ def expense_create(request, document_type_id=None):
                                         files = [f for f in file_field if f]
                                     else:
                                         files = [file_field]
+                                print(f"[DEBUG] travel receipt files for {form.prefix}: {[f.name for f in files if f]}", flush=True)
                                 for f in files:
                                     if not f:
                                         continue
                                     T_DocumentAttachment.objects.create(detail=detail, file=f)
-                            except Exception as _:
-                                pass
+                            except Exception as e:
+                                print(f"[WARN] travel receipt save error: {e}", flush=True)
 
                             # Cloud領収書の取り込み（連番指定）
                             try:
@@ -1627,6 +1657,7 @@ def expense_create(request, document_type_id=None):
                                 adetail.account = _account_670_c
                             adetail.purpose = '宿泊費'
                             adetail.save()
+                            # ファイルアップロード（直接）
                             try:
                                 from .models import T_DocumentAttachment
                                 afiles = request.FILES.getlist(f"{aform.prefix}-receipt")
@@ -1636,8 +1667,36 @@ def expense_create(request, document_type_id=None):
                                 for af in afiles:
                                     if af:
                                         T_DocumentAttachment.objects.create(detail=adetail, file=af)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                print(f"[WARN] accom receipt save error: {e}", flush=True)
+                            # Cloud領収書（連番指定）
+                            try:
+                                raw_cloud = aform.cleaned_data.get('cloud_receipts')
+                                for token in parse_cloud_receipt_tokens(raw_cloud):
+                                    seq = normalize_seq(token)
+                                    if not seq:
+                                        raise CloudReceiptFetchError(
+                                            f"Cloud領収書の指定が不正です: '{token}'（例: 000123）"
+                                        )
+                                    cf = fetch_receipt_by_seq(seq)
+                                    att = T_DocumentAttachment(detail=adetail)
+                                    att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                            except CloudReceiptFetchError:
+                                raise
+                            except Exception as e:
+                                print(f"[WARN] accom cloud receipt error: {e}", flush=True)
+                            # モバイルQRアップロードID経由
+                            try:
+                                mobile_upload_id = (aform.cleaned_data.get('mobile_upload_id') or '').strip()
+                                if mobile_upload_id:
+                                    mobile_files = fetch_receipts_by_upload_id(mobile_upload_id)
+                                    for cf in mobile_files:
+                                        att = T_DocumentAttachment(detail=adetail)
+                                        att.file.save(cf.filename, ContentFile(cf.data), save=True)
+                            except CloudReceiptFetchError:
+                                raise
+                            except Exception as e:
+                                print(f"[WARN] accom mobile upload error: {e}", flush=True)
 
                     if _is_travel_save_c and allow_formset and allow_formset.is_valid():
                         for alform in allow_formset.forms:

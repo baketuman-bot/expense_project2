@@ -345,8 +345,24 @@
                                                 <label class="form-label small mb-1">領収書</label>
                                                 <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
                                                     <div class="drop-zone__prompt"><i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ、またはクリックして選択</div>
+                                                    <div class="drop-zone__hint text-muted small mt-1">対応形式: JPG/PNG/GIF/WebP/PDF</div>
                                                     {{ aform.receipt }}
                                                 </div>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-2">
+                                            <div class="col-md-12">
+                                                <label class="form-label small mb-1"><i class="fas fa-mobile-alt me-1"></i>携帯からアップロード</label>
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <button type="button" class="btn btn-outline-info btn-sm mobile-qr-btn" data-form-prefix="{{ aform.prefix }}">
+                                                        <i class="fas fa-qrcode me-1"></i>QRコードを表示
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-success btn-sm mobile-check-btn" data-form-prefix="{{ aform.prefix }}" style="display:none;">
+                                                        <i class="fas fa-sync-alt me-1"></i>アップロード確認
+                                                    </button>
+                                                    <span class="mobile-upload-status text-muted small" data-form-prefix="{{ aform.prefix }}"></span>
+                                                </div>
+                                                <div class="form-text small">QRコードをスマホで読み取り、領収書写真をアップロードしてください。</div>
                                             </div>
                                         </div>
                                     </div>
@@ -662,8 +678,24 @@
                     <label class="form-label small mb-1">領収書</label>
                     <div class="drop-zone" data-drop-zone role="button" tabindex="0">
                         <div class="drop-zone__prompt"><i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ、またはクリックして選択</div>
+                        <div class="drop-zone__hint text-muted small mt-1">対応形式: JPG/PNG/GIF/WebP/PDF</div>
                         <input type="file" name="accom-__accom_prefix__-receipt" class="file-input d-none" multiple accept="image/*,.pdf">
                     </div>
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-12">
+                    <label class="form-label small mb-1"><i class="fas fa-mobile-alt me-1"></i>携帯からアップロード</label>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-info btn-sm mobile-qr-btn" data-form-prefix="accom-__accom_prefix__">
+                            <i class="fas fa-qrcode me-1"></i>QRコードを表示
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm mobile-check-btn" data-form-prefix="accom-__accom_prefix__" style="display:none;">
+                            <i class="fas fa-sync-alt me-1"></i>アップロード確認
+                        </button>
+                        <span class="mobile-upload-status text-muted small" data-form-prefix="accom-__accom_prefix__"></span>
+                    </div>
+                    <div class="form-text small">QRコードをスマホで読み取り、領収書写真をアップロードしてください。</div>
                 </div>
             </div>
         </div>
@@ -731,6 +763,7 @@ function bindDropZones(context) {
         zone._dzBound = true;
         const input = zone.querySelector('input[type="file"].file-input');
         if (!input) return;
+        console.log('[DZ] bound dropzone for input:', input.name);
         const prompt = zone.querySelector('.drop-zone__prompt');
         const listContainer = document.createElement('div');
         listContainer.className = 'drop-zone__list';
@@ -771,6 +804,7 @@ function bindDropZones(context) {
             });
             applyToInput();
             render();
+            console.log('[DZ] files set for', input.name, ':', input.files.length, 'files');
         };
         listContainer.addEventListener('click', function(e) {
             const btn = e.target.closest('[data-remove-file-index]');
@@ -974,6 +1008,12 @@ document.addEventListener('change', function(e) {
 
 // ── 送信ボタンのバリデーション ───────────────────────────────────────────
 document.getElementById('submit-btn').addEventListener('click', function(e) {
+    // デバッグ: クリック時のファイル状況を確認
+    document.querySelectorAll('input[type="file"]').forEach(function(inp) {
+        if (inp.files && inp.files.length > 0) {
+            console.log('[SUBMIT] file input has files:', inp.name, inp.files.length);
+        }
+    });
     // 下書き保存はスキップ
     if (this.value !== 'submit') return;
 
