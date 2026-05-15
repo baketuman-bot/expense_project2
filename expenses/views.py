@@ -1573,6 +1573,10 @@ def expense_create(request, document_type_id=None):
                         except M_Account.DoesNotExist:
                             pass
                     used_dynamic = False
+                    # POSTデータ内のmobile_upload_idを全て確認（デバッグ用）
+                    for k, v in request.POST.items():
+                        if 'mobile_upload_id' in k and v.strip():
+                            print(f"[DEBUG] POST {k}={v}", flush=True)
                     for form in formset.forms:
                         if form.is_valid() and form.cleaned_data:
                             detail = form.save(commit=False)
@@ -1633,15 +1637,23 @@ def expense_create(request, document_type_id=None):
                             # モバイルQRアップロードID経由の取り込み
                             try:
                                 from .models import T_DocumentAttachment
+                                # form.cleaned_dataとPOSTの両方から取得を試みる
                                 mobile_upload_id = (form.cleaned_data.get('mobile_upload_id') or '').strip()
+                                if not mobile_upload_id:
+                                    mobile_upload_id = (request.POST.get(f'{form.prefix}-mobile_upload_id') or '').strip()
+                                print(f"[DEBUG] mobile_upload_id for {form.prefix}: '{mobile_upload_id}'", flush=True)
                                 if mobile_upload_id:
                                     mobile_files = fetch_receipts_by_upload_id(mobile_upload_id)
+                                    print(f"[DEBUG] mobile_files count: {len(mobile_files)}", flush=True)
                                     for cf in mobile_files:
                                         att = T_DocumentAttachment(detail=detail)
                                         att.file.save(cf.filename, ContentFile(cf.data), save=True)
-                            except CloudReceiptFetchError:
+                                        print(f"[DEBUG] saved mobile att: {cf.filename}", flush=True)
+                            except CloudReceiptFetchError as e:
+                                print(f"[WARN] mobile upload fetch error: {e}", flush=True)
                                 raise
-                            except Exception:
+                            except Exception as e:
+                                print(f"[WARN] mobile upload error: {e}", flush=True)
                                 raise
 
                             print("Detail saved:", detail.document_detail_id)
@@ -2613,10 +2625,46 @@ def check_mobile_uploads(request):
     }
     logger.info('[check_mobile_uploads] debug=%s', debug_info)
 
+    include_thumbnails = request.GET.get('thumbnails', '0') == '1'
+
     try:
         items = check_uploads_by_id(upload_id)
         debug_info['status'] = 'ok'
-        return JsonResponse({'upload_id': upload_id, 'count': len(items), 'items': items, 'debug': debug_info})
+
+        # サムネイル生成（thumbnails=1 かつ画像ファイルがある場合のみ）
+        thumbnails = {}
+        if include_thumbnails and items:
+            try:
+                import base64 as _b64
+                import io as _io
+                from PIL import Image as _Image
+                from .cloud_receipts import _get_gcs_client, _gcs_bucket
+                client = _get_gcs_client()
+                bkt = client.bucket(_gcs_bucket())
+                for item in items:
+                    ct = item.get('content_type', '')
+                    if not ct.startswith('image/'):
+                        continue
+                    try:
+                        blob = bkt.blob(item['name'])
+                        data = blob.download_as_bytes(timeout=15)
+                        img = _Image.open(_io.BytesIO(data))
+                        img.thumbnail((120, 120))
+                        buf = _io.BytesIO()
+                        img.convert('RGB').save(buf, format='JPEG', quality=70)
+                        thumbnails[item['filename']] = 'data:image/jpeg;base64,' + _b64.b64encode(buf.getvalue()).decode()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        return JsonResponse({
+            'upload_id': upload_id,
+            'count': len(items),
+            'items': items,
+            'thumbnails': thumbnails,
+            'debug': debug_info,
+        })
     except Exception as e:
         debug_info['status'] = 'error'
         debug_info['traceback'] = tb.format_exc()

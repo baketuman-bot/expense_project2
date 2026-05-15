@@ -196,9 +196,7 @@
                                             <span class="fw-semibold text-success me-2"><i class="fas fa-receipt me-1"></i>経費明細</span>
                                             <small class="text-muted">（上の移動経路と同一レコードに保存されます）</small>
                                         </div>
-                                        {# 経費明細フィールドを非表示 hidden 化する hidden_fields (purpose/account/cloud_receipts/mobile_upload_id) #}
-                                        {{ form.cloud_receipts }}
-                                        {{ form.mobile_upload_id }}
+                                        {# cloud_receipts/mobile_upload_id は form.hidden_fields() で travel-detail-row 内に既出力済みのため重複削除 #}
                                         <div class="row g-2">
                                             <div class="col-md-4">
                                                 <label class="form-label small mb-1">支払先</label>
@@ -226,6 +224,31 @@
                                         <div class="row g-2 mt-2">
                                             <div class="col-md-12">
                                                 <label class="form-label small mb-1">領収書</label>
+                                                {% if is_edit_mode and form.instance.pk %}
+                                                    {% with atts=form.instance.attachments.all %}
+                                                    {% if atts %}
+                                                    <div class="mb-2">
+                                                        <div class="small text-muted mb-1">登録済みの添付（{{ atts|length }}件）</div>
+                                                        <div class="d-flex flex-wrap gap-2">
+                                                            {% for a in atts %}
+                                                            <div class="text-center">
+                                                                <a href="{{ a.file.url }}" target="_blank" class="d-block">
+                                                                    {% if a.thumbnail %}
+                                                                        <img src="{{ a.thumbnail.url }}" class="img-thumbnail" style="width:72px;height:72px;object-fit:cover;" alt="添付">
+                                                                    {% elif a.file.name|lower|slice:"-4:" == ".pdf" %}
+                                                                        <div class="border rounded d-flex flex-column align-items-center justify-content-center bg-light" style="width:72px;height:72px;"><i class="fas fa-file-pdf fa-2x text-danger"></i><span class="small mt-1">PDF</span></div>
+                                                                    {% else %}
+                                                                        <img src="{{ a.file.url }}" class="img-thumbnail" style="width:72px;height:72px;object-fit:cover;" alt="添付">
+                                                                    {% endif %}
+                                                                </a>
+                                                                <label class="small"><input type="checkbox" name="delete_attachments" value="{{ a.attachment_id }}"> 削除</label>
+                                                            </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% endwith %}
+                                                {% endif %}
                                                 <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
                                                     <div class="drop-zone__prompt">
                                                         <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
@@ -314,8 +337,6 @@
                                         <div class="d-flex align-items-center mb-2">
                                             <span class="fw-semibold text-success me-2"><i class="fas fa-receipt me-1"></i>宿泊費明細</span>
                                         </div>
-                                        {{ aform.cloud_receipts }}
-                                        {{ aform.mobile_upload_id }}
                                         <div class="row g-2">
                                             <div class="col-md-4">
                                                 <label class="form-label small mb-1">支払先</label>
@@ -343,6 +364,31 @@
                                         <div class="row g-2 mt-2">
                                             <div class="col-md-12">
                                                 <label class="form-label small mb-1">領収書</label>
+                                                {% if is_edit_mode and aform.instance.pk %}
+                                                    {% with atts=aform.instance.attachments.all %}
+                                                    {% if atts %}
+                                                    <div class="mb-2">
+                                                        <div class="small text-muted mb-1">登録済みの添付（{{ atts|length }}件）</div>
+                                                        <div class="d-flex flex-wrap gap-2">
+                                                            {% for a in atts %}
+                                                            <div class="text-center">
+                                                                <a href="{{ a.file.url }}" target="_blank" class="d-block">
+                                                                    {% if a.thumbnail %}
+                                                                        <img src="{{ a.thumbnail.url }}" class="img-thumbnail" style="width:72px;height:72px;object-fit:cover;" alt="添付">
+                                                                    {% elif a.file.name|lower|slice:"-4:" == ".pdf" %}
+                                                                        <div class="border rounded d-flex flex-column align-items-center justify-content-center bg-light" style="width:72px;height:72px;"><i class="fas fa-file-pdf fa-2x text-danger"></i><span class="small mt-1">PDF</span></div>
+                                                                    {% else %}
+                                                                        <img src="{{ a.file.url }}" class="img-thumbnail" style="width:72px;height:72px;object-fit:cover;" alt="添付">
+                                                                    {% endif %}
+                                                                </a>
+                                                                <label class="small"><input type="checkbox" name="delete_attachments" value="{{ a.attachment_id }}"> 削除</label>
+                                                            </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% endwith %}
+                                                {% endif %}
                                                 <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにファイルをドロップ、またはクリックして選択">
                                                     <div class="drop-zone__prompt"><i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにファイルをドロップ、またはクリックして選択</div>
                                                     <div class="drop-zone__hint text-muted small mt-1">対応形式: JPG/PNG/GIF/WebP/PDF</div>
@@ -565,8 +611,6 @@
                 <span class="fw-semibold text-success me-2"><i class="fas fa-receipt me-1"></i>経費明細</span>
                 <small class="text-muted">（上の移動経路と同一レコードに保存されます）</small>
             </div>
-            {{ formset.empty_form.cloud_receipts }}
-            {{ formset.empty_form.mobile_upload_id }}
             <div class="row g-2">
                 <div class="col-md-4">
                     <label class="form-label small mb-1">支払先</label>
@@ -769,6 +813,8 @@ function bindDropZones(context) {
         listContainer.className = 'drop-zone__list';
         zone.appendChild(listContainer);
         let currentFiles = [];
+        zone._dzCurrentFiles = currentFiles; // submit時に参照できるよう保存
+        zone._dzInput = input;
         const keyOf = function(f) { return f.name + '|' + f.size + '|' + (f.lastModified || ''); };
         const applyToInput = function() {
             if (!window.DataTransfer) return;
@@ -1008,12 +1054,6 @@ document.addEventListener('change', function(e) {
 
 // ── 送信ボタンのバリデーション ───────────────────────────────────────────
 document.getElementById('submit-btn').addEventListener('click', function(e) {
-    // デバッグ: クリック時のファイル状況を確認
-    document.querySelectorAll('input[type="file"]').forEach(function(inp) {
-        if (inp.files && inp.files.length > 0) {
-            console.log('[SUBMIT] file input has files:', inp.name, inp.files.length);
-        }
-    });
     // 下書き保存はスキップ
     if (this.value !== 'submit') return;
 
@@ -1105,6 +1145,29 @@ document.addEventListener('change', function(e) {
     }
 });
 
+// ── フォーム送信前に各ドロップゾーンのファイルを再設定（念のため） ──────────
+(function(){
+    var formEl = document.getElementById('travel-expense-form');
+    if (!formEl) return;
+    formEl.addEventListener('submit', function() {
+        // 各ドロップゾーンで選択されたファイルをinput.filesに再設定
+        document.querySelectorAll('[data-drop-zone]').forEach(function(zone) {
+            var files = zone._dzCurrentFiles;
+            var inp = zone._dzInput;
+            if (!inp || !files || files.length === 0) return;
+            if (!window.DataTransfer) return;
+            var dt = new DataTransfer();
+            files.forEach(function(f) { dt.items.add(f); });
+            inp.files = dt.files;
+            console.log('[SUBMIT] re-applied', files.length, 'files for', inp.name, '-> actual:', inp.files.length);
+        });
+        // mobile_upload_idのログ確認
+        formEl.querySelectorAll('input[name$="-mobile_upload_id"]').forEach(function(inp) {
+            if (inp.value) console.log('[SUBMIT] mobile_upload_id:', inp.name, '=', inp.value);
+        });
+    });
+})();
+
 // ── 初期化 ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
     bindOthersApproverSelectors();
@@ -1144,6 +1207,102 @@ document.addEventListener('DOMContentLoaded', function() {
     const qrModalEl = document.getElementById('mobileQrModal');
     if (!qrModalEl) return;
     let currentPrefix = null;
+    let pollingTimer = null;
+
+    function stopPolling() {
+        if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
+    }
+
+    // サムネイルをドロップゾーン付近に表示
+    function showMobileThumbnails(prefix, thumbnails, items) {
+        // 対応ドロップゾーンを探す（受け取るinputのname = prefix + '-receipt'）
+        var targetZone = null;
+        document.querySelectorAll('[data-drop-zone]').forEach(function(z) {
+            var inp = z._dzInput || z.querySelector('input[type="file"].file-input');
+            if (inp && inp.name === prefix + '-receipt') targetZone = z;
+        });
+        if (!targetZone) return;
+        var parent = targetZone.closest('.col-md-12') || targetZone.parentElement;
+
+        // 既存コンテナを削除して再生成
+        var existing = parent.querySelector('.mobile-thumb-container');
+        if (existing) existing.remove();
+        if (!items || items.length === 0) return;
+
+        var container = document.createElement('div');
+        container.className = 'mobile-thumb-container mt-2 d-flex flex-wrap gap-2 align-items-center';
+        container.innerHTML = '<small class="text-muted w-100"><i class="fas fa-mobile-alt me-1"></i>モバイルアップロード済み</small>';
+
+        items.forEach(function(item) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'text-center';
+            var thumb = thumbnails && thumbnails[item.filename];
+            if (thumb) {
+                wrapper.innerHTML = '<img src="' + thumb + '" class="img-thumbnail" style="max-width:80px;max-height:80px;" alt="' + item.filename + '">';
+            } else {
+                var ext = (item.filename || '').split('.').pop().toLowerCase();
+                var icon = (ext === 'pdf') ? 'fa-file-pdf text-danger' : 'fa-file-image text-info';
+                wrapper.innerHTML = '<div class="border rounded p-2 text-center" style="width:70px;font-size:.7rem;"><i class="fas ' + icon + ' fa-lg mb-1 d-block"></i>' + item.filename.substring(0, 12) + '</div>';
+            }
+            container.appendChild(wrapper);
+        });
+        parent.appendChild(container);
+    }
+
+    // アップロード検出後: サムネイル取得→表示→モーダル閉鎖
+    function onUploadDetected(uploadId, prefix, count) {
+        stopPolling();
+        // ステータス更新（モーダル内）
+        var infoEl = document.getElementById('qrUploadIdInfo');
+        if (infoEl) infoEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + count + '件アップロードを確認しました。自動的に閉じます...</span>';
+
+        // サムネイル付きで再取得
+        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId) + '&thumbnails=1')
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                showMobileThumbnails(prefix, data.thumbnails || {}, data.items || []);
+                // フォーム外のステータス表示も更新
+                var statusEl = document.querySelector('.mobile-upload-status[data-form-prefix="' + prefix + '"]');
+                if (statusEl) {
+                    var names = (data.items || []).map(function(i){ return i.filename; }).join(', ');
+                    statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件: ' + names + '</span>';
+                }
+                var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + prefix + '"]');
+                if (checkBtn) checkBtn.style.display = 'inline-block';
+            })
+            .catch(function(){})
+            .finally(function(){
+                // 1.5秒後にモーダルを閉じる
+                setTimeout(function(){
+                    var modal = bootstrap.Modal.getInstance(qrModalEl);
+                    if (modal) modal.hide();
+                }, 1500);
+            });
+    }
+
+    // モーダルが開いたらポーリング開始
+    qrModalEl.addEventListener('shown.bs.modal', function(){
+        stopPolling();
+        pollingTimer = setInterval(function(){
+            if (!currentPrefix) return;
+            var hiddenInput = document.getElementById('id_' + currentPrefix + '-mobile_upload_id');
+            var uploadId = hiddenInput ? hiddenInput.value.trim() : '';
+            if (!uploadId) return;
+            fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId))
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    if (data.count > 0) {
+                        onUploadDetected(uploadId, currentPrefix, data.count);
+                    }
+                })
+                .catch(function(){});
+        }, 3000);
+    });
+
+    // モーダルが閉じたらポーリング停止
+    qrModalEl.addEventListener('hidden.bs.modal', function(){ stopPolling(); });
+
+    // QRコードボタン
     document.addEventListener('click', function(e){
         const btn = e.target.closest('.mobile-qr-btn');
         if (!btn) return;
@@ -1161,8 +1320,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(data){
                 if (data.error) throw new Error(data.error);
                 if (hiddenInput) hiddenInput.value = data.upload_id;
-                var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + currentPrefix + '"]');
-                if (checkBtn) checkBtn.style.display = 'inline-block';
                 document.getElementById('qrLoadingSpinner').style.display = 'none';
                 document.getElementById('qrCodeImage').src = data.qr_image;
                 document.getElementById('qrUploadIdInfo').textContent = 'アップロードID: ' + data.upload_id;
@@ -1175,6 +1332,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 errEl.style.display = 'block';
             });
     });
+
+    // アップロード確認ボタン（手動）
     document.addEventListener('click', function(e){
         const btn = e.target.closest('.mobile-check-btn');
         if (!btn) return;
@@ -1185,15 +1344,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const statusEl = document.querySelector('.mobile-upload-status[data-form-prefix="' + prefix + '"]');
         if (statusEl) statusEl.textContent = '確認中...';
         btn.disabled = true;
-        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId))
+        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId) + '&thumbnails=1')
             .then(function(r){ return r.json(); })
             .then(function(data){
                 btn.disabled = false;
                 if (data.count === 0) {
                     if (statusEl) statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>まだアップロードされていません。</span>';
                 } else {
+                    showMobileThumbnails(prefix, data.thumbnails || {}, data.items || []);
                     var names = (data.items || []).map(function(i){ return i.filename; }).join(', ');
-                    if (statusEl) statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件アップロード済み: ' + names + '</span>';
+                    if (statusEl) statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件: ' + names + '</span>';
                 }
             })
             .catch(function(err){

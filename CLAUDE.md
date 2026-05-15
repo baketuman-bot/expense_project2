@@ -18,14 +18,14 @@ expense_project2/
 ├── expense_project/       # Django project config (settings, urls, wsgi/asgi)
 ├── expenses/              # メインDjangoアプリ
 │   ├── models.py          # 全モデル定義 (~750行)
-│   ├── views.py           # ビューロジック (~3000行)
+│   ├── views.py           # ビューロジック (~3200行)
 │   ├── forms.py           # フォーム定義 (~500行)
 │   ├── utils.py           # ワークフロー・通知・承認者候補ユーティリティ
 │   ├── urls.py            # URLルーティング
 │   ├── admin.py           # Django Admin設定
 │   ├── auth_backends.py   # 社員番号(man_number)認証バックエンド
 │   ├── cloud_receipts.py  # GCS領収書ハンドリング
-│   ├── templates/expenses/  # HTMLテンプレート (15ファイル)
+│   ├── templates/expenses/  # HTMLテンプレート (17ファイル)
 │   ├── static/expenses/     # CSS/JS
 │   ├── templatetags/        # カスタムテンプレートタグ
 │   ├── management/commands/ # load_initial_master, superuser, migrate_legacy
@@ -64,18 +64,47 @@ pip install -r requirements.txt && python3 manage.py collectstatic --no-input &&
 
 ## Architecture
 
-### Document Type (申請種別)
+### Document Type (申請種別) と Category
 
-`M_DocumentType` でドキュメント種別を定義。種別によりフォームが動的に変わる:
+`M_DocumentType` でドキュメント種別を定義。`category` フィールドでメニューを分類:
 
-| DocType ID | 名称 | 説明 |
+| category | 説明 | メニュー |
 |---|---|---|
-| 1 | 支出伺い | 標準的な費用申請 |
-| 4 | 経費精算書 | カスタムフィールド対応 (`M_DocumentField` で動的定義) |
-| 5 | 出張旅費精算 | 専用フォーム (`travel_expense_form.html`)、経路テーブル |
+| `expense` | 費用精算系 | サイドバー「費用精算」欄 |
+| `assets` | 固定資産系 | サイドバー「固定資産」欄 |
 
-- DocType=4: `M_DocumentField` でフィールド定義 (text/number/date/select/label)、計算式、レイアウト制御
-- DocType=5: `_is_travel_doc_type()` で判定、`T_DocumentContent.content` に経路情報をJSON保存
+| DocType ID | 名称 | category | 説明 |
+|---|---|---|---|
+| 1 | 支出伺い | expense | 標準的な費用申請 |
+| 4 | 経費精算書 | expense | カスタムフィールド対応 (`M_DocumentField` で動的定義) |
+| 5 | 出張旅費精算 | expense | 専用フォーム (`travel_expense_form.html`)、経路テーブル |
+| 6〜 | 固定資産取得報告書等 | assets | `_asset_form_context()` で表示制御 |
+
+**判定ヘルパー (views.py):**
+- `_is_travel_doc_type(doc_type)`: DocType=5か判定
+- `_has_dynamic_fields(doc_type)`: `M_DocumentField` が存在するDocTypeか判定（ハードコードID不使用）
+- `_asset_form_context(doc_type)`: `category='assets'` 時のフォーム表示制御コンテキストを返す
+
+```python
+# _asset_form_context が返すキー（expense_form.html のテンプレート変数）
+{
+    'hide_currency': True,       # 通貨選択を非表示
+    'hide_pay_kbn': True,        # 精算方法を非表示
+    'purpose_label': '固定資産名',  # 目的欄のラベル変更
+    'receipt_label': '資産画像',    # 領収書欄のラベル変更
+    'detail_section_title': '固定資産明細',
+    'hide_detail_fields': True,  # 日付・金額・支払先等を非表示
+    'reorder_sections': True,    # セクション順序: 固定資産明細→申請情報→追加入力項目
+}
+```
+
+**DocType=4/固定資産 の動的フィールド:**
+- `M_DocumentField` でフィールド定義 (text/number/date/select/label)、計算式、レイアウト制御
+- `section_header` フィールド: セクション区切り見出し（空欄なら区切りなし）
+- `_dynamic_fields_section.html` を `{% include %}` でセクション順序を制御
+
+**DocType=5 の詳細:**
+- `_is_travel_doc_type()` で判定、`T_DocumentContent.content` に経路情報をJSON保存
   - 移動経路明細: `content__has_key='departure'` でフィルタ (prefix: `travel`)
   - 宿泊費明細: `content__row_type='accommodation'` でフィルタ (prefix: `accom`)
   - 日当明細: `content__row_type='allowance'` でフィルタ (prefix: `allow`)
@@ -96,6 +125,11 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
                           REJ(却下) / RET(差戻し→再編集)
 ```
 
+**承認進捗表示 (`_get_step_progress_map()`):**
+- `T_WorkflowInstance.step_order` は「現在待機中ステップ番号」
+- 表示上の承認済み数 = `max(0, min(step_order - 1, total_steps))`（cap処理済み）
+- 表示形式: `申請中(承認済み数/総ステップ数)`
+
 **承認者候補ロジック (`utils.py`):**
 - `allowed_bumon_scope` による絞り込み:
   - `same`: 同グループツリー内 (`V_Group` 参照)
@@ -112,13 +146,19 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 
 **ビュー (V_, unmanaged):** V_Group(組織階層), V_User(ユーザー情報非正規化)
 
+**主要フィールド追加履歴:**
+- `M_DocumentType.category`: CharField choices=('expense','assets'), default='expense'
+- `M_DocumentField.section_header`: CharField(max_length=100, blank=True, default='') セクション区切り見出し
+- `M_DocumentField.row_break`: BooleanField 行ブレーク制御
+- `M_DocumentField.col_width`: IntegerField カラム幅 (Bootstrap col-md-N)
+
 ### URL Routes
 
 ```
-/                          → ダッシュボード (home)
+/                          → ダッシュボード (home) ※ category='expense' のみ表示
 /new/                      → 新規作成 (DocType=1)
 /new/<type_id>/            → 新規作成 (任意DocType)
-/list/                     → 申請一覧
+/list/                     → 申請一覧 ※ category='expense' のみ
 /<id>/                     → 申請詳細
 /<id>/edit/                → 編集
 /<id>/copy/                → コピー作成
@@ -128,7 +168,10 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 /approvals/csv/            → CSV出力 (承認)
 /api/approver_candidates/  → 承認者候補 (JSON API)
 /api/generate_mobile_qr/   → モバイルアップロード用QR (JSON API)
-/api/check_mobile_uploads/ → モバイルアップロード確認 (JSON API)
+/api/check_mobile_uploads/ → モバイルアップロード確認 (JSON API) ?upload_id=xxx&thumbnails=1
+/assets/                   → 固定資産ホーム (category='assets')
+/assets/list/              → 固定資産申請一覧
+/assets/new/<type_id>/     → 固定資産新規作成
 /settings/                 → 管理者設定ホーム (→ データ出力にリダイレクト)
 /settings/export/          → データ出力 (全申請CSV含む)
 /settings/approval_admin/  → 承認管理一覧 (承認フロー表示・強制操作)
@@ -177,12 +220,18 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 
 | FormSet | prefix | クラス | 用途 |
 |---|---|---|---|
-| ExpenseDetailFormSet / EditFormSet | `travel` | BaseExpenseDetailFormSet | 移動経路明細 |
-| AccommodationFormSet / EditFormSet | `accom` | BaseModelFormSet | 宿泊費明細 |
-| AllowanceFormSet / EditFormSet | `allow` | BaseAllowanceFormSet | 日当明細 |
+| TravelDetailFormSet / EditFormSet | `travel` | ModelFormSet | 移動経路明細 |
+| AccommodationFormSet / EditFormSet | `accom` | ModelFormSet | 宿泊費明細 |
+| AllowanceFormSet / EditFormSet | `allow` | ModelFormSet | 日当明細 |
 
-- `BaseAllowanceFormSet._construct_form()` で `tra_items` を各フォームに注入（`BaseExpenseDetailFormSet` の `account_queryset` と同パターン）
+- `BaseAllowanceFormSet._construct_form()` で `tra_items` を各フォームに注入
 - 行削除: `delete_details` hidden input に削除対象IDをカンマ区切りで送信
+
+### mobile_upload_id の重複出力に関する注意
+
+`TravelDetailForm` / `AccommodationForm` の `mobile_upload_id` と `cloud_receipts` は `widget=HiddenInput()` のため `form.hidden_fields()` に含まれる。
+
+テンプレートで `{% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}` を使う行（`travel-detail-row` / `accom-detail-row`）の外に、インライン明細パネル内で **再度 `{{ form.mobile_upload_id }}` を出力してはいけない**。同じ name のinputが2つになり、後の空値が POST で優先されて mobile_upload_id が空になるバグが発生する。
 
 ## JavaScript
 
@@ -191,6 +240,31 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - `travel_expense_form.html` の各セクション（宿泊費・日当）はIIFEパターンで独立実装
 - 移動経路明細・宿泊費の明細パネルは `setupToggle(btnId, inlineSelector)` で一括表示/非表示制御
 - calc_formula エンジン内の `amountTotal` 集計では `parseFloat(inp.value.replace(/,/g, ''))` でカンマを除去してから計算（カンマ書式バグ対策）
+
+### ドロップゾーン (bindDropZones)
+
+- `travel_expense_form.html` / `expense_form.html` 共通の `bindDropZones(context)` で実装
+- ドロップゾーン内の `input[type="file"].file-input` を `DataTransfer` API で管理
+- `zone._dzCurrentFiles`: 選択ファイルの配列（submit時に再設定用）
+- `zone._dzInput`: 対応する file input への参照
+- フォームsubmitイベントで各ドロップゾーンの `_dzCurrentFiles` を `input.files` に再設定する処理を追加（DataTransfer代入の確実化）
+
+### モバイルQRアップロード
+
+**フロー:**
+1. 「QRコードを表示」ボタン → `/api/generate_mobile_qr/` でQR生成・モーダル表示
+2. モーダル表示と同時に3秒間隔でポーリング開始（`/api/check_mobile_uploads/?upload_id=xxx`）
+3. アップロード検出 → モーダル内にメッセージ表示 → `/api/check_mobile_uploads/?upload_id=xxx&thumbnails=1` でサムネイル取得
+4. ドロップゾーン付近にサムネイル表示 → 1.5秒後にモーダル自動閉鎖
+5. フォーム保存時に `mobile_upload_id` をPOSTして GCS からファイルを取得・添付保存
+
+**`check_mobile_uploads` API パラメータ:**
+- `?upload_id=xxx`: 必須
+- `?thumbnails=1`: 画像ファイルをGCSからダウンロードしてBase64サムネイル（120x120px JPEG）を `thumbnails` キーで返す（Pillow使用）
+
+**サムネイル表示:** `zone._dzInput.name` (`prefix + '-receipt'`) でドロップゾーンを特定し、`.mobile-thumb-container` divを生成して表示
+
+**対応テンプレート:** `expense_form.html` / `travel_expense_form.html` の両方に同じロジックを実装
 
 ## TemplateTag (expense_extras.py)
 
@@ -239,3 +313,5 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - `modelform_factory` でフォームを動的生成・Bootstrap クラスを自動付与
 - 対応マスタキー: `m_bumon`, `m_post`, `m_account`, `m_status`, `m_item`, `m_group`, `m_belong_to`, `m_workflow_template`, `m_workflow_step`, `m_document_type`, `m_document_field`, `m_account_document`, `m_user`
 - 編集時はユーザー定義PK（CharField型）フォームから除外してPK変更を防止
+- `m_document_type` 登録フィールド: `category` を含む（'expense'/'assets'）
+- `m_document_field` 登録フィールド: `section_header`（セクション区切り見出し）、`col_width`、`row_break`、`required`、`placeholder`、`field_help_text`、`calc_formula` を含む

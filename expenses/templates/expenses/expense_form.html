@@ -787,6 +787,83 @@ document.addEventListener('DOMContentLoaded', function(){
     const qrModalEl = document.getElementById('mobileQrModal');
     if (!qrModalEl) return;
     let currentPrefix = null;
+    let pollingTimer = null;
+
+    function stopPolling() {
+        if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
+    }
+
+    function showMobileThumbnails(prefix, thumbnails, items) {
+        var targetZone = null;
+        document.querySelectorAll('[data-drop-zone]').forEach(function(z) {
+            var inp = z._dzInput || z.querySelector('input[type="file"].file-input');
+            if (inp && inp.name === prefix + '-receipt') targetZone = z;
+        });
+        if (!targetZone) return;
+        var parent = targetZone.closest('.col-md-12') || targetZone.parentElement;
+        var existing = parent.querySelector('.mobile-thumb-container');
+        if (existing) existing.remove();
+        if (!items || items.length === 0) return;
+        var container = document.createElement('div');
+        container.className = 'mobile-thumb-container mt-2 d-flex flex-wrap gap-2 align-items-center';
+        container.innerHTML = '<small class="text-muted w-100"><i class="fas fa-mobile-alt me-1"></i>モバイルアップロード済み</small>';
+        items.forEach(function(item) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'text-center';
+            var thumb = thumbnails && thumbnails[item.filename];
+            if (thumb) {
+                wrapper.innerHTML = '<img src="' + thumb + '" class="img-thumbnail" style="max-width:80px;max-height:80px;" alt="' + item.filename + '">';
+            } else {
+                var ext = (item.filename || '').split('.').pop().toLowerCase();
+                var icon = (ext === 'pdf') ? 'fa-file-pdf text-danger' : 'fa-file-image text-info';
+                wrapper.innerHTML = '<div class="border rounded p-2 text-center" style="width:70px;font-size:.7rem;"><i class="fas ' + icon + ' fa-lg mb-1 d-block"></i>' + item.filename.substring(0, 12) + '</div>';
+            }
+            container.appendChild(wrapper);
+        });
+        parent.appendChild(container);
+    }
+
+    function onUploadDetected(uploadId, prefix, count) {
+        stopPolling();
+        var infoEl = document.getElementById('qrUploadIdInfo');
+        if (infoEl) infoEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + count + '件アップロードを確認しました。自動的に閉じます...</span>';
+        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId) + '&thumbnails=1')
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                showMobileThumbnails(prefix, data.thumbnails || {}, data.items || []);
+                var statusEl = document.querySelector('.mobile-upload-status[data-form-prefix="' + prefix + '"]');
+                if (statusEl) {
+                    var names = (data.items || []).map(function(i){ return i.filename; }).join(', ');
+                    statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件: ' + names + '</span>';
+                }
+                var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + prefix + '"]');
+                if (checkBtn) checkBtn.style.display = 'inline-block';
+            })
+            .catch(function(){})
+            .finally(function(){
+                setTimeout(function(){
+                    var modal = bootstrap.Modal.getInstance(qrModalEl);
+                    if (modal) modal.hide();
+                }, 1500);
+            });
+    }
+
+    qrModalEl.addEventListener('shown.bs.modal', function(){
+        stopPolling();
+        pollingTimer = setInterval(function(){
+            if (!currentPrefix) return;
+            var hiddenInput = document.getElementById('id_' + currentPrefix + '-mobile_upload_id');
+            var uploadId = hiddenInput ? hiddenInput.value.trim() : '';
+            if (!uploadId) return;
+            fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId))
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    if (data.count > 0) onUploadDetected(uploadId, currentPrefix, data.count);
+                })
+                .catch(function(){});
+        }, 3000);
+    });
+    qrModalEl.addEventListener('hidden.bs.modal', function(){ stopPolling(); });
 
     // QRボタンクリック
     document.addEventListener('click', function(e){
@@ -795,31 +872,22 @@ document.addEventListener('DOMContentLoaded', function(){
         currentPrefix = btn.dataset.formPrefix;
         const hiddenInput = document.getElementById('id_' + currentPrefix + '-mobile_upload_id');
         const existingId = hiddenInput ? hiddenInput.value.trim() : '';
-
-        // モーダル初期化
         document.getElementById('qrLoadingSpinner').style.display = 'block';
         document.getElementById('qrImageContainer').style.display = 'none';
         document.getElementById('qrErrorMsg').style.display = 'none';
-
         const modal = new bootstrap.Modal(qrModalEl);
         modal.show();
-
         const params = existingId ? '?upload_id=' + encodeURIComponent(existingId) : '';
         fetch('/api/generate_mobile_qr/' + params)
             .then(function(r){
-                if (!r.ok && r.status !== 200) {
-                    return r.text().then(function(t){ throw new Error('HTTP ' + r.status + ': サーバーエラー'); });
-                }
+                if (!r.ok && r.status !== 200) throw new Error('HTTP ' + r.status + ': サーバーエラー');
                 return r.json();
             })
             .then(function(data){
                 if (data.error) throw new Error(data.error);
-                // hidden field に格納
                 if (hiddenInput) hiddenInput.value = data.upload_id;
-                // 確認ボタンを表示
                 var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + currentPrefix + '"]');
                 if (checkBtn) checkBtn.style.display = 'inline-block';
-                // QR 表示
                 document.getElementById('qrLoadingSpinner').style.display = 'none';
                 document.getElementById('qrCodeImage').src = data.qr_image;
                 document.getElementById('qrUploadIdInfo').textContent = 'アップロードID: ' + data.upload_id;
@@ -833,7 +901,7 @@ document.addEventListener('DOMContentLoaded', function(){
             });
     });
 
-    // 確認ボタンクリック
+    // 確認ボタン（手動）
     document.addEventListener('click', function(e){
         const btn = e.target.closest('.mobile-check-btn');
         if (!btn) return;
@@ -841,42 +909,31 @@ document.addEventListener('DOMContentLoaded', function(){
         const hiddenInput = document.getElementById('id_' + prefix + '-mobile_upload_id');
         const uploadId = hiddenInput ? hiddenInput.value.trim() : '';
         if (!uploadId) return;
-
         const statusEl = document.querySelector('.mobile-upload-status[data-form-prefix="' + prefix + '"]');
         if (statusEl) statusEl.textContent = '確認中...';
         btn.disabled = true;
-
-        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId))
-            .then(function(r){
-                return r.json();
-            })
+        fetch('/api/check_mobile_uploads/?upload_id=' + encodeURIComponent(uploadId) + '&thumbnails=1')
+            .then(function(r){ return r.json(); })
             .then(function(data){
                 btn.disabled = false;
-                if (data.error) {
-                    if (statusEl) statusEl.textContent = 'エラー: ' + data.error;
-                    return;
-                }
+                if (data.error) { if (statusEl) statusEl.textContent = 'エラー: ' + data.error; return; }
                 if (data.count === 0) {
                     if (statusEl) statusEl.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>まだアップロードされていません。</span>';
                 } else {
+                    showMobileThumbnails(prefix, data.thumbnails || {}, data.items || []);
                     var names = (data.items || []).map(function(i){ return i.filename; }).join(', ');
-                    if (statusEl) statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件アップロード済み: ' + names + '</span>';
+                    if (statusEl) statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.count + '件: ' + names + '</span>';
                 }
             })
-            .catch(function(err){
-                btn.disabled = false;
-                if (statusEl) statusEl.textContent = 'エラー: ' + (err.message || '不明');
-            });
+            .catch(function(err){ btn.disabled = false; if (statusEl) statusEl.textContent = 'エラー: ' + (err.message || '不明'); });
     });
 
-    // 新規追加フォームに添付済みのIDがあれば確認ボタンを表示
     function refreshMobileCheckButtons() {
         document.querySelectorAll('[id$="-mobile_upload_id"]').forEach(function(inp){
             if (!inp.value) return;
             var m = inp.id.match(/^id_(.+)-mobile_upload_id$/);
             if (!m) return;
-            var prefix = m[1];
-            var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + prefix + '"]');
+            var checkBtn = document.querySelector('.mobile-check-btn[data-form-prefix="' + m[1] + '"]');
             if (checkBtn) checkBtn.style.display = 'inline-block';
         });
     }
