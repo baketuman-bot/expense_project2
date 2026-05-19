@@ -501,6 +501,13 @@ def _safe_import_pdf2image():
     except Exception:
         return None
 
+def _safe_import_pymupdf():
+    try:
+        import fitz  # PyMuPDF
+        return fitz
+    except Exception:
+        return None
+
 
 # 互換用: 旧マイグレーション（0001_initial 等）が参照するアップロード関数
 # 旧実装では T_ExpenseDetail 用に申請ID/明細IDベースのパスを返していたが、
@@ -610,26 +617,47 @@ class T_DocumentAttachment(models.Model):
 
     def _generate_thumbnail(self):
         Image = _safe_import_pil()
-        convert_from_path = _safe_import_pdf2image()
         if not self.file:
             return
         _, ext = os.path.splitext(self.file.name)
         ext = (ext or '').lower()
-        if ext == '.pdf' and convert_from_path:
-            try:
-                pdf_path = os.path.join(settings.MEDIA_ROOT, self.file.name)
-                pages = convert_from_path(pdf_path, first_page=1, last_page=1, fmt='jpeg')
-                if pages:
-                    img = pages[0]
-                    img.thumbnail((400, 400))
-                    thumb_io = io.BytesIO()
-                    img.save(thumb_io, format='JPEG', quality=85)
-                    orig = os.path.basename(self.file.name)
-                    name, _ = os.path.splitext(orig)
-                    target_path = attachment_thumbnail_upload_path(self, f"{name}_thumb.jpg")
-                    self.thumbnail.save(target_path, ContentFile(thumb_io.getvalue()), save=False)
-            except Exception:
-                pass
+        if ext == '.pdf':
+            # PyMuPDF で PDF 1ページ目をサムネイル化（poppler 不要）
+            fitz = _safe_import_pymupdf()
+            if fitz:
+                try:
+                    pdf_path = os.path.join(settings.MEDIA_ROOT, self.file.name)
+                    doc = fitz.open(pdf_path)
+                    if doc.page_count > 0:
+                        page = doc[0]
+                        mat = fitz.Matrix(1.5, 1.5)
+                        pix = page.get_pixmap(matrix=mat)
+                        img_bytes = pix.tobytes("jpeg")
+                        doc.close()
+                        orig = os.path.basename(self.file.name)
+                        name, _ = os.path.splitext(orig)
+                        target_path = attachment_thumbnail_upload_path(self, f"{name}_thumb.jpg")
+                        self.thumbnail.save(target_path, ContentFile(img_bytes), save=False)
+                except Exception:
+                    pass
+            else:
+                # フォールバック: pdf2image (poppler が必要)
+                convert_from_path = _safe_import_pdf2image()
+                if convert_from_path:
+                    try:
+                        pdf_path = os.path.join(settings.MEDIA_ROOT, self.file.name)
+                        pages = convert_from_path(pdf_path, first_page=1, last_page=1, fmt='jpeg')
+                        if pages and Image:
+                            img = pages[0]
+                            img.thumbnail((400, 400))
+                            thumb_io = io.BytesIO()
+                            img.save(thumb_io, format='JPEG', quality=85)
+                            orig = os.path.basename(self.file.name)
+                            name, _ = os.path.splitext(orig)
+                            target_path = attachment_thumbnail_upload_path(self, f"{name}_thumb.jpg")
+                            self.thumbnail.save(target_path, ContentFile(thumb_io.getvalue()), save=False)
+                    except Exception:
+                        pass
         elif Image:
             try:
                 img = Image.open(self.file)
@@ -763,3 +791,40 @@ class T_DocumentApprover(models.Model):
         db_table = 't_document_approvers'
         verbose_name = '文書承認者'
         verbose_name_plural = '文書承認者'
+
+
+# 改善要望
+class T_Feedback(models.Model):
+    STATUS_CHOICES = [
+        ('00', '受付中'),
+        ('01', '検討中'),
+        ('02', '対応済'),
+        ('03', '対応不可'),
+    ]
+
+    feedback_id  = models.AutoField("要望ID", primary_key=True)
+    man_number   = models.ForeignKey(
+        M_User,
+        to_field='man_number',
+        db_column='man_number',
+        verbose_name="申請者",
+        on_delete=models.PROTECT,
+        related_name='feedbacks',
+        null=True, blank=True,
+        db_constraint=False,
+    )
+    request_text  = models.CharField("要望事項", max_length=100)
+    response_text = models.CharField("回答", max_length=100, blank=True, default='')
+    status_cd     = models.CharField("状況", max_length=2, choices=STATUS_CHOICES, default='00')
+    created_at    = models.DateField("登録日", auto_now_add=True)
+    updated_at    = models.DateField("更新日", auto_now=True)
+
+    def __str__(self):
+        return f"#{self.feedback_id} {self.request_text[:20]}"
+
+    class Meta:
+        db_table = 't_feedback'
+        verbose_name = '改善要望'
+        verbose_name_plural = '改善要望'
+        ordering = ['-created_at', '-feedback_id']
+

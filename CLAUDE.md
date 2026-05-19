@@ -17,19 +17,19 @@
 expense_project2/
 ├── expense_project/       # Django project config (settings, urls, wsgi/asgi)
 ├── expenses/              # メインDjangoアプリ
-│   ├── models.py          # 全モデル定義 (~750行)
-│   ├── views.py           # ビューロジック (~3200行)
+│   ├── models.py          # 全モデル定義 (~800行)
+│   ├── views.py           # ビューロジック (~3700行)
 │   ├── forms.py           # フォーム定義 (~500行)
 │   ├── utils.py           # ワークフロー・通知・承認者候補ユーティリティ
 │   ├── urls.py            # URLルーティング
 │   ├── admin.py           # Django Admin設定
 │   ├── auth_backends.py   # 社員番号(man_number)認証バックエンド
 │   ├── cloud_receipts.py  # GCS領収書ハンドリング
-│   ├── templates/expenses/  # HTMLテンプレート (17ファイル)
-│   ├── static/expenses/     # CSS/JS
+│   ├── templates/expenses/  # HTMLテンプレート (20ファイル)
+│   ├── static/expenses/     # CSS/JS (swiss.css)
 │   ├── templatetags/        # カスタムテンプレートタグ
 │   ├── management/commands/ # load_initial_master, superuser, migrate_legacy
-│   ├── migrations/          # DBマイグレーション
+│   ├── migrations/          # DBマイグレーション (最新: 0046)
 │   └── fixtures/            # テストデータ
 ├── templates/registration/  # ログインテンプレート
 ├── media/                   # アップロードファイル (領収書等)
@@ -111,6 +111,21 @@ pip install -r requirements.txt && python3 manage.py collectstatic --no-input &&
   - 日当の単価: `M_Item.data_kbn='TRA'` の `content2` フィールドを使用
 - 勘定科目は `M_AccountDocument` でDocType毎にフィルタ
 
+**DocType=5 詳細・承認画面の明細表示:**
+- `expense_detail` / `approval_detail` ビューで `is_travel` フラグと3種類のフィルタ済みリストをコンテキストに渡す:
+  - `travel_route_details`: `content['departure']` を持つ行
+  - `travel_accom_details`: `content['row_type'] == 'accommodation'` の行
+  - `travel_allow_details`: `content['row_type'] == 'allowance'` の行
+- テンプレートで `{% if is_travel %}` により移動経路・宿泊費・日当を個別テーブルで表示
+- 移動経路は**1レコード2行**で表示:
+  - 1行目: 日付・経路(発地→着地)・交通手段・所要時間・運賃・領収書
+  - 2行目: 目的・支払先・登録番号・コーポレートカード
+
+**DocType=5 コピー (`expense_copy`):**
+- `_is_travel_doc_type(doc_type)` が True の場合、`travel_expense_form.html` でレンダリング
+- コピー元の移動経路明細（departure/arrival/transport/duration）を初期値として `TravelDetailFormSet` を生成
+- 空の `AccommodationFormSet` / `AllowanceFormSet` を生成して渡す
+
 ### Workflow (承認フロー)
 
 **モデル構成:**
@@ -142,7 +157,7 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 
 **マスタ (M_):** M_User, M_Bumon(部門), M_Post(役職), M_Group(部署), M_BelongTo(所属), M_Account(勘定科目), M_Item(汎用マスタ), M_Status, M_DocumentType, M_DocumentField, M_AccountDocument, M_WorkflowTemplate, M_WorkflowStep
 
-**トランザクション (T_):** T_Document(申請ヘッダ), T_DocumentContent(明細), T_DocumentAttachment(添付), T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover
+**トランザクション (T_):** T_Document(申請ヘッダ), T_DocumentContent(明細), T_DocumentAttachment(添付), T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover, **T_Feedback(改善要望)**
 
 **ビュー (V_, unmanaged):** V_Group(組織階層), V_User(ユーザー情報非正規化)
 
@@ -151,6 +166,25 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - `M_DocumentField.section_header`: CharField(max_length=100, blank=True, default='') セクション区切り見出し
 - `M_DocumentField.row_break`: BooleanField 行ブレーク制御
 - `M_DocumentField.col_width`: IntegerField カラム幅 (Bootstrap col-md-N)
+- `T_Feedback`: 改善要望テーブル (migration 0044〜0046)
+
+**T_Feedback モデル:**
+```python
+class T_Feedback(models.Model):
+    STATUS_CHOICES = [('00','受付中'), ('01','検討中'), ('02','対応済'), ('03','対応不可')]
+    feedback_id  = AutoField(PK)
+    man_number   = FK(M_User, to_field='man_number')  # 登録者
+    request_text = CharField(max_length=100)  # 要望事項
+    response_text = CharField(max_length=100, blank=True)  # 回答 (is_superuser のみ編集可)
+    status_cd    = CharField(max_length=2, choices=STATUS_CHOICES, default='00')
+    created_at   = DateField(auto_now_add=True)
+    updated_at   = DateField(auto_now=True)
+    # db_table = 't_feedback' (utf8mb4_unicode_ci で統一済み)
+```
+
+**MySQL コレーション注意:**
+- 既存テーブルは `utf8mb4_unicode_ci`
+- 新テーブル作成時に Django が別コレーションで作る場合がある → migration で `ALTER TABLE ... CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci` を実行して統一すること（0045, 0046 参照）
 
 ### URL Routes
 
@@ -161,7 +195,7 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 /list/                     → 申請一覧 ※ category='expense' のみ
 /<id>/                     → 申請詳細
 /<id>/edit/                → 編集
-/<id>/copy/                → コピー作成
+/<id>/copy/                → コピー作成 (DocType=5 は travel_expense_form.html へ)
 /approvals/                → 承認一覧
 /approvals/<id>/           → 承認処理
 /csv/                      → CSV出力 (申請)
@@ -172,6 +206,11 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 /assets/                   → 固定資産ホーム (category='assets')
 /assets/list/              → 固定資産申請一覧
 /assets/new/<type_id>/     → 固定資産新規作成
+/feedback/                 → 改善要望一覧
+/feedback/new/             → 改善要望 新規登録
+/feedback/<id>/            → 改善要望 詳細
+/feedback/<id>/edit/       → 改善要望 編集 (登録者 or is_superuser)
+/feedback/<id>/delete/     → 改善要望 削除 (登録者 or is_superuser)
 /settings/                 → 管理者設定ホーム (→ データ出力にリダイレクト)
 /settings/export/          → データ出力 (全申請CSV含む)
 /settings/approval_admin/  → 承認管理一覧 (承認フロー表示・強制操作)
@@ -189,6 +228,7 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - カスタム認証バックエンド `ManNumberModelBackend`: 社員番号 (`man_number`) でログイン
 - カスタムユーザーモデル `M_User` (AbstractUser拡張): man_number, user_name, bumon_cd, post_cd, role
 - ロール: employee / approver / accountant / final_approver
+- `M_User.is_superuser=True`: スーパーユーザー（Django 標準フィールド）。改善要望の回答・状況編集権限を持つ
 - 全ビューに `@login_required`
 
 ## Configuration
@@ -272,16 +312,79 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - `status_badge_class`: ステータスコード → CSS クラス変換。APPROVED(中間)は `status-pill-mid-approved`（青）、FNS は `status-pill-approved`（緑）で区別
 - `currency_display`, `amount_format`, `status_dot_class`, `is_image`, `is_pdf`: 既存フィルター
 
-## CSS (swiss.css) ステータスバッジ
+## CSS (swiss.css) — Swiss Modern / Flat Corporate / "Precision" テーマ
 
-- `.badge-inprogress`: 申請中・承認中バッジ（青 #1d56d1・白文字）
-- `.badge-step-wait`: 承認待ちStep表示（淡青 #e0e7ff・紺文字）
-- `.status-pill-mid-approved`: 中間承認ステータス（青系、FNS緑と区別）
-- `.precision-section-label`: サイドバーのセクション見出し（小文字・グレー）
+デザインシステム（`C:\Users\idc_user\Desktop\tmp\zip`）をベースに実装。
+
+**カラートークン:**
+- `--primary: #17307a` (ネイビー、唯一のアクセントカラー)
+- `--primary-hover: #1e3a8a`
+- `--primary-soft: #eff3fb` (アクティブナビ・アクセント背景)
+- `--panel: #f9fafb` (ページ背景・テーブルヘッダ)
+- `--line: #e5e7eb` / `--line-strong: #d1d5db` (ボーダー)
+
+**フォント:**
+- 本文・ラベル・テーブル: OS システムスタック (`-apple-system, "Segoe UI", "Noto Sans JP"` 等)
+- 見出し・カードタイトル・ページタイトル: **Zen Kaku Gothic New** (Google Fonts, weight 500/700)
+  - `base.html` の `<head>` で CDN ロード済み
+
+**トップバー:**
+- ネイビー背景 (`var(--primary)`)・白文字
+- ブランドマーク: 白い2px角丸正方形 (`.precision-topbar-mark`) の中にネイビーSVGアイコン
+
+**ステータスピル:**
+- `::before` でドット指示子（6px 丸）を表示
+- `border: 1px solid` でボーダーあり
+- クラス: `.status-pill-draft/pending/review/approved/rejected/cancelled`
+- `.badge-inprogress`: 申請中・承認中（ネイビー #17307a・白文字）
+- `.badge-step-wait`: 承認待ちStep（淡青 #dbeafe・紺文字・ボーダーあり）
+- `.status-pill-mid-approved`: 中間承認ステータス（FNS緑と区別するための青系）
+
+**カード:**
+- 影なし (`box-shadow: none !important`)・1px ヘアラインボーダー・2px 角丸
+- アクセントボーダー: `.card.accent-warning/primary/success/neutral` → 左3px カラーボーダー
+- ヘッダータイント: `.card-header.tint-warning/primary/neutral` → 薄い背景色
+
+**ページタイトルパターン:**
+```html
+<div class="page-head">
+  <h2 class="page-title">
+    <span class="pt-ico"><i class="fas fa-xxx"></i></span>
+    ページ名
+  </h2>
+  <div class="page-actions"><!-- ボタン群 --></div>
+</div>
+```
+- `.pt-ico`: ネイビー背景・白アイコンの32px正方形
+
+**テーブル行ホバー:**
+- 背景色: `var(--primary-soft)`
+- 最初の列: `box-shadow: inset 3px 0 0 var(--primary)` で左アクセントストライプ
+
+**ログイン画面:**
+- `.login-shell` / `.login-card` / `.login-card-head` / `.login-card-body` / `.login-mark` でカードUI構成
+
+## 改善要望 (Feedback)
+
+サイドバーの「改善要望」メニューからアクセス。全ユーザーが要望を登録・閲覧でき、`is_superuser=True` のユーザーのみ回答・状況を更新できる。
+
+### 権限
+- **全ユーザー**: 閲覧・新規登録・自分の要望の編集・削除
+- **is_superuser=True**: 全要望の編集、`response_text`（回答）・`status_cd`（状況）の変更も可
+
+### メール通知
+- 新規登録時に `_feedback_notify_superusers(fb, submitter)` を呼び出す
+- `M_User.objects.filter(is_superuser=True).exclude(email__isnull=True).exclude(email='')` でスーパーユーザーを取得してメール送信
+- `utils.send_notification()` を使用（EMAIL_FORCE_TO による強制転送も有効）
+
+### ビューのコンテキスト
+- `feedback_detail` / `feedback_edit` は `is_admin = bool(request.user.is_superuser)` をテンプレートに渡す
+- テンプレート内で `{% if is_admin %}` を使って回答・状況フォームを出し分ける
+- **注意**: `is_admin` を渡し忘れると Django テンプレートが未定義変数を空文字（falsy）として評価し、ボタンが表示されなくなる
 
 ## 管理者設定 (Admin Panel)
 
-サイドバーに「管理者設定」セクションを追加。現時点では全ユーザーに表示（後でM_Userに管理者フラグを追加して制御予定）。
+サイドバーに「管理者設定」セクション。全ユーザーに表示。
 
 ### データ出力 (`/settings/export/`)
 

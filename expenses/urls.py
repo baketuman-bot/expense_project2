@@ -28,6 +28,12 @@ urlpatterns = [
     path("assets/", views.asset_home, name="asset_home"),
     path("assets/list/", views.asset_list, name="asset_list"),
     path("assets/new/<int:document_type_id>/", views.expense_create, name="asset_create_by_type"),
+    # 改善要望
+    path("feedback/", views.feedback_list, name="feedback_list"),
+    path("feedback/new/", views.feedback_create, name="feedback_create"),
+    path("feedback/<int:pk>/", views.feedback_detail, name="feedback_detail"),
+    path("feedback/<int:pk>/edit/", views.feedback_edit, name="feedback_edit"),
+    path("feedback/<int:pk>/delete/", views.feedback_delete, name="feedback_delete"),
     # 管理者画面 (設定)
     path("settings/", views.settings_home, name="settings_home"),
     path("settings/export/", views.settings_export, name="settings_export"),

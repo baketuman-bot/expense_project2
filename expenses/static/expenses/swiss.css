@@ -1,11 +1,12 @@
 /* =====================================================
    Flat Corporate Theme — 経費精算システム
+   Swiss Modern / Flat Corporate / "Precision" theme
    単色アクセント・影なし・シャープな直線。
    ===================================================== */
 
 :root{
-  --primary:#1e3a8a;
-  --primary-hover:#1e40af;
+  --primary:#17307a;
+  --primary-hover:#1e3a8a;
   --primary-soft:#eff3fb;
   --ink:#111827;
   --sub:#6b7280;
@@ -35,19 +36,19 @@ body.precision{
   font-size:14px;
 }
 
-/* ===== Top Bar ===== */
+/* ===== Top Bar (high-contrast navy) ===== */
 .precision-topbar{
   position:fixed;
   top:0;left:0;right:0;
   height:var(--precision-topbar-h);
-  background:#fff;
-  color:var(--ink);
+  background:var(--primary);
+  color:#fff;
   display:flex;
   align-items:center;
   justify-content:space-between;
   padding:0 24px;
   z-index:1100;
-  border-bottom:1px solid var(--line);
+  border-bottom:1px solid #15296b;
 }
 .precision-topbar-brand{
   display:flex;
@@ -56,20 +57,31 @@ body.precision{
   font-weight:700;
   font-size:15px;
   letter-spacing:.02em;
-  color:var(--ink);
+  color:#fff;
 }
-.precision-topbar-brand svg{ color:var(--primary); opacity:1; }
-.precision-topbar-brand a{ color:var(--ink); text-decoration:none; }
-.precision-topbar-brand a:hover{ color:var(--primary); }
+.precision-topbar-mark{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;height:28px;
+  background:#fff;
+  border-radius:2px;
+  color:var(--primary);
+  flex-shrink:0;
+}
+.precision-topbar-brand svg{ color:inherit; }
+.precision-topbar-brand a{ color:#fff; text-decoration:none; }
+.precision-topbar-brand a:hover{ color:rgba(255,255,255,.85); }
+.precision-topbar-sub{ font-weight:500; opacity:.7; margin-left:4px; }
 .precision-topbar-info{
   font-size:13px;
-  color:var(--sub);
+  color:rgba(255,255,255,.85);
   display:flex;
   align-items:center;
   gap:6px;
 }
-.precision-topbar-info span:first-child{ color:var(--ink); font-weight:600; }
-.precision-topbar-sep{ color:var(--muted); margin:0 2px; }
+.precision-topbar-info span:first-child{ color:#fff; font-weight:600; }
+.precision-topbar-sep{ color:rgba(255,255,255,.4); margin:0 2px; }
 body.no-sidebar .precision-topbar{ display:none; }
 
 /* ===== Sidebar ===== */
@@ -241,6 +253,15 @@ body.no-sidebar .precision-sidebar{display:none;}
 body.has-sidebar .precision-main{ margin-left:var(--precision-sidebar-width); }
 .precision-shell{ max-width:1200px; margin:0 auto; }
 
+/* ===== Display font (Zen Kaku Gothic New) ===== */
+.precision-main h2,
+.precision-main h3,
+.precision-main h5,
+.precision-main .card-title,
+.precision-main .page-title{
+  font-family:"Zen Kaku Gothic New",-apple-system,"Segoe UI","Hiragino Sans","Noto Sans JP",Arial,sans-serif;
+}
+
 /* ===== Page chrome ===== */
 .precision-main h2{
   font-size:20px;
@@ -262,6 +283,42 @@ body.has-sidebar .precision-main{ margin-left:var(--precision-sidebar-width); }
 }
 .precision-main h5 i{ color:var(--primary) !important; }
 .precision-main h5 .badge{ font-size:11px; font-weight:500; }
+
+/* ===== Page head layout ===== */
+.page-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:18px;
+  flex-wrap:wrap;
+  gap:12px;
+}
+.page-title{
+  font-size:20px;
+  font-weight:700;
+  letter-spacing:-.01em;
+  color:var(--ink);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:0;
+}
+.page-title .pt-ico{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:32px;height:32px;
+  border-radius:2px;
+  background:var(--primary);
+  color:#fff;
+  font-size:15px;
+  flex-shrink:0;
+}
+.page-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
 
 /* ===== Cards → flat panels ===== */
 .precision-main .card,
@@ -289,6 +346,27 @@ body.has-sidebar .precision-main{ margin-left:var(--precision-sidebar-width); }
   letter-spacing:0;
   font-size:14px;
   color:var(--ink);
+}
+
+/* ===== Card accent (left border strip) ===== */
+.card.accent-warning{ border-left:3px solid #f59e0b !important; }
+.card.accent-primary{ border-left:3px solid var(--primary) !important; }
+.card.accent-success{ border-left:3px solid #10b981 !important; }
+.card.accent-neutral{ border-left:3px solid var(--line-strong) !important; }
+
+/* ===== Card header tints ===== */
+.precision-main .card-header.tint-warning{
+  background:#fffbeb !important;
+  border-bottom-color:#fde68a;
+}
+.precision-main .card-header.tint-warning h5 i{ color:#b45309 !important; }
+.precision-main .card-header.tint-primary{
+  background:var(--primary-soft) !important;
+  border-bottom-color:#cfd9ec;
+}
+.precision-main .card-header.tint-primary h5 i{ color:var(--primary) !important; }
+.precision-main .card-header.tint-neutral{
+  background:var(--panel) !important;
 }
 
 /* ===== Tables ===== */
@@ -321,7 +399,8 @@ body.has-sidebar .precision-main{ margin-left:var(--precision-sidebar-width); }
 }
 
 tr.table-row-link{ cursor:pointer; }
-tr.table-row-link:hover td{ background:var(--panel); }
+tr.table-row-link:hover td{ background:var(--primary-soft); }
+tr.table-row-link:hover td:first-child{ box-shadow:inset 3px 0 0 var(--primary); }
 
 /* Code-like IDs */
 .precision-main .badge.bg-primary{
@@ -519,41 +598,55 @@ tr.table-row-link:hover td{ background:var(--panel); }
 .status-pill{
   display:inline-flex;
   align-items:center;
-  gap:4px;
+  gap:5px;
   padding:2px 8px;
   border-radius:2px;
   font-size:11px;
-  font-weight:600;
+  font-weight:700;
   letter-spacing:.02em;
   white-space:nowrap;
   line-height:1.6;
-  border:none;
+  border:1px solid transparent;
 }
-.status-pill::before{ content:none; }
+.status-pill::before{
+  content:"";
+  display:inline-block;
+  width:6px;height:6px;
+  border-radius:50%;
+  background:currentColor;
+  opacity:.8;
+  flex-shrink:0;
+}
 
 .status-pill-draft{
   color:#374151;
-  background:#f3f4f6;
+  background:#e5e7eb;
+  border-color:#d1d5db;
 }
 .status-pill-pending{
-  color:#1e40af;
+  color:#17307a;
   background:#dbeafe;
+  border-color:#bfdbfe;
 }
 .status-pill-review{
   color:#92400e;
-  background:#fef3c7;
+  background:#fed7aa;
+  border-color:#fdba74;
 }
 .status-pill-approved{
   color:#065f46;
-  background:#d1fae5;
+  background:#a7f3d0;
+  border-color:#6ee7b7;
 }
 .status-pill-rejected{
   color:#991b1b;
-  background:#fee2e2;
+  background:#fecaca;
+  border-color:#fca5a5;
 }
 .status-pill-cancelled{
   color:#374151;
   background:#e5e7eb;
+  border-color:#d1d5db;
 }
 
 /* Legacy badge fallback */
@@ -568,19 +661,20 @@ tr.table-row-link:hover td{ background:var(--panel); }
 
 /* ステータスバッジ: 申請中・承認中（青系） */
 .badge-inprogress{
-  background:#1d56d1;
+  background:var(--primary);
   color:#fff;
 }
 /* ステータスバッジ: 承認待ちステップ表示 */
 .badge-step-wait{
-  background:#e0e7ff;
-  color:#3730a3;
-  border:none;
+  background:#dbeafe;
+  color:#1e3a8a;
+  border:1px solid #bfdbfe;
 }
 /* status-pill: 承認中（中間ステップ用 = FNS 緑と区別） */
 .status-pill-mid-approved{
-  color:#1e40af;
+  color:#17307a;
   background:#dbeafe;
+  border-color:#bfdbfe;
 }
 
 /* ===== Pagination ===== */
@@ -685,6 +779,13 @@ tr.table-row-link:hover td{ background:var(--panel); }
   .precision-main{ padding:20px 16px; padding-top:calc(var(--precision-topbar-h) + 20px); }
 }
 
+/* ===== Amount color ===== */
+.precision-main .fw-bold.text-success,
+.precision-main td.text-end .fw-bold.text-success{
+  color:#065f46 !important;
+  font-variant-numeric:tabular-nums;
+}
+
 /* ===== Login screen (no-sidebar) ===== */
 body.no-sidebar{
   background:var(--panel);
@@ -692,4 +793,49 @@ body.no-sidebar{
 body.no-sidebar .precision-main{
   padding:40px 20px;
   margin-left:0 !important;
+}
+
+/* Login card design */
+.login-shell{
+  min-height:calc(100vh - 56px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 16px;
+}
+.login-card{
+  width:420px;
+  max-width:100%;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:2px;
+}
+.login-card-head{
+  padding:22px 26px 20px;
+  border-bottom:1px solid var(--line);
+  text-align:center;
+}
+.login-card-head h1{
+  font-size:18px;
+  font-weight:700;
+  margin:10px 0 4px;
+  font-family:"Zen Kaku Gothic New",-apple-system,"Segoe UI","Hiragino Sans","Noto Sans JP",Arial,sans-serif;
+  color:var(--ink);
+}
+.login-card-head p{
+  margin:0;
+  font-size:12px;
+  color:var(--sub);
+}
+.login-mark{
+  display:inline-flex;
+  width:40px;height:40px;
+  background:var(--primary);
+  border-radius:2px;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+}
+.login-card-body{
+  padding:24px 26px;
 }

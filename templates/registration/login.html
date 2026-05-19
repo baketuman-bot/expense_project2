@@ -1,35 +1,39 @@
 {% extends "expenses/base.html" %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="text-center">ログイン</h2>
+<div class="login-shell">
+    <div class="login-card">
+        <div class="login-card-head">
+            <span class="login-mark">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path>
+                    <path d="M14 2v6h6"></path>
+                    <path d="M8.5 13h7"></path>
+                    <path d="M8.5 16.5h7"></path>
+                </svg>
+            </span>
+            <h1>イサハヤ電子</h1>
+            <p>経費精算システム</p>
+        </div>
+        <div class="login-card-body">
+            <form method="post">
+                {% csrf_token %}
+                {% if form.errors %}
+                <div class="alert alert-danger mb-4" style="font-size:13px;">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    社員番号またはパスワードが正しくありません。
                 </div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="form-group">
-                            <label for="id_id">ID:</label>
-                            <input type="text" name="username" id="id_id" class="form-control" placeholder="社員番号(またはユーザー名)">
-                        </div>
-                        <div class="form-group mt-3">
-                            <label for="id_password">パスワード:</label>
-                            <input type="password" name="password" id="id_password" class="form-control">
-                        </div>
-                        {% if form.errors %}
-                        <div class="alert alert-danger mt-3">
-                            ユーザー名またはパスワードが正しくありません。
-                        </div>
-                        {% endif %}
-                        <div class="text-center mt-4">
-                            <button type="submit" class="btn btn-primary">ログイン</button>
-                        </div>
-                    </form>
+                {% endif %}
+                <div class="mb-3">
+                    <label for="id_id" class="form-label">社員番号</label>
+                    <input type="text" name="username" id="id_id" class="form-control" placeholder="社員番号を入力" autocomplete="username">
                 </div>
-            </div>
+                <div class="mb-4">
+                    <label for="id_password" class="form-label">パスワード</label>
+                    <input type="password" name="password" id="id_password" class="form-control" placeholder="パスワードを入力" autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">ログイン</button>
+            </form>
         </div>
     </div>
 </div>

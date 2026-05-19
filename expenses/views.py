@@ -503,7 +503,29 @@ def expense_detail(request, pk):
     dynamic_fields_display = _build_dynamic_fields_display(expense)
 
     progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
-    return render(request, "expenses/expense_detail.html", {"expense": expense, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "currency_name": currency_name, "dynamic_fields_display": dynamic_fields_display, "progress": progress})
+
+    is_travel = _is_travel_doc_type(expense.document_type)
+    travel_route_details = []
+    travel_accom_details = []
+    travel_allow_details = []
+    if is_travel:
+        _all_details = list(expense.details.prefetch_related('attachments'))
+        travel_route_details = [d for d in _all_details if isinstance(d.content, dict) and 'departure' in d.content]
+        travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
+        travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
+
+    return render(request, "expenses/expense_detail.html", {
+        "expense": expense,
+        "workflow_actions": workflow_actions,
+        "pending_approvers": pending_approvers,
+        "currency_name": currency_name,
+        "dynamic_fields_display": dynamic_fields_display,
+        "progress": progress,
+        "is_travel": is_travel,
+        "travel_route_details": travel_route_details,
+        "travel_accom_details": travel_accom_details,
+        "travel_allow_details": travel_allow_details,
+    })
 
 @login_required
 def expense_edit(request, pk):
@@ -652,24 +674,50 @@ def expense_edit(request, pk):
                 trip_title_error_edit = True
                 error_message = "出張件名を入力してください。"
 
-        # 移動経路明細：最低1行（申請時のみ）
+        # 移動経路明細：最低1行 & 各行の日付チェック（申請時のみ）
         travel_row_error_edit = False
         if not is_draft_edit and _is_travel_doc_type(_edit_doc_type_post) and not trip_title_error_edit:
-            # formsetのバリデーション結果に依存せず、POSTデータを直接確認
             _travel_valid_count = 0
+            _travel_no_date_rows = []
             try:
                 _total_travel = int(request.POST.get('travel-TOTAL_FORMS', 0))
                 for _i in range(_total_travel):
                     _d   = request.POST.get(f'travel-{_i}-date', '').strip()
                     _dep = request.POST.get(f'travel-{_i}-departure', '').strip()
                     _arr = request.POST.get(f'travel-{_i}-arrival', '').strip()
+                    _amt = request.POST.get(f'travel-{_i}-amount', '').strip()
+                    if not any([_d, _dep, _arr, _amt]):
+                        continue
                     if _d and _dep and _arr:
                         _travel_valid_count += 1
+                    elif not _d:
+                        _travel_no_date_rows.append(str(_i + 1))
             except Exception:
                 pass
             if _travel_valid_count == 0:
                 travel_row_error_edit = True
                 error_message = "移動経路明細に日付・発地・着地を入力してください。"
+            elif _travel_no_date_rows:
+                travel_row_error_edit = True
+                error_message = f"移動経路明細 {', '.join(_travel_no_date_rows)} 行目の日付を入力してください。"
+        # 宿泊費明細：各行の日付チェック（申請時のみ）
+        if not is_draft_edit and _is_travel_doc_type(_edit_doc_type_post) and not travel_row_error_edit:
+            try:
+                _total_accom = int(request.POST.get('accom-TOTAL_FORMS', 0))
+                _accom_no_date_rows = []
+                for _i in range(_total_accom):
+                    _d   = request.POST.get(f'accom-{_i}-date', '').strip()
+                    _amt = request.POST.get(f'accom-{_i}-amount', '').strip()
+                    _shi = request.POST.get(f'accom-{_i}-shiharaisaki', '').strip()
+                    if not any([_d, _amt, _shi]):
+                        continue
+                    if not _d:
+                        _accom_no_date_rows.append(str(_i + 1))
+                if _accom_no_date_rows:
+                    travel_row_error_edit = True
+                    error_message = f"宿泊費明細 {', '.join(_accom_no_date_rows)} 行目の日付を入力してください。"
+            except Exception:
+                pass
 
         # 承認者チェック（申請時のみ必須）
         approver_missing_edit = []
@@ -688,7 +736,7 @@ def expense_edit(request, pk):
         if approver_missing_edit:
             error_message = f"承認ステップ {', '.join(approver_missing_edit)} の承認者を選択してください。"
 
-        # 経費明細チェック（申請時のみ・出張以外）：目的・支払先・勘定科目の空白
+        # 経費明細チェック（申請時のみ・出張以外）：取引日・目的・支払先・勘定科目の空白
         detail_missing_edit = []
         if not is_draft_edit and not _is_travel_doc_type(_edit_doc_type_post):
             try:
@@ -707,6 +755,8 @@ def expense_edit(request, pk):
                         _amt_valid_e = float(_amt_e) > 0
                     except (ValueError, TypeError):
                         _amt_valid_e = False
+                    if not _dt_e:
+                        _missing_fields_e.append('取引日')
                     if not _amt_valid_e:
                         _missing_fields_e.append('金額')
                     if not _purpose_e:
@@ -879,6 +929,10 @@ def expense_edit(request, pk):
                     for aform in accom_formset.forms:
                         if not (aform.is_valid() and aform.cleaned_data):
                             continue
+                        # 日付・金額・支払先のいずれも未入力なら空行とみなしてスキップ
+                        cd = aform.cleaned_data
+                        if not cd.get('date') and not cd.get('amount') and not (cd.get('shiharaisaki') or '').strip():
+                            continue
                         adetail = aform.save(commit=False)
                         adetail.document = expense
                         if _account_670:
@@ -928,6 +982,10 @@ def expense_edit(request, pk):
                 if _is_travel_save and allow_formset and allow_formset.is_valid():
                     for alform in allow_formset.forms:
                         if not (alform.is_valid() and alform.cleaned_data):
+                            continue
+                        # 単価キー・日数のどちらも未入力なら空行とみなしてスキップ
+                        cd = alform.cleaned_data
+                        if not cd.get('unit_price_key') and not cd.get('days') and not cd.get('amount'):
                             continue
                         aldetail = alform.save(commit=False)
                         aldetail.document = expense
@@ -1412,24 +1470,50 @@ def expense_create(request, document_type_id=None):
                 trip_title_error_create = True
                 error_message = "出張件名を入力してください。"
 
-        # 移動経路明細：最低1行（申請時のみ）
+        # 移動経路明細：最低1行 & 各行の日付チェック（申請時のみ）
         travel_row_error_create = False
         if not is_draft and _is_travel_doc_type(resolved_doc_type) and not trip_title_error_create:
-            # formsetのバリデーション結果に依存せず、POSTデータを直接確認
             _travel_valid_count_c = 0
+            _travel_no_date_rows_c = []
             try:
                 _total_travel_c = int(request.POST.get('travel-TOTAL_FORMS', 0))
                 for _i in range(_total_travel_c):
                     _d   = request.POST.get(f'travel-{_i}-date', '').strip()
                     _dep = request.POST.get(f'travel-{_i}-departure', '').strip()
                     _arr = request.POST.get(f'travel-{_i}-arrival', '').strip()
+                    _amt = request.POST.get(f'travel-{_i}-amount', '').strip()
+                    if not any([_d, _dep, _arr, _amt]):
+                        continue
                     if _d and _dep and _arr:
                         _travel_valid_count_c += 1
+                    elif not _d:
+                        _travel_no_date_rows_c.append(str(_i + 1))
             except Exception:
                 pass
             if _travel_valid_count_c == 0:
                 travel_row_error_create = True
                 error_message = "移動経路明細に日付・発地・着地を入力してください。"
+            elif _travel_no_date_rows_c:
+                travel_row_error_create = True
+                error_message = f"移動経路明細 {', '.join(_travel_no_date_rows_c)} 行目の日付を入力してください。"
+        # 宿泊費明細：各行の日付チェック（申請時のみ）
+        if not is_draft and _is_travel_doc_type(resolved_doc_type) and not travel_row_error_create:
+            try:
+                _total_accom_c = int(request.POST.get('accom-TOTAL_FORMS', 0))
+                _accom_no_date_rows_c = []
+                for _i in range(_total_accom_c):
+                    _d   = request.POST.get(f'accom-{_i}-date', '').strip()
+                    _amt = request.POST.get(f'accom-{_i}-amount', '').strip()
+                    _shi = request.POST.get(f'accom-{_i}-shiharaisaki', '').strip()
+                    if not any([_d, _amt, _shi]):
+                        continue
+                    if not _d:
+                        _accom_no_date_rows_c.append(str(_i + 1))
+                if _accom_no_date_rows_c:
+                    travel_row_error_create = True
+                    error_message = f"宿泊費明細 {', '.join(_accom_no_date_rows_c)} 行目の日付を入力してください。"
+            except Exception:
+                pass
 
         # 承認者チェック（申請時のみ必須）
         approver_missing_create = []
@@ -1447,7 +1531,7 @@ def expense_create(request, document_type_id=None):
         if approver_missing_create:
             error_message = f"承認ステップ {', '.join(approver_missing_create)} の承認者を選択してください。"
 
-        # 経費明細チェック（申請時のみ・出張以外）：目的・支払先・勘定科目の空白
+        # 経費明細チェック（申請時のみ・出張以外）：取引日・目的・支払先・勘定科目の空白
         detail_missing_create = []
         if not is_draft and not _is_travel_doc_type(resolved_doc_type):
             try:
@@ -1467,6 +1551,8 @@ def expense_create(request, document_type_id=None):
                         _amt_valid_c = float(_amt_c) > 0
                     except (ValueError, TypeError):
                         _amt_valid_c = False
+                    if not _dt_c:
+                        _missing_fields.append('取引日')
                     if not _amt_valid_c:
                         _missing_fields.append('金額')
                     if not _purpose_c:
@@ -1663,6 +1749,10 @@ def expense_create(request, document_type_id=None):
                         for aform in accom_formset.forms:
                             if not (aform.is_valid() and aform.cleaned_data):
                                 continue
+                            # 日付・金額・支払先のいずれも未入力なら空行とみなしてスキップ
+                            cd = aform.cleaned_data
+                            if not cd.get('date') and not cd.get('amount') and not (cd.get('shiharaisaki') or '').strip():
+                                continue
                             adetail = aform.save(commit=False)
                             adetail.document = expense
                             if _account_670_c:
@@ -1713,6 +1803,10 @@ def expense_create(request, document_type_id=None):
                     if _is_travel_save_c and allow_formset and allow_formset.is_valid():
                         for alform in allow_formset.forms:
                             if not (alform.is_valid() and alform.cleaned_data):
+                                continue
+                            # 単価キー・日数のどちらも未入力なら空行とみなしてスキップ
+                            cd = alform.cleaned_data
+                            if not cd.get('unit_price_key') and not cd.get('days') and not cd.get('amount'):
                                 continue
                             aldetail = alform.save(commit=False)
                             aldetail.document = expense
@@ -2140,6 +2234,70 @@ def expense_copy(request, pk):
     except Exception:
         dynamic_fields_for_copy = []
 
+    # DocType=5 (出張旅費精算) コピーの場合は専用フォームへ
+    if _is_travel_doc_type(doc_type):
+        from .forms import TravelDetailFormSet as TravelCopyFormSet, AccommodationFormSet, AllowanceFormSet
+        all_details = list(source.details.all())
+        route_details = [d for d in all_details if isinstance(d.content, dict) and 'departure' in d.content]
+        n_routes = max(len(route_details), 1)
+        from django.forms import modelformset_factory
+        from .forms import TravelDetailForm
+        TravelCopyFS = modelformset_factory(
+            T_DocumentContent,
+            form=TravelDetailForm,
+            extra=n_routes,
+            can_delete=False,
+            validate_min=False,
+            min_num=0,
+            validate_max=True,
+            max_num=30,
+        )
+        travel_initial = []
+        for d in route_details:
+            c = d.content if isinstance(d.content, dict) else {}
+            travel_initial.append({
+                'date':         d.date,
+                'amount':       d.amount,
+                'purpose':      d.purpose or '',
+                'shiharaisaki': d.shiharaisaki or '',
+                'departure':    c.get('departure', ''),
+                'arrival':      c.get('arrival', ''),
+                'transport':    c.get('transport', ''),
+                'duration':     c.get('duration', ''),
+                'tekikaku_flag': c.get('tekikaku_flag', '無'),
+            })
+        travel_formset = TravelCopyFS(
+            queryset=T_DocumentContent.objects.none(),
+            initial=travel_initial,
+            prefix='travel',
+        )
+        tra_items = M_Item.objects.filter(data_kbn='TRA').order_by('key')
+        accom_formset = AccommodationFormSet(queryset=T_DocumentContent.objects.none(), prefix='accom')
+        allow_formset = AllowanceFormSet(queryset=T_DocumentContent.objects.none(), prefix='allow', tra_items=tra_items)
+        return render(request, "expenses/travel_expense_form.html", {
+            "formset": travel_formset,
+            "accom_formset": accom_formset,
+            "allow_formset": allow_formset,
+            "tra_items": tra_items,
+            "is_edit_mode": False,
+            "expense": None,
+            "groups": groups,
+            "bumons": bumons,
+            "pay_items": pay_items,
+            "currencies": currencies,
+            "workflow_steps": workflow_steps,
+            "submission_id": str(uuid.uuid4()),
+            "error_message": None,
+            "copy_from_expense": source,
+            "copy_from_bumon_cd": source.bumon_cd.bumon_cd if source.bumon_cd else "",
+            "copy_from_tsuka_cd": source.tsuka_cd or "00",
+            "copy_from_memo": source.memo or "",
+            "copy_from_ringi_no": source.ringi_no or "",
+            "form_action": form_action,
+            "current_doc_type_name": getattr(doc_type, 'document_type_name', '出張旅費精算') + "（コピー）",
+            **_asset_form_context(doc_type),
+        })
+
     return render(request, "expenses/expense_form.html", {
         "formset": formset,
         "groups": groups,
@@ -2515,7 +2673,29 @@ def approval_detail(request, pk):
     dynamic_fields_display = _build_dynamic_fields_display(expense)
 
     progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
-    return render(request, "expenses/approval_detail.html", {"expense": expense, "form": form, "workflow_actions": workflow_actions, "pending_approvers": pending_approvers, "dynamic_fields_display": dynamic_fields_display, "progress": progress})
+
+    is_travel = _is_travel_doc_type(expense.document_type)
+    travel_route_details = []
+    travel_accom_details = []
+    travel_allow_details = []
+    if is_travel:
+        _all_details = list(expense.details.prefetch_related('attachments'))
+        travel_route_details = [d for d in _all_details if isinstance(d.content, dict) and 'departure' in d.content]
+        travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
+        travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
+
+    return render(request, "expenses/approval_detail.html", {
+        "expense": expense,
+        "form": form,
+        "workflow_actions": workflow_actions,
+        "pending_approvers": pending_approvers,
+        "dynamic_fields_display": dynamic_fields_display,
+        "progress": progress,
+        "is_travel": is_travel,
+        "travel_route_details": travel_route_details,
+        "travel_accom_details": travel_accom_details,
+        "travel_allow_details": travel_allow_details,
+    })
 
 
 @login_required
@@ -2788,7 +2968,8 @@ def settings_export(request):
     if doc_type_filter:
         qs = qs.filter(document_type__document_type_id=doc_type_filter)
     if status_filter:
-        qs = qs.filter(status_cd__status_cd=status_filter)
+        # ドロップダウンの選択値は status_name（expense_list と同ロジック）
+        qs = qs.filter(status_cd__status_name=status_filter)
     if bumon_filter:
         qs = qs.filter(bumon_cd__bumon_cd=bumon_filter)
     qs = _apply_created_at_date_range(qs, date_from, date_to)
@@ -2835,13 +3016,13 @@ def settings_export(request):
             if contents:
                 for c in contents:
                     corpo = {None: '', 0: '', 1: '使用'}.get(c.corpo_card, '')
-                    # 登録番号: 数値変換（"なし"等の非数値はそのまま文字列）
-                    tekikaku = c.tekikaku_cd or ''
+                    # 登録番号: 先頭が't'なら大文字化、'T'以外なら付与
+                    tekikaku = str(c.tekikaku_cd or '').strip()
                     if tekikaku:
-                        try:
-                            tekikaku = int(tekikaku)
-                        except (ValueError, TypeError):
-                            pass
+                        if tekikaku.startswith('t'):
+                            tekikaku = 'T' + tekikaku[1:]
+                        elif not tekikaku.startswith('T'):
+                            tekikaku = 'T' + tekikaku
                     writer.writerow(doc_fields + [
                         c.document_detail_id,
                         c.date.strftime('%Y/%m/%d') if c.date else '',
@@ -3528,3 +3709,118 @@ def settings_master_delete(request, master_key, pk):
         except Exception:
             pass
     return redirect('expenses:settings_master_list', master_key=master_key)
+
+
+# ─── 改善要望 ────────────────────────────────────────────────────────────────
+
+@login_required
+def feedback_list(request):
+    from .models import T_Feedback
+    feedbacks = T_Feedback.objects.select_related('man_number').all()
+    keyword = request.GET.get('keyword', '').strip()
+    status_filter = request.GET.get('status', '')
+    if keyword:
+        feedbacks = feedbacks.filter(
+            models.Q(request_text__icontains=keyword) |
+            models.Q(response_text__icontains=keyword)
+        )
+    if status_filter:
+        feedbacks = feedbacks.filter(status_cd=status_filter)
+    return render(request, 'expenses/feedback_list.html', {
+        'feedbacks': feedbacks,
+        'keyword': keyword,
+        'status_filter': status_filter,
+        'status_choices': T_Feedback.STATUS_CHOICES,
+    })
+
+
+@login_required
+def feedback_create(request):
+    from .models import T_Feedback
+    if request.method == 'POST':
+        request_text = request.POST.get('request_text', '').strip()
+        if request_text:
+            fb = T_Feedback.objects.create(
+                man_number=request.user,
+                request_text=request_text,
+                status_cd='00',
+            )
+            # スーパーユーザー全員にメール通知
+            _feedback_notify_superusers(fb, request.user)
+            return redirect('expenses:feedback_list')
+        error = '要望事項を入力してください。'
+        return render(request, 'expenses/feedback_form.html', {'error': error, 'mode': 'create'})
+    return render(request, 'expenses/feedback_form.html', {'mode': 'create'})
+
+
+def _feedback_notify_superusers(fb, submitter):
+    from .utils import send_notification
+    superusers = M_User.objects.filter(is_superuser=True).exclude(email__isnull=True).exclude(email='')
+    subject = '【改善要望】#' + str(fb.feedback_id) + ' 新規登録'
+    message = (
+        '改善要望が登録されました。\n\n'
+        '要望ID : #' + str(fb.feedback_id) + '\n'
+        '登録者 : ' + str(getattr(submitter, 'user_name', submitter)) + '\n'
+        '登録日 : ' + str(fb.created_at) + '\n'
+        '要望事項:\n' + str(fb.request_text) + '\n\n'
+        '回答・状況の更新はシステムからお願いします。'
+    )
+    for su in superusers:
+        send_notification(su.email, subject, message)
+
+
+@login_required
+def feedback_detail(request, pk):
+    from .models import T_Feedback
+    fb = get_object_or_404(T_Feedback, pk=pk)
+    is_admin = bool(request.user.is_superuser)
+    return render(request, 'expenses/feedback_detail.html', {'fb': fb, 'is_admin': is_admin})
+
+
+@login_required
+def feedback_edit(request, pk):
+    from .models import T_Feedback
+    fb = get_object_or_404(T_Feedback, pk=pk)
+    is_admin = request.user.is_superuser
+    is_owner = (fb.man_number_id == request.user.man_number)
+    if not is_admin and not is_owner:
+        raise PermissionDenied()
+
+    if request.method == 'POST':
+        request_text = request.POST.get('request_text', '').strip()
+        response_text = request.POST.get('response_text', '').strip()
+        status_cd = request.POST.get('status_cd', fb.status_cd)
+        if not request_text:
+            return render(request, 'expenses/feedback_form.html', {
+                'fb': fb, 'mode': 'edit', 'is_admin': is_admin,
+                'status_choices': T_Feedback.STATUS_CHOICES,
+                'error': '要望事項を入力してください。',
+            })
+        fb.request_text = request_text
+        if is_admin:
+            fb.response_text = response_text
+            if status_cd in dict(T_Feedback.STATUS_CHOICES):
+                fb.status_cd = status_cd
+        fb.save()
+        return redirect('expenses:feedback_detail', pk=fb.pk)
+
+    return render(request, 'expenses/feedback_form.html', {
+        'fb': fb,
+        'mode': 'edit',
+        'is_admin': is_admin,
+        'status_choices': T_Feedback.STATUS_CHOICES,
+    })
+
+
+@login_required
+def feedback_delete(request, pk):
+    from .models import T_Feedback
+    fb = get_object_or_404(T_Feedback, pk=pk)
+    is_admin = request.user.is_superuser
+    is_owner = (fb.man_number_id == request.user.man_number)
+    if not is_admin and not is_owner:
+        raise PermissionDenied()
+    if request.method == 'POST':
+        fb.delete()
+        return redirect('expenses:feedback_list')
+    return redirect('expenses:feedback_detail', pk=pk)

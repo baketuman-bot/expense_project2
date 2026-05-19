@@ -8,9 +8,9 @@
     {% if user.role in 'approver,accountant,final_approver' %}
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-clock text-warning me-2"></i>承認待ち <span class="badge border border-warning text-warning">上位5件</span></h5>
+            <div class="card accent-warning">
+                <div class="card-header tint-warning d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>承認待ち <span class="badge border border-warning text-warning" style="font-size:11px">上位5件</span></h5>
                     <a href="{% url 'expenses:approval_list' %}" class="btn btn-sm btn-outline-warning">一覧を見る</a>
                 </div>
                 <div class="card-body p-0">
@@ -53,9 +53,9 @@
     <!-- 申請一覧 -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-paper-plane text-primary me-2"></i>申請中 <span class="badge border border-primary text-primary">上位5件</span></h5>
+            <div class="card accent-primary">
+                <div class="card-header tint-primary d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-paper-plane me-2"></i>申請中 <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid #cfd9ec;font-size:11px">上位5件</span></h5>
                     <a href="{% url 'expenses:expense_list' %}" class="btn btn-sm btn-outline-primary">一覧を見る</a>
                 </div>
                 <div class="card-body p-0">
@@ -101,9 +101,9 @@
     <!-- 下書き一覧 -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-edit text-secondary me-2"></i>下書き <span class="badge border border-secondary text-secondary">上位5件</span></h5>
+            <div class="card accent-neutral">
+                <div class="card-header tint-neutral d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-edit me-2" style="color:var(--sub)!important"></i>下書き <span class="badge" style="background:var(--panel);color:var(--sub);border:1px solid var(--line-strong);font-size:11px">上位5件</span></h5>
                     <a href="{% url 'expenses:expense_list' %}" class="btn btn-sm btn-outline-secondary">一覧を見る</a>
                 </div>
                 <div class="card-body p-0">

@@ -33,11 +33,7 @@
     
     /* カードのスタイル */
     .card {
-        transition: box-shadow 0.2s ease-in-out;
-    }
-    
-    .card:hover {
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        transition: none;
     }
 </style>
 {% endblock %}
@@ -90,15 +86,15 @@
     <div class="row">
         <div class="col-12">
             <!-- ヘッダー部分 -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="page-head mb-4">
                 <div>
-                    <h2 class="mb-1">
-                        <i class="fas fa-clipboard-check text-primary"></i>
+                    <h2 class="page-title mb-1">
+                        <span class="pt-ico"><i class="fas fa-clipboard-check"></i></span>
                         承認詳細
                     </h2>
-                    <p class="text-muted mb-0">申請ID: #{{ expense.expense_main_id }}</p>
+                    <p class="text-muted small mb-0 mt-1">申請ID: #{{ expense.expense_main_id }}</p>
                 </div>
-                <a href="{% url 'expenses:approval_list' %}" class="btn btn-outline-secondary">
+                <a href="{% url 'expenses:approval_list' %}" class="btn btn-outline-secondary btn-sm">
                     <i class="fas fa-arrow-left"></i> 承認一覧に戻る
                 </a>
             </div>
@@ -183,6 +179,153 @@
                     {% endif %}
 
                     <!-- 経費明細 -->
+                    {% if is_travel %}
+                    {# ── 出張旅費精算: 移動経路 / 宿泊費 / 日当 ── #}
+
+                    <!-- 移動経路明細 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-route text-primary me-2"></i>移動経路明細</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            {% if travel_route_details %}
+                            <div class="table-responsive">
+                                <table class="table mb-0" style="font-size:13px;">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:90px">日付</th>
+                                            <th>経路（発地 → 着地）</th>
+                                            <th style="width:90px">交通手段</th>
+                                            <th style="width:75px">所要時間</th>
+                                            <th class="text-end" style="width:110px">運賃</th>
+                                            <th class="text-center" style="width:80px">領収書</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for detail in travel_route_details %}
+                                        {# 1行目: 経路・交通手段・所要時間・運賃・領収書 #}
+                                        <tr style="border-bottom:none;">
+                                            <td rowspan="2" class="align-middle" style="border-bottom:1px solid #e5e7eb;">
+                                                <small class="text-muted">{{ detail.date|date:"Y/m/d"|default:"-" }}</small>
+                                            </td>
+                                            <td style="border-bottom:none;">
+                                                <span>{{ detail.content.departure|default:"-" }}</span>
+                                                <span class="text-muted mx-1">→</span>
+                                                <span>{{ detail.content.arrival|default:"-" }}</span>
+                                            </td>
+                                            <td style="border-bottom:none;">{{ detail.content.transport|default:"-" }}</td>
+                                            <td style="border-bottom:none;">{{ detail.content.duration|default:"-" }}</td>
+                                            <td rowspan="2" class="text-end fw-bold text-success align-middle" style="border-bottom:1px solid #e5e7eb;" data-amount="{{ detail.amount|default:0 }}">
+                                                {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
+                                            </td>
+                                            <td rowspan="2" class="text-center align-middle" style="border-bottom:1px solid #e5e7eb;">
+                                                {% if detail.attachments.all %}
+                                                    <span class="badge bg-success"><i class="fas fa-paperclip"></i> {{ detail.attachments.all|length }}</span>
+                                                {% else %}
+                                                    <span class="text-muted small">なし</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {# 2行目: 目的・支払先・登録番号・コーポレートカード #}
+                                        <tr>
+                                            <td colspan="3" style="border-bottom:1px solid #e5e7eb; padding-top:3px; padding-bottom:6px;">
+                                                {% if detail.purpose %}<span class="me-3"><span class="text-muted">目的:</span> {{ detail.purpose }}</span>{% endif %}
+                                                {% if detail.shiharaisaki %}<span class="me-3"><span class="text-muted">支払先:</span> {{ detail.shiharaisaki }}</span>{% endif %}
+                                                {% if detail.tekikaku_cd %}<span class="me-3"><span class="text-muted">登録番号:</span> {{ detail.tekikaku_cd }}</span>{% endif %}
+                                                {% if detail.corpo_card == 2 %}<span class="me-2"><span class="badge" style="background:#dbeafe;color:#1e3a8a;font-size:11px;">CC</span> {{ detail.corpo_card_no|default:"" }}</span>{% endif %}
+                                                {% if not detail.purpose and not detail.shiharaisaki and not detail.tekikaku_cd and detail.corpo_card != 2 %}<span class="text-muted">-</span>{% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}<p class="text-muted p-3 mb-0">移動経路明細がありません。</p>{% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 宿泊費明細 -->
+                    {% if travel_accom_details %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-bed text-primary me-2"></i>宿泊費明細</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:95px">日付</th>
+                                            <th>支払先</th>
+                                            <th style="width:80px">宿泊日数</th>
+                                            <th class="text-end" style="width:105px">金額</th>
+                                            <th class="text-center" style="width:60px">領収書</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for detail in travel_accom_details %}
+                                        <tr>
+                                            <td><small class="text-muted">{{ detail.date|date:"Y/m/d"|default:"-" }}</small></td>
+                                            <td>{{ detail.shiharaisaki|default:"-" }}</td>
+                                            <td>{{ detail.content.nights|default:"-" }}</td>
+                                            <td class="text-end fw-bold text-success">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+                                            <td class="text-center">
+                                                {% if detail.attachments.all %}
+                                                    <span class="badge bg-success"><i class="fas fa-paperclip"></i> {{ detail.attachments.all|length }}</span>
+                                                {% else %}
+                                                    <span class="text-muted small">なし</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 日当明細 -->
+                    {% if travel_allow_details %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-coins text-primary me-2"></i>日当明細</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>種別</th>
+                                            <th style="width:80px">日数</th>
+                                            <th class="text-end" style="width:105px">金額</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for detail in travel_allow_details %}
+                                        <tr>
+                                            <td>{{ detail.purpose|default:"-" }}</td>
+                                            <td>{{ detail.content.days|default:"-" }}</td>
+                                            <td class="text-end fw-bold text-success">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 合計 -->
+                    <div class="card mb-4">
+                        <div class="card-body py-2 d-flex justify-content-end align-items-center gap-3">
+                            <span class="text-muted">合計金額</span>
+                            <span class="fs-5 fw-bold text-success">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</span>
+                        </div>
+                    </div>
+
+                    {% else %}
+                    {# ── 通常の経費明細 ── #}
                     <div class="card mb-4">
                         <div class="card-header bg-light">
                             <h5 class="mb-0">
@@ -256,6 +399,7 @@
                             {% endif %}
                         </div>
                     </div>
+                    {% endif %}
 
             <!-- 領収書ギャラリー（横幅を最大化） -->
             <div class="card mb-4">

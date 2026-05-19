@@ -1,0 +1,92 @@
+{% extends "expenses/base.html" %}
+
+{% block content %}
+<div class="mt-2" style="max-width:700px;">
+
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-comment-dots"></i></span>
+            {% if mode == 'edit' %}改善要望 編集{% else %}改善要望 新規登録{% endif %}
+        </h2>
+        <a href="{% url 'expenses:feedback_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> 一覧に戻る
+        </a>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger mb-3"><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                {% if mode == 'edit' %}
+                    <i class="fas fa-edit text-primary me-2"></i>要望 #{{ fb.feedback_id }}
+                {% else %}
+                    <i class="fas fa-plus text-primary me-2"></i>要望内容の入力
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label">要望事項 <span class="text-danger">*</span></label>
+                    <input type="text" name="request_text" class="form-control" maxlength="100"
+                           placeholder="改善してほしい内容を入力してください（最大100文字）"
+                           value="{% if fb %}{{ fb.request_text }}{% endif %}" required>
+                    <div class="form-text text-muted">最大100文字</div>
+                </div>
+
+                {% if is_admin %}
+                <hr class="my-3">
+                <div class="mb-3">
+                    <label class="form-label">回答</label>
+                    <input type="text" name="response_text" class="form-control" maxlength="100"
+                           placeholder="回答・コメントを入力（最大100文字）"
+                           value="{% if fb %}{{ fb.response_text }}{% endif %}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">状況</label>
+                    <select name="status_cd" class="form-select">
+                        {% for code, label in status_choices %}
+                            <option value="{{ code }}" {% if fb and fb.status_cd == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> {% if mode == 'edit' %}更新{% else %}登録{% endif %}
+                    </button>
+                    <a href="{% url 'expenses:feedback_list' %}" class="btn btn-outline-secondary">キャンセル</a>
+                    {% if mode == 'edit' %}
+                    <form method="post" action="{% url 'expenses:feedback_delete' fb.pk %}" class="ms-auto d-inline js-delete-form">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-trash-alt"></i> 削除
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var df = document.querySelector('.js-delete-form');
+if (df) {
+    df.addEventListener('submit', function(e) {
+        if (!window.confirm('この要望を削除します。よろしいですか？')) {
+            e.preventDefault();
+        }
+    });
+}
+</script>
+{% endblock %}

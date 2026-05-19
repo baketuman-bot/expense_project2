@@ -1,0 +1,134 @@
+{% extends "expenses/base.html" %}
+{% load expense_extras %}
+
+{% block content %}
+<div class="mt-2">
+
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-comment-dots"></i></span>
+            改善要望
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:feedback_create' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> 要望を登録
+            </a>
+        </div>
+    </div>
+
+    <!-- フィルター -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">キーワード</label>
+                    <input type="text" name="keyword" class="form-control form-control-sm" placeholder="要望事項・回答" value="{{ keyword }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">状況</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="">すべて</option>
+                        {% for code, label in status_choices %}
+                            <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-search"></i> 検索</button>
+                    <a href="{% url 'expenses:feedback_list' %}" class="btn btn-outline-secondary btn-sm">クリア</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if feedbacks %}
+    <div class="card">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>要望一覧（{{ feedbacks|length }}件）</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width:70px">No.</th>
+                            <th>要望事項</th>
+                            <th>回答</th>
+                            <th style="width:100px">状況</th>
+                            <th style="width:100px">登録者</th>
+                            <th style="width:90px">登録日</th>
+                            <th class="text-center" style="width:80px">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fb in feedbacks %}
+                        <tr class="table-row-link" data-href="{% url 'expenses:feedback_detail' fb.pk %}">
+                            <td class="text-center">
+                                <span class="badge bg-primary">#{{ fb.feedback_id }}</span>
+                            </td>
+                            <td>{{ fb.request_text|truncatechars:50 }}</td>
+                            <td>
+                                {% if fb.response_text %}
+                                    {{ fb.response_text|truncatechars:50 }}
+                                {% else %}
+                                    <span class="text-muted small">未回答</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if fb.status_cd == '00' %}
+                                    <span class="status-pill status-pill-pending">受付中</span>
+                                {% elif fb.status_cd == '01' %}
+                                    <span class="status-pill status-pill-review">検討中</span>
+                                {% elif fb.status_cd == '02' %}
+                                    <span class="status-pill status-pill-approved">対応済</span>
+                                {% elif fb.status_cd == '03' %}
+                                    <span class="status-pill status-pill-cancelled">対応不可</span>
+                                {% else %}
+                                    <span class="status-pill status-pill-draft">{{ fb.status_cd }}</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ fb.man_number.user_name|default:"-" }}</small></td>
+                            <td><small class="text-muted">{{ fb.created_at|date:"Y/m/d" }}</small></td>
+                            <td class="text-center" onclick="event.stopPropagation();">
+                                <a href="{% url 'expenses:feedback_edit' fb.pk %}" class="btn btn-sm btn-outline-primary" title="編集">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-comment-dots fa-4x text-muted mb-3 d-block"></i>
+        {% if keyword or status_filter %}
+            <h4 class="text-muted">条件に一致する要望がありません</h4>
+            <a href="{% url 'expenses:feedback_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-times"></i> フィルタークリア
+            </a>
+        {% else %}
+            <h4 class="text-muted">改善要望はありません</h4>
+            <p class="text-muted">Webアプリへの改善要望を登録できます。</p>
+        {% endif %}
+        <a href="{% url 'expenses:feedback_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> 要望を登録
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('tr.table-row-link').forEach(function(row) {
+    row.addEventListener('click', function() {
+        window.location.href = this.dataset.href;
+    });
+});
+</script>
+{% endblock %}

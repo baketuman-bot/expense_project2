@@ -1,0 +1,110 @@
+{% extends "expenses/base.html" %}
+
+{% block content %}
+<div class="mt-2" style="max-width:700px;">
+
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-comment-dots"></i></span>
+            改善要望 詳細
+        </h2>
+        <div class="page-actions">
+            {% if is_admin or fb.man_number == request.user %}
+            <a href="{% url 'expenses:feedback_edit' fb.pk %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit"></i> 編集
+            </a>
+            {% endif %}
+            <a href="{% url 'expenses:feedback_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> 一覧に戻る
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-comment-dots text-primary me-2"></i>要望 #{{ fb.feedback_id }}</h5>
+            <span>
+                {% if fb.status_cd == '00' %}
+                    <span class="status-pill status-pill-pending">受付中</span>
+                {% elif fb.status_cd == '01' %}
+                    <span class="status-pill status-pill-review">検討中</span>
+                {% elif fb.status_cd == '02' %}
+                    <span class="status-pill status-pill-approved">対応済</span>
+                {% elif fb.status_cd == '03' %}
+                    <span class="status-pill status-pill-cancelled">対応不可</span>
+                {% else %}
+                    <span class="status-pill status-pill-draft">{{ fb.status_cd }}</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0" style="font-size:13px;">
+                <dt class="col-sm-3 text-muted">登録者</dt>
+                <dd class="col-sm-9">{{ fb.man_number.user_name|default:"-" }}</dd>
+
+                <dt class="col-sm-3 text-muted">登録日</dt>
+                <dd class="col-sm-9">{{ fb.created_at|date:"Y年m月d日" }}</dd>
+
+                <dt class="col-sm-3 text-muted">更新日</dt>
+                <dd class="col-sm-9">{{ fb.updated_at|date:"Y年m月d日" }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-comment text-primary me-2"></i>要望事項</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-0" style="font-size:14px; white-space:pre-wrap;">{{ fb.request_text }}</p>
+        </div>
+    </div>
+
+
+    <div class="card mb-3">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-reply text-primary me-2"></i>回答</h5>
+            {% if is_admin %}
+            <a href="{% url 'expenses:feedback_edit' fb.pk %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit"></i> 回答・状況を更新
+            </a>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if fb.response_text %}
+                <p class="mb-0" style="font-size:14px; white-space:pre-wrap;">{{ fb.response_text }}</p>
+            {% else %}
+                <p class="text-muted mb-0">未回答</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if is_admin or fb.man_number == request.user %}
+    <div class="d-flex gap-2">
+        <a href="{% url 'expenses:feedback_edit' fb.pk %}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-edit"></i> 編集
+        </a>
+        <form method="post" action="{% url 'expenses:feedback_delete' fb.pk %}" class="js-delete-form">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="fas fa-trash-alt"></i> 削除
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var df = document.querySelector('.js-delete-form');
+if (df) {
+    df.addEventListener('submit', function(e) {
+        if (!window.confirm('この要望を削除します。よろしいですか？')) {
+            e.preventDefault();
+        }
+    });
+}
+</script>
+{% endblock %}

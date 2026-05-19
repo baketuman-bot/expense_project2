@@ -3,12 +3,12 @@
 
 {% block content %}
 <div class="mt-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="mb-0">
-                    <i class="fas fa-building text-primary"></i>
+            <div class="page-head mb-3">
+                <h2 class="page-title mb-0">
+                    <span class="pt-ico"><i class="fas fa-building"></i></span>
                     固定資産 申請一覧
                 </h2>
-                <div class="d-flex gap-2">
+                <div class="page-actions">
                     <a href="{% url 'expenses:asset_home' %}" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus"></i> 新規申請
                     </a>
