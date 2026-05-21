@@ -303,14 +303,9 @@
         </div>
 
         {% if dynamic_fields %}
-        <!-- 追加入力項目（DocTypeに応じて動的） -->
         <div class="card mt-4">
             <div class="card-body">
-                <h3 class="card-title mb-4">追加入力項目</h3>
                 <div class="row mb-1">
-                    <div class="col-12">
-                        <div class="alert alert-info py-2 mb-3">この文書種別の追加項目</div>
-                    </div>
                     {% for f in dynamic_fields %}
                         {% if f.row_break %}</div><div class="row mb-1">{% endif %}
                         <div class="col-md-{{ f.col_width }} mb-3">

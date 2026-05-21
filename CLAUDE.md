@@ -21,15 +21,18 @@ expense_project2/
 │   ├── views.py           # ビューロジック (~3700行)
 │   ├── forms.py           # フォーム定義 (~500行)
 │   ├── utils.py           # ワークフロー・通知・承認者候補ユーティリティ
+│   ├── context_processors.py  # サイドバー用コンテキスト (sidebar_expense_groups)
 │   ├── urls.py            # URLルーティング
 │   ├── admin.py           # Django Admin設定
 │   ├── auth_backends.py   # 社員番号(man_number)認証バックエンド
 │   ├── cloud_receipts.py  # GCS領収書ハンドリング
-│   ├── templates/expenses/  # HTMLテンプレート (20ファイル)
+│   ├── templates/expenses/  # HTMLテンプレート
+│   │   ├── _expense_info_section.html  # 申請情報ブロック (include用)
+│   │   └── ...
 │   ├── static/expenses/     # CSS/JS (swiss.css)
 │   ├── templatetags/        # カスタムテンプレートタグ
 │   ├── management/commands/ # load_initial_master, superuser, migrate_legacy
-│   ├── migrations/          # DBマイグレーション (最新: 0046)
+│   ├── migrations/          # DBマイグレーション (最新: 0052)
 │   └── fixtures/            # テストデータ
 ├── templates/registration/  # ログインテンプレート
 ├── media/                   # アップロードファイル (領収書等)
@@ -64,46 +67,88 @@ pip install -r requirements.txt && python3 manage.py collectstatic --no-input &&
 
 ## Architecture
 
-### Document Type (申請種別) と Category
+### Document Type (申請種別) と M_DocumentGroup
 
-`M_DocumentType` でドキュメント種別を定義。`category` フィールドでメニューを分類:
+`M_DocumentType` でドキュメント種別を定義。`M_DocumentGroup` でメニューグループを管理し、`menu_group` FK で紐づく。
 
-| category | 説明 | メニュー |
+**M_DocumentGroup モデル:**
+
+| フィールド | 型 | 説明 |
 |---|---|---|
-| `expense` | 費用精算系 | サイドバー「費用精算」欄 |
-| `assets` | 固定資産系 | サイドバー「固定資産」欄 |
+| `menu_group` | CharField PK | グループコード (例: PAY, TRV, REC, AST, LON) |
+| `menu_group_name` | CharField | サイドバー表示名 |
+| `category` | CharField | `'expense'` or `'assets'` |
+| `menu_order` | SmallIntegerField | サイドバー表示順 |
 
-| DocType ID | 名称 | category | 説明 |
-|---|---|---|---|
-| 1 | 支出伺い | expense | 標準的な費用申請 |
-| 4 | 経費精算書 | expense | カスタムフィールド対応 (`M_DocumentField` で動的定義) |
-| 5 | 出張旅費精算 | expense | 専用フォーム (`travel_expense_form.html`)、経路テーブル |
-| 6〜 | 固定資産取得報告書等 | assets | `_asset_form_context()` で表示制御 |
+**現在のグループとDocType対応:**
+
+| menu_group | menu_group_name | category | DocType IDs | フォーム制御 |
+|---|---|---|---|---|
+| PAY | 支出伺い | expense | 1, 2 | 標準フォーム |
+| TRV | 国内出張旅費精算 | expense | 5, 10 | 出張旅費フォーム (`travel_expense_form.html`) |
+| REC | 交際費・会議費支出伺い | expense | 4, 9 | 動的フィールドあり (`M_DocumentField`) |
+| AST | 固定資産 | assets | 6, 7, 8 | `_asset_form_context()` で表示制御 |
+| LON | 前借証 | expense | 11 | 領収書・勘定科目系を非表示、account_cd='13700' 固定 |
+
+**サイドバー表示 (`context_processors.sidebar_context`):**
+- `M_DocumentGroup.category='expense'` を `menu_order` 順に取得
+- 各グループをアコーディオン形式で表示（Bootstrap collapse）
+- `sidebar_expense_groups`: `list of (M_DocumentGroup, [M_DocumentType])` タプル
+- 固定資産グループ（`category='assets'`）はサイドバー下部に固定表示（別セクション）
 
 **判定ヘルパー (views.py):**
-- `_is_travel_doc_type(doc_type)`: DocType=5か判定
-- `_has_dynamic_fields(doc_type)`: `M_DocumentField` が存在するDocTypeか判定（ハードコードID不使用）
+- `_is_travel_doc_type(doc_type)`: `menu_group == 'TRV'` で判定（TRV グループ全体に適用）
+- `_is_lon_doc_type(doc_type)`: `menu_group == 'LON'` で判定
+- `_resolve_dynamic_fields_doc_type(doc_type)`: 同グループ内で M_DocumentField が定義されている代表 DocType を返す。自身にあればそれを、なければ同グループの他 DocType を探す
+- `_has_dynamic_fields(doc_type)`: `_resolve_dynamic_fields_doc_type` が None でなければ True（同グループ含む）
 - `_asset_form_context(doc_type)`: `category='assets'` 時のフォーム表示制御コンテキストを返す
 
 ```python
 # _asset_form_context が返すキー（expense_form.html のテンプレート変数）
 {
-    'hide_currency': True,       # 通貨選択を非表示
-    'hide_pay_kbn': True,        # 精算方法を非表示
-    'purpose_label': '固定資産名',  # 目的欄のラベル変更
-    'receipt_label': '資産画像',    # 領収書欄のラベル変更
+    # assets グループ
+    'hide_currency': True,
+    'hide_pay_kbn': True,
+    'purpose_label': '固定資産名',
+    'receipt_label': '資産画像',
     'detail_section_title': '固定資産明細',
-    'hide_detail_fields': True,  # 日付・金額・支払先等を非表示
-    'reorder_sections': True,    # セクション順序: 固定資産明細→申請情報→追加入力項目
+    'hide_detail_fields': True,
+    'reorder_sections': True,    # セクション順序: 明細→申請情報→追加入力項目
+    'info_first': False,
+    'hide_receipt_fields': False,
+
+    # expense グループ (デフォルト)
+    'hide_currency': False,
+    'hide_pay_kbn': False,
+    'purpose_label': None,
+    'receipt_label': None,
+    'detail_section_title': None,
+    'hide_detail_fields': False,
+    'reorder_sections': False,
+    'info_first': True,          # 申請情報を明細の前に表示
+    'hide_receipt_fields': mg_code == 'LON',  # LON グループのみ True
 }
 ```
 
-**DocType=4/固定資産 の動的フィールド:**
+**`info_first` フラグによるセクション順序:**
+- `True` (expense グループ): 申請情報 → 明細 → 追加入力項目
+- `False` (assets グループ): 明細 → 申請情報 → 追加入力項目
+
+**`hide_receipt_fields` フラグ (LON グループのみ True):**
+非表示になるフィールド: 登録番号 (tekikaku_cd)・コーポレートカード・カード番号・領収書・携帯アップロード・勘定科目
+勘定科目は hidden input で `account_cd='13700'` を送信し、ビュー側でも強制セット。
+
+**申請情報ブロック:**
+- `_expense_info_section.html` に切り出し。`expense_form.html` から `{% include %}` で使用
+- 負担部門・通貨・精算方法・備考・稟議No を含む
+
+**REC グループ (動的フィールド) の詳細:**
 - `M_DocumentField` でフィールド定義 (text/number/date/select/label)、計算式、レイアウト制御
 - `section_header` フィールド: セクション区切り見出し（空欄なら区切りなし）
 - `_dynamic_fields_section.html` を `{% include %}` でセクション順序を制御
+- DocType 9 のように自身に M_DocumentField がなくても、同グループ (REC) の代表 DocType の定義を使用
 
-**DocType=5 の詳細:**
+**TRV グループ (出張旅費精算) の詳細:**
 - `_is_travel_doc_type()` で判定、`T_DocumentContent.content` に経路情報をJSON保存
   - 移動経路明細: `content__has_key='departure'` でフィルタ (prefix: `travel`)
   - 宿泊費明細: `content__row_type='accommodation'` でフィルタ (prefix: `accom`)
@@ -111,7 +156,7 @@ pip install -r requirements.txt && python3 manage.py collectstatic --no-input &&
   - 日当の単価: `M_Item.data_kbn='TRA'` の `content2` フィールドを使用
 - 勘定科目は `M_AccountDocument` でDocType毎にフィルタ
 
-**DocType=5 詳細・承認画面の明細表示:**
+**TRV グループ 詳細・承認画面の明細表示:**
 - `expense_detail` / `approval_detail` ビューで `is_travel` フラグと3種類のフィルタ済みリストをコンテキストに渡す:
   - `travel_route_details`: `content['departure']` を持つ行
   - `travel_accom_details`: `content['row_type'] == 'accommodation'` の行
@@ -121,7 +166,7 @@ pip install -r requirements.txt && python3 manage.py collectstatic --no-input &&
   - 1行目: 日付・経路(発地→着地)・交通手段・所要時間・運賃・領収書
   - 2行目: 目的・支払先・登録番号・コーポレートカード
 
-**DocType=5 コピー (`expense_copy`):**
+**TRV グループ コピー (`expense_copy`):**
 - `_is_travel_doc_type(doc_type)` が True の場合、`travel_expense_form.html` でレンダリング
 - コピー元の移動経路明細（departure/arrival/transport/duration）を初期値として `TravelDetailFormSet` を生成
 - 空の `AccommodationFormSet` / `AllowanceFormSet` を生成して渡す
@@ -155,14 +200,16 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 
 ### Database Models
 
-**マスタ (M_):** M_User, M_Bumon(部門), M_Post(役職), M_Group(部署), M_BelongTo(所属), M_Account(勘定科目), M_Item(汎用マスタ), M_Status, M_DocumentType, M_DocumentField, M_AccountDocument, M_WorkflowTemplate, M_WorkflowStep
+**マスタ (M_):** M_User, M_Bumon(部門), M_Post(役職), M_Group(部署), M_BelongTo(所属), M_Account(勘定科目), M_Item(汎用マスタ), M_Status, M_DocumentType, M_DocumentGroup, M_DocumentField, M_AccountDocument, M_WorkflowTemplate, M_WorkflowStep
 
 **トランザクション (T_):** T_Document(申請ヘッダ), T_DocumentContent(明細), T_DocumentAttachment(添付), T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover, **T_Feedback(改善要望)**
 
 **ビュー (V_, unmanaged):** V_Group(組織階層), V_User(ユーザー情報非正規化)
 
 **主要フィールド追加履歴:**
-- `M_DocumentType.category`: CharField choices=('expense','assets'), default='expense'
+- `M_DocumentGroup`: menu_group(PK), menu_group_name, category, menu_order (migration 0050)
+- `M_DocumentType.menu_group`: ForeignKey → M_DocumentGroup (migration 0051, `db_constraint=False`)
+- `M_DocumentType.category`: migration 0051 で削除（M_DocumentGroup.category に統合）
 - `M_DocumentField.section_header`: CharField(max_length=100, blank=True, default='') セクション区切り見出し
 - `M_DocumentField.row_break`: BooleanField 行ブレーク制御
 - `M_DocumentField.col_width`: IntegerField カラム幅 (Bootstrap col-md-N)
@@ -195,7 +242,7 @@ class T_Feedback(models.Model):
 /list/                     → 申請一覧 ※ category='expense' のみ
 /<id>/                     → 申請詳細
 /<id>/edit/                → 編集
-/<id>/copy/                → コピー作成 (DocType=5 は travel_expense_form.html へ)
+/<id>/copy/                → コピー作成 (TRV グループは travel_expense_form.html へ)
 /approvals/                → 承認一覧
 /approvals/<id>/           → 承認処理
 /csv/                      → CSV出力 (申請)
@@ -360,6 +407,11 @@ class T_Feedback(models.Model):
 **テーブル行ホバー:**
 - 背景色: `var(--primary-soft)`
 - 最初の列: `box-shadow: inset 3px 0 0 var(--primary)` で左アクセントストライプ
+
+**サイドバーアコーディオン:**
+- `.precision-group-toggle`: グループ名ボタン（font-size: 12px、`text-transform: none`）
+- `.precision-chevron-icon`: 展開時に 90° 回転するシェブロンアイコン
+- Bootstrap `data-bs-toggle="collapse"` で開閉。ページロード時にアクティブリンクを含むグループを自動展開
 
 **ログイン画面:**
 - `.login-shell` / `.login-card` / `.login-card-head` / `.login-card-body` / `.login-mark` でカードUI構成

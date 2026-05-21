@@ -26,6 +26,7 @@
   --precision-sidebar-width:232px;
   --precision-radius:2px;
   --precision-topbar-h:56px;
+  --precision-banner-h:56px;
 }
 
 html,body{height:100%;}
@@ -36,10 +37,73 @@ body.precision{
   font-size:14px;
 }
 
-/* ===== Top Bar (high-contrast navy) ===== */
-.precision-topbar{
+/* ===== Decorative Banner (diagonal 3-color strip) ===== */
+.corp-banner{
   position:fixed;
   top:0;left:0;right:0;
+  height:var(--precision-banner-h);
+  overflow:hidden;
+  z-index:1200;
+}
+.corp-track{
+  position:absolute;
+  left:-40px;right:-40px;
+  top:0;bottom:0;
+  display:flex;
+}
+.corp-seg{ transform:skewX(-28deg); }
+.corp-seg--blue    { flex:55; background:#274d7f; }
+.corp-seg--red     { flex:8;  background:#7b1f24; }
+.corp-seg--charcoal{ flex:37; background:#2e2c37; }
+.corp-banner-content{
+  position:relative;
+  z-index:1;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 20px;
+}
+.corp-banner-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:15px;
+  font-weight:600;
+  letter-spacing:.02em;
+  color:#fff;
+}
+.corp-banner-logo{
+  height:36px;
+  width:auto;
+  display:block;
+}
+.corp-banner-company{
+  height:26px;
+  width:auto;
+  display:block;
+  /* 黒文字ロゴをバナー暗背景で白抜き表示 */
+  filter:brightness(0) invert(1);
+}
+.corp-banner-brand svg{ color:inherit; }
+.corp-banner-brand a{ color:#fff; text-decoration:none; }
+.corp-banner-brand a:hover{ opacity:.85; }
+.corp-banner-sub{ font-weight:500; opacity:.7; margin-left:4px; }
+.corp-banner-info{
+  font-size:13px;
+  color:rgba(255,255,255,.85);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.corp-banner-info span:first-child{ color:#fff; font-weight:600; }
+.corp-banner-sep{ color:rgba(255,255,255,.4); margin:0 2px; }
+
+/* ===== Top Bar (統合済み: corp-banner に吸収) ===== */
+.precision-topbar{ display:none; }
+.precision-topbar--unused{
+  position:fixed;
+  top:var(--precision-banner-h);left:0;right:0;
   height:var(--precision-topbar-h);
   background:var(--primary);
   color:#fff;
@@ -87,7 +151,7 @@ body.no-sidebar .precision-topbar{ display:none; }
 /* ===== Sidebar ===== */
 .precision-sidebar{
   position:fixed;
-  top:var(--precision-topbar-h);
+  top:var(--precision-banner-h);
   left:0;
   bottom:0;
   width:var(--precision-sidebar-width);
@@ -191,6 +255,30 @@ body.no-sidebar .precision-sidebar{display:none;}
   text-transform:uppercase;
   color:var(--muted);
 }
+.precision-group-toggle{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  width:100%;
+  padding:4px 22px 6px;
+  background:none;
+  border:none;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.04em;
+  text-transform:none;
+  color:var(--muted);
+  cursor:pointer;
+  transition:color .12s;
+}
+.precision-group-toggle:hover{ color:var(--ink); }
+.precision-chevron-icon{
+  flex-shrink:0;
+  transition:transform .2s ease;
+}
+.precision-group-toggle:not(.collapsed) .precision-chevron-icon{
+  transform:rotate(90deg);
+}
 
 /* User block */
 .precision-user{
@@ -247,7 +335,7 @@ body.no-sidebar .precision-sidebar{display:none;}
 .precision-main{
   min-height:100vh;
   padding:24px 28px;
-  padding-top:calc(var(--precision-topbar-h) + 24px);
+  padding-top:calc(var(--precision-banner-h) + 24px);
   background:var(--panel);
 }
 body.has-sidebar .precision-main{ margin-left:var(--precision-sidebar-width); }
@@ -769,6 +857,7 @@ tr.table-row-link:hover td:first-child{ box-shadow:inset 3px 0 0 var(--primary);
   :root{ --precision-sidebar-width:220px; }
 }
 @media (max-width: 768px){
+  :root{ --precision-banner-h:48px; }
   .precision-sidebar{
     position:static;
     width:auto;
@@ -776,7 +865,7 @@ tr.table-row-link:hover td:first-child{ box-shadow:inset 3px 0 0 var(--primary);
     border-bottom:1px solid var(--line);
   }
   body.has-sidebar .precision-main{ margin-left:0; }
-  .precision-main{ padding:20px 16px; padding-top:calc(var(--precision-topbar-h) + 20px); }
+  .precision-main{ padding:20px 16px; padding-top:calc(var(--precision-banner-h) + 20px); }
 }
 
 /* ===== Amount color ===== */

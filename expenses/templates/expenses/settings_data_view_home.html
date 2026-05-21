@@ -1,0 +1,37 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid px-0">
+  <div class="page-head mb-4">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-database"></i></span>
+      データ参照 — ビュー一覧
+    </h2>
+    <p class="text-muted small mt-1 mb-0">各テーブルのリレーションを解決した DB VIEW を参照できます</p>
+  </div>
+
+  <div class="row g-3">
+    {% for vname, cfg in views.items %}
+    <div class="col-md-4 col-lg-3">
+      <a href="{% url 'expenses:settings_data_view_browse' vname %}" class="text-decoration-none">
+        <div class="card h-100" style="border-left:3px solid var(--primary);">
+          <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="pt-ico" style="width:28px;height:28px;font-size:13px;">
+                <i class="fas {{ cfg.icon }}"></i>
+              </span>
+              <div class="fw-bold" style="font-size:13px;">{{ cfg.display_name }}</div>
+            </div>
+            <div class="text-muted" style="font-size:11px;">{{ cfg.description }}</div>
+            <div class="text-muted mt-2" style="font-size:10px;font-family:monospace;">
+              {{ vname }}<br>← {{ cfg.source_table }}
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -124,6 +124,30 @@ class M_WorkflowTemplate(models.Model):
         verbose_name_plural = 'ワークフローテンプレートマスタ'
 
 
+# 文書グループマスタ（menu_group / category のマスタ化）
+class M_DocumentGroup(models.Model):
+    CATEGORY_CHOICES = [
+        ('expense', '費用精算'),
+        ('assets',  '固定資産'),
+    ]
+
+    menu_group      = models.CharField("グループコード", max_length=50, primary_key=True)
+    menu_group_name = models.CharField("グループ名",     max_length=50)
+    category        = models.CharField(
+        "カテゴリ", max_length=20, choices=CATEGORY_CHOICES, default='expense'
+    )
+    menu_order      = models.SmallIntegerField("表示順", default=0)
+
+    def __str__(self):
+        return self.menu_group_name
+
+    class Meta:
+        db_table = 'm_document_group'
+        verbose_name = '文書グループマスタ'
+        verbose_name_plural = '文書グループマスタ'
+        ordering = ['menu_order']
+
+
 # 文書種別マスタ
 class M_DocumentType(models.Model):
     BUMON_SCOPE_ALL = 1
@@ -131,12 +155,6 @@ class M_DocumentType(models.Model):
     BUMON_SCOPE_CHOICES = [
         (BUMON_SCOPE_GROUP, '自グループ絞り込み'),
         (BUMON_SCOPE_ALL,   '全部門'),
-    ]
-    CATEGORY_EXPENSE = 'expense'
-    CATEGORY_ASSET = 'assets'
-    CATEGORY_CHOICES = [
-        ('expense', '費用精算'),
-        ('assets', '固定資産'),
     ]
 
     document_type_id = models.AutoField("文書種別ID", primary_key=True, db_column='document_type_id')
@@ -156,11 +174,21 @@ class M_DocumentType(models.Model):
         default=BUMON_SCOPE_GROUP,
         help_text="0: 自グループ絞り込み / 1: 全部門表示",
     )
-    category = models.CharField(
-        "カテゴリ",
-        max_length=20,
-        choices=CATEGORY_CHOICES,
-        default='expense',
+    menu_group = models.ForeignKey(
+        'M_DocumentGroup',
+        verbose_name="文書グループ",
+        to_field='menu_group',
+        db_column='menu_group',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_constraint=False,
+        related_name='document_types',
+    )
+    menu_order = models.SmallIntegerField(
+        "メニュー表示順",
+        default=0,
+        help_text="サイドバーでの表示順（小さい値が先）",
     )
 
     def __str__(self):
@@ -623,16 +651,29 @@ class T_DocumentAttachment(models.Model):
         ext = (ext or '').lower()
         if ext == '.pdf':
             # PyMuPDF で PDF 1ページ目をサムネイル化（poppler 不要）
+            # super().save() より前に呼ばれるためファイルはまだディスクにない
+            # → stream= でメモリ上のバイト列から直接開く
             fitz = _safe_import_pymupdf()
             if fitz:
                 try:
-                    pdf_path = os.path.join(settings.MEDIA_ROOT, self.file.name)
-                    doc = fitz.open(pdf_path)
+                    f = self.file
+                    if hasattr(f, 'read'):
+                        f.seek(0)
+                        pdf_bytes = f.read()
+                        f.seek(0)
+                    else:
+                        with open(os.path.join(settings.MEDIA_ROOT, f.name), 'rb') as fp:
+                            pdf_bytes = fp.read()
+                    doc = fitz.open(stream=pdf_bytes, filetype='pdf')
                     if doc.page_count > 0:
                         page = doc[0]
                         mat = fitz.Matrix(1.5, 1.5)
                         pix = page.get_pixmap(matrix=mat)
-                        img_bytes = pix.tobytes("jpeg")
+                        pil_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                        pil_img.thumbnail((400, 400))
+                        thumb_io = io.BytesIO()
+                        pil_img.save(thumb_io, format='JPEG', quality=85)
+                        img_bytes = thumb_io.getvalue()
                         doc.close()
                         orig = os.path.basename(self.file.name)
                         name, _ = os.path.splitext(orig)
@@ -640,24 +681,6 @@ class T_DocumentAttachment(models.Model):
                         self.thumbnail.save(target_path, ContentFile(img_bytes), save=False)
                 except Exception:
                     pass
-            else:
-                # フォールバック: pdf2image (poppler が必要)
-                convert_from_path = _safe_import_pdf2image()
-                if convert_from_path:
-                    try:
-                        pdf_path = os.path.join(settings.MEDIA_ROOT, self.file.name)
-                        pages = convert_from_path(pdf_path, first_page=1, last_page=1, fmt='jpeg')
-                        if pages and Image:
-                            img = pages[0]
-                            img.thumbnail((400, 400))
-                            thumb_io = io.BytesIO()
-                            img.save(thumb_io, format='JPEG', quality=85)
-                            orig = os.path.basename(self.file.name)
-                            name, _ = os.path.splitext(orig)
-                            target_path = attachment_thumbnail_upload_path(self, f"{name}_thumb.jpg")
-                            self.thumbnail.save(target_path, ContentFile(thumb_io.getvalue()), save=False)
-                    except Exception:
-                        pass
         elif Image:
             try:
                 img = Image.open(self.file)
@@ -793,7 +816,6 @@ class T_DocumentApprover(models.Model):
         verbose_name_plural = '文書承認者'
 
 
-# 改善要望
 class T_Feedback(models.Model):
     STATUS_CHOICES = [
         ('00', '受付中'),

@@ -1,0 +1,81 @@
+{% load form_tags %}
+<!-- 申請情報 -->
+<div class="card mt-4">
+    <div class="card-body">
+        <h3 class="card-title mb-4">申請情報</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="bumon_cd">負担部門</label>
+                    <select class="form-select form-select-sm{% if error_message and '負担部門' in error_message %} is-invalid{% endif %}" id="bumon_cd" name="bumon_cd">
+                        <option value="">選択してください</option>
+                        {% for bumon in bumons %}
+                            <option value="{{ bumon.bumon_cd }}" {% if request.POST.bumon_cd == bumon.bumon_cd %}selected{% elif not request.POST and copy_from_bumon_cd == bumon.bumon_cd %}selected{% endif %}>
+                                {{ bumon.bumon_name }} ({{ bumon.bumon_cd }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div id="bumon_cd_error" class="invalid-feedback {% if error_message and '負担部門' in error_message %}d-block{% endif %}">負担部門を選択してください。</div>
+                </div>
+            </div>
+            {% if hide_currency %}
+            <input type="hidden" name="tsuka_cd" value="{{ request.POST.tsuka_cd|default:copy_from_tsuka_cd|default:'00' }}">
+            {% else %}
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="tsuka_cd">通貨</label>
+                    <select class="form-select" id="tsuka_cd" name="tsuka_cd">
+                        <option value="">選択してください</option>
+                        {% if currencies %}
+                            {% for cur in currencies %}
+                                {% with selected_cur=request.POST.tsuka_cd|default:copy_from_tsuka_cd|default:'00' %}
+                                <option value="{{ cur.key }}" {% if selected_cur == cur.key %}selected{% endif %}>{{ cur.key }} - {{ cur.content }}</option>
+                                {% endwith %}
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+            </div>
+            {% endif %}
+            {% if hide_pay_kbn %}
+            <input type="hidden" name="pay_kbn" value="{{ request.POST.pay_kbn|default:'01' }}">
+            {% else %}
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="pay_kbn">精算方法</label>
+                    <select class="form-select form-select-sm" id="pay_kbn" name="pay_kbn">
+                        <option value="">選択してください</option>
+                        {% if pay_items %}
+                            {% for item in pay_items %}
+                                {% with selected_pay=request.POST.pay_kbn|default:'01' %}
+                                <option value="{{ item.key }}" {% if selected_pay == item.key %}selected{% endif %}>{{ item.content }}</option>
+                                {% endwith %}
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                    <div class="form-text small text-muted mt-1">
+                        給与振込：月末締め翌25日給与払い<br>
+                        経理受付：月初2営業日
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-12">
+                <div class="form-group">
+                    <label for="memo">備考</label>
+                    <textarea class="form-control" id="memo" name="memo" rows="3" maxlength="200" placeholder="200文字以内で入力してください">{{ request.POST.memo|default:copy_from_memo }}</textarea>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="ringi_no">稟議No</label>
+                    <input type="text" id="ringi_no" name="ringi_no" class="form-control" maxlength="20" value="{{ request.POST.ringi_no|default:copy_from_ringi_no }}" placeholder="例: W20251203">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

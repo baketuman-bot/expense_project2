@@ -35,6 +35,8 @@ urlpatterns = [
     path("feedback/<int:pk>/edit/", views.feedback_edit, name="feedback_edit"),
     path("feedback/<int:pk>/delete/", views.feedback_delete, name="feedback_delete"),
     # 管理者画面 (設定)
+    path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),
+    path("settings/data_view/<str:view_name>/", views.settings_data_view_browse, name="settings_data_view_browse"),
     path("settings/", views.settings_home, name="settings_home"),
     path("settings/export/", views.settings_export, name="settings_export"),
     path("settings/approval_admin/", views.settings_approval_admin, name="settings_approval_admin"),

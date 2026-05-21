@@ -6,7 +6,7 @@ from .models import (
     M_User, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
-    T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep
+    T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup,
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -29,20 +29,47 @@ import io
 
 
 def _is_travel_doc_type(doc_type):
-    """DocType=5（出張旅費精算）か判定する。"""
-    return bool(doc_type and getattr(doc_type, 'document_type_id', None) == 5)
+    """出張旅費精算（menu_group='TRV'）か判定する。"""
+    mg = getattr(doc_type, 'menu_group', None)
+    return bool(mg and getattr(mg, 'menu_group', None) == 'TRV')
+
+
+def _is_lon_doc_type(doc_type):
+    """前借証 (LON グループ) かどうか判定する。"""
+    mg = getattr(doc_type, 'menu_group', None)
+    return bool(mg and getattr(mg, 'menu_group', None) == 'LON')
+
+
+def _resolve_dynamic_fields_doc_type(doc_type):
+    """同グループ内で M_DocumentField が定義されている代表 DocType を返す。
+    doc_type 自身に定義があればそれを、なければ同 menu_group の他 DocType を探す。
+    """
+    if not doc_type:
+        return None
+    if M_DocumentField.objects.filter(document_type=doc_type).exists():
+        return doc_type
+    mg = getattr(doc_type, 'menu_group', None)
+    if not mg:
+        return None
+    rep_id = (M_DocumentField.objects
+              .filter(document_type__menu_group=mg)
+              .values_list('document_type_id', flat=True)
+              .first())
+    if rep_id is None:
+        return None
+    return M_DocumentType.objects.filter(document_type_id=rep_id).first()
 
 
 def _has_dynamic_fields(doc_type):
-    """M_DocumentField でフィールド定義されている DocType かどうか判定する。"""
-    if not doc_type:
-        return False
-    return M_DocumentField.objects.filter(document_type=doc_type).exists()
+    """M_DocumentField でフィールド定義されている DocType か（同グループ含む）判定する。"""
+    return _resolve_dynamic_fields_doc_type(doc_type) is not None
 
 
 def _asset_form_context(doc_type):
     """カテゴリが 'assets' の DocType に適用するフォーム表示制御コンテキストを返す。"""
-    if doc_type and getattr(doc_type, 'category', None) == 'assets':
+    mg = getattr(doc_type, 'menu_group', None)
+    mg_code = getattr(mg, 'menu_group', None)
+    if doc_type and mg and getattr(mg, 'category', None) == 'assets':
         return {
             'hide_currency': True,
             'hide_pay_kbn': True,
@@ -51,6 +78,8 @@ def _asset_form_context(doc_type):
             'detail_section_title': '固定資産明細',
             'hide_detail_fields': True,
             'reorder_sections': True,
+            'info_first': False,
+            'hide_receipt_fields': False,
         }
     return {
         'hide_currency': False,
@@ -60,6 +89,8 @@ def _asset_form_context(doc_type):
         'detail_section_title': None,
         'hide_detail_fields': False,
         'reorder_sections': False,
+        'info_first': True,
+        'hide_receipt_fields': mg_code == 'LON',
     }
 
 
@@ -88,17 +119,18 @@ def _apply_created_at_date_range(qs, date_from, date_to):
 
 
 def _build_dynamic_fields_display(expense):
-    """T_Document の DocType=4 動的フィールドを表示用リストで返す。
+    """T_Document の動的フィールドを表示用リストで返す。
     戻り値: [{'label', 'value', 'col_width', 'row_break', 'is_label', 'calc_formula'}, ...] または []
     """
     result = []
     try:
         doc_type = getattr(expense, 'document_type', None)
-        if not doc_type or getattr(doc_type, 'document_type_id', None) != 4:
+        field_doc_type = _resolve_dynamic_fields_doc_type(doc_type)
+        if not field_doc_type:
             return []
         first_detail = expense.contents.order_by('document_detail_id').first()
         stored = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
-        defs = M_DocumentField.objects.filter(document_type=doc_type).order_by('field_order', 'field_name')
+        defs = M_DocumentField.objects.filter(document_type=field_doc_type).order_by('field_order', 'field_name')
         for d in defs:
             raw_type = (d.field_type or '').strip().lower()
             label = d.field_name_view or d.field_name
@@ -283,7 +315,7 @@ def home(request):
     # 申請中一覧（自分の費用精算カテゴリ申請で承認完了・下書き・取消以外）
     in_progress_expenses = T_Document.objects.filter(
         man_number=request.user,
-        document_type__category='expense',
+        document_type__menu_group__category='expense',
     ).exclude(
         status_cd__status_cd__in=['DRAFT', 'CANCEL', 'FNS', 'REJECTED']
     ).order_by('-created_at')[:5]
@@ -291,7 +323,7 @@ def home(request):
     # 下書き一覧（自分の費用精算カテゴリ下書き）
     draft_expenses = T_Document.objects.filter(
         man_number=request.user,
-        document_type__category='expense',
+        document_type__menu_group__category='expense',
         status_cd__status_cd='DRAFT',
     ).order_by('-created_at')[:5]
 
@@ -315,7 +347,7 @@ def home(request):
 def expense_list(request):
     qs = T_Document.objects.filter(
         man_number=request.user,
-        document_type__category='expense',
+        document_type__menu_group__category='expense',
     ).select_related(
         'status_cd', 'document_type', 'bumon_cd'
     ).prefetch_related('contents').order_by("-created_at")
@@ -550,7 +582,8 @@ def expense_edit(request, pk):
                 existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
             except Exception:
                 existing_dyn = {}
-            defs = M_DocumentField.objects.filter(document_type=doc_type_for_dyn).order_by('field_order', 'field_name')
+            _dyn_dt = _resolve_dynamic_fields_doc_type(doc_type_for_dyn)
+            defs = M_DocumentField.objects.filter(document_type=_dyn_dt).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
                 html_type = 'text'
@@ -838,11 +871,19 @@ def expense_edit(request, pk):
 
                 # 2) 明細の保存（フォームセットの各行）
                 # 出張旅費の場合は勘定科目670・目的を強制セット
-                _is_travel_save = _is_travel_doc_type(getattr(expense, 'document_type', None))
+                _edit_doc_type_obj = getattr(expense, 'document_type', None)
+                _is_travel_save = _is_travel_doc_type(_edit_doc_type_obj)
                 _account_670 = None
                 if _is_travel_save:
                     try:
                         _account_670 = M_Account.objects.get(account_cd='670')
+                    except M_Account.DoesNotExist:
+                        pass
+                _is_lon_save = _is_lon_doc_type(_edit_doc_type_obj)
+                _account_13700 = None
+                if _is_lon_save:
+                    try:
+                        _account_13700 = M_Account.objects.get(account_cd='13700')
                     except M_Account.DoesNotExist:
                         pass
                 used_dynamic = False
@@ -878,6 +919,9 @@ def expense_edit(request, pk):
                         if _account_670:
                             detail.account = _account_670
                         detail.purpose = '出張旅費'
+                    # 前借証: 勘定科目を13700に強制セット
+                    if _is_lon_save and _account_13700:
+                        detail.account = _account_13700
 
                     detail.save()
                     # 3) 添付の追加（新規に指定されたファイル分）
@@ -1364,7 +1408,8 @@ def expense_create(request, document_type_id=None):
             resolved_doc_type = M_DocumentType.objects.filter(document_type_name="経費精算書").first()
         if _has_dynamic_fields(resolved_doc_type):
             # 型マッピングと select のオプション解決。全定義をテンプレートへ渡す
-            defs = M_DocumentField.objects.filter(document_type=resolved_doc_type).order_by('field_order', 'field_name')
+            _dyn_dt_c = _resolve_dynamic_fields_doc_type(resolved_doc_type)
+            defs = M_DocumentField.objects.filter(document_type=_dyn_dt_c).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
                 html_type = 'text'
@@ -1651,11 +1696,19 @@ def expense_create(request, document_type_id=None):
 
                     # 明細データを保存
                     # 出張旅費の場合は勘定科目670・目的を強制セット
-                    _is_travel_save_c = _is_travel_doc_type(resolved_doc_type or doc_type)
+                    _create_doc_type_obj = resolved_doc_type or doc_type
+                    _is_travel_save_c = _is_travel_doc_type(_create_doc_type_obj)
                     _account_670_c = None
                     if _is_travel_save_c:
                         try:
                             _account_670_c = M_Account.objects.get(account_cd='670')
+                        except M_Account.DoesNotExist:
+                            pass
+                    _is_lon_save_c = _is_lon_doc_type(_create_doc_type_obj)
+                    _account_13700_c = None
+                    if _is_lon_save_c:
+                        try:
+                            _account_13700_c = M_Account.objects.get(account_cd='13700')
                         except M_Account.DoesNotExist:
                             pass
                     used_dynamic = False
@@ -1684,6 +1737,9 @@ def expense_create(request, document_type_id=None):
                                 if _account_670_c:
                                     detail.account = _account_670_c
                                 detail.purpose = '出張旅費'
+                            # 前借証: 勘定科目を13700に強制セット
+                            if _is_lon_save_c and _account_13700_c:
+                                detail.account = _account_13700_c
                             detail.save()
                             try:
                                 from .models import T_DocumentAttachment
@@ -2198,7 +2254,8 @@ def expense_copy(request, pk):
         if _has_dynamic_fields(doc_type):
             first_detail = source.contents.order_by('document_detail_id').first()
             existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
-            defs = M_DocumentField.objects.filter(document_type=doc_type).order_by('field_order', 'field_name')
+            _dyn_dt_cp = _resolve_dynamic_fields_doc_type(doc_type)
+            defs = M_DocumentField.objects.filter(document_type=_dyn_dt_cp).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
                 html_type = 'text'
@@ -2862,21 +2919,21 @@ def asset_home(request):
     from .models import T_DocumentApprover
     in_progress = T_Document.objects.filter(
         man_number=request.user,
-        document_type__category='assets',
+        document_type__menu_group__category='assets',
     ).exclude(
         status_cd__status_cd__in=['DRAFT', 'CANCEL', 'FNS', 'REJECTED']
     ).order_by('-created_at')[:5]
 
     drafts = T_Document.objects.filter(
         man_number=request.user,
-        document_type__category='assets',
+        document_type__menu_group__category='assets',
         status_cd__status_cd='DRAFT',
     ).order_by('-created_at')[:5]
 
     home_doc_ids = [d.document_id for d in in_progress]
     progress_by_doc = _get_step_progress_map(home_doc_ids)
 
-    asset_doc_types = M_DocumentType.objects.filter(category='assets').order_by('document_type_id')
+    asset_doc_types = M_DocumentType.objects.filter(menu_group__category='assets').order_by('document_type_id')
 
     return render(request, "expenses/asset_home.html", {
         'in_progress_expenses': in_progress,
@@ -2891,7 +2948,7 @@ def asset_list(request):
     """固定資産カテゴリの申請一覧"""
     qs = T_Document.objects.filter(
         man_number=request.user,
-        document_type__category='assets',
+        document_type__menu_group__category='assets',
     ).select_related(
         'status_cd', 'document_type', 'bumon_cd'
     ).prefetch_related('contents').order_by("-created_at")
@@ -3538,10 +3595,16 @@ MASTER_REGISTRY = {
         'form_fields': ['workflow_template', 'step_order', 'step_type', 'allowed_bumon_scope', 'approver_post', 'allowed_post', 'condition_expr', 'group_id'],
         'pk_attr': 'step_id',
     },
+    'm_document_group': {
+        'model': M_DocumentGroup,
+        'list_fields': [('menu_group', 'グループコード'), ('menu_group_name', 'グループ名'), ('category', 'カテゴリ'), ('menu_order', '表示順')],
+        'form_fields': ['menu_group', 'menu_group_name', 'category', 'menu_order'],
+        'pk_attr': 'menu_group',
+    },
     'm_document_type': {
         'model': M_DocumentType,
-        'list_fields': [('document_type_id', 'ID'), ('document_type_name', '申請種別名'), ('category', 'カテゴリ'), ('workflow_template_id', 'ワークフロー'), ('bumon_scope', '部門スコープ')],
-        'form_fields': ['document_type_name', 'description', 'category', 'workflow_template_id', 'bumon_scope'],
+        'list_fields': [('document_type_id', 'ID'), ('document_type_name', '申請種別名'), ('menu_group', '文書グループ'), ('menu_order', '表示順'), ('workflow_template_id', 'ワークフロー'), ('bumon_scope', '部門スコープ')],
+        'form_fields': ['document_type_name', 'description', 'menu_group', 'menu_order', 'workflow_template_id', 'bumon_scope'],
         'pk_attr': 'document_type_id',
     },
     'm_document_field': {
@@ -3596,6 +3659,155 @@ def _master_get_obj(cfg, pk_str):
     if pk_attr == 'pk':
         return get_object_or_404(cfg['model'], pk=pk_str)
     return get_object_or_404(cfg['model'], **{pk_attr: pk_str})
+
+
+DATA_VIEW_REGISTRY = {
+    'v_document_types': {
+        'display_name': '文書種別',
+        'source_table': 'm_document_types',
+        'description':  '文書種別マスタ ＋ ワークフローテンプレート名',
+        'icon':         'fa-file-alt',
+        'search_cols':  ['document_type_name', 'menu_group_name', 'category', 'workflow_template_name'],
+    },
+    'v_account_document': {
+        'display_name': '文書種別勘定科目',
+        'source_table': 'm_account_document',
+        'description':  '文書種別ごとの使用可能勘定科目マッピング',
+        'icon':         'fa-link',
+        'search_cols':  ['document_type_name', 'account_name'],
+    },
+    'v_belong_to': {
+        'display_name': '所属部署マッピング',
+        'source_table': 'm_belong_to',
+        'description':  'ユーザーと所属グループの関係',
+        'icon':         'fa-sitemap',
+        'search_cols':  ['man_number', 'user_name', 'group_name'],
+    },
+    'v_document_field': {
+        'display_name': '文書フィールド定義',
+        'source_table': 'm_document_field',
+        'description':  '文書種別ごとの動的フィールド定義',
+        'icon':         'fa-list',
+        'search_cols':  ['document_type_name', 'field_name', 'field_name_view', 'field_type'],
+    },
+    'v_users': {
+        'display_name': 'ユーザー',
+        'source_table': 'm_user',
+        'description':  'ユーザー ＋ 部門 ＋ 役職',
+        'icon':         'fa-users',
+        'search_cols':  ['man_number', 'user_name', 'email', 'role', 'bumon_name'],
+    },
+    'v_workflow_steps': {
+        'display_name': 'WFステップ',
+        'source_table': 'm_workflow_steps',
+        'description':  'ワークフローステップ ＋ テンプレート名 ＋ 役職名',
+        'icon':         'fa-project-diagram',
+        'search_cols':  ['workflow_template_name', 'step_type', 'allowed_bumon_scope'],
+    },
+    'v_document_approvers': {
+        'display_name': '文書承認予定者',
+        'source_table': 't_document_approvers',
+        'description':  '文書ごとの承認予定者リスト',
+        'icon':         'fa-user-check',
+        'search_cols':  ['document_title', 'approver_man_number', 'approver_name', 'status'],
+    },
+    'v_documentcontents': {
+        'display_name': '文書明細',
+        'source_table': 't_documentcontents',
+        'description':  '文書明細 ＋ 勘定科目名 ＋ 申請種別名',
+        'icon':         'fa-receipt',
+        'search_cols':  ['document_title', 'document_type_name', 'shiharaisaki', 'purpose', 'account_name'],
+    },
+    'v_documents': {
+        'display_name': '文書（申請）',
+        'source_table': 't_documents',
+        'description':  '申請文書 ＋ 申請種別 ＋ 申請者 ＋ ステータス',
+        'icon':         'fa-folder-open',
+        'search_cols':  ['title', 'document_type_name', 'applicant_name', 'status_name', 'charge_bumon_name'],
+    },
+    'v_feedback': {
+        'display_name': '改善要望',
+        'source_table': 't_feedback',
+        'description':  '改善要望 ＋ 登録者情報',
+        'icon':         'fa-comment-alt',
+        'search_cols':  ['applicant_name', 'request_text', 'response_text'],
+    },
+    'v_workflow_actions': {
+        'display_name': 'WFアクション',
+        'source_table': 't_workflow_actions',
+        'description':  '承認・却下・差戻しアクション履歴',
+        'icon':         'fa-history',
+        'search_cols':  ['approver_man_number', 'approver_name', 'action_status_name', 'comment'],
+    },
+    'v_workflow_instances': {
+        'display_name': 'WFインスタンス',
+        'source_table': 't_workflow_instances',
+        'description':  '文書ごとのワークフロー実行状況',
+        'icon':         'fa-stream',
+        'search_cols':  ['document_title', 'document_type_name', 'wf_status_name'],
+    },
+}
+
+
+@login_required
+def settings_data_view_home(request):
+    """データ参照ホーム：全VIEWの一覧"""
+    return render(request, 'expenses/settings_data_view_home.html', {
+        'views': DATA_VIEW_REGISTRY,
+    })
+
+
+@login_required
+def settings_data_view_browse(request, view_name):
+    """特定 VIEW の一覧・検索"""
+    from django.db import connection as _conn
+    if view_name not in DATA_VIEW_REGISTRY:
+        raise Http404
+    cfg     = DATA_VIEW_REGISTRY[view_name]
+    q       = request.GET.get('q', '').strip()
+    page    = max(1, int(request.GET.get('page', 1)))
+    per_page = 50
+
+    ilike_op = 'ILIKE' if _conn.vendor == 'postgresql' else 'LIKE'
+
+    where_sql, params = '', []
+    if q and cfg['search_cols']:
+        conds     = ' OR '.join(f"{col} {ilike_op} %s" for col in cfg['search_cols'])
+        where_sql = f' WHERE ({conds})'
+        params    = [f'%{q}%'] * len(cfg['search_cols'])
+
+    cols, rows, total, view_error = [], [], 0, None
+    try:
+        with _conn.cursor() as cur:
+            cur.execute(f"SELECT COUNT(*) FROM {view_name}{where_sql}", params)
+            total = cur.fetchone()[0]
+            offset = (page - 1) * per_page
+            cur.execute(
+                f"SELECT * FROM {view_name}{where_sql} LIMIT %s OFFSET %s",
+                params + [per_page, offset],
+            )
+            cols = [d[0] for d in cur.description]
+            rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+    except Exception as e:
+        view_error = (
+            f"ビュー {view_name} を参照できません: {e} | "
+            "`python manage.py create_views` で VIEW を作成してください。"
+        )
+
+    num_pages = max(1, (total + per_page - 1) // per_page)
+    return render(request, 'expenses/settings_data_view.html', {
+        'view_name':    view_name,
+        'cfg':          cfg,
+        'cols':         cols,
+        'rows':         rows,
+        'total':        total,
+        'q':            q,
+        'page':         page,
+        'num_pages':    num_pages,
+        'has_prev':     page > 1,
+        'has_next':     page < num_pages,
+        'view_error':   view_error,
+    })
 
 
 @login_required
