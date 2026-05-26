@@ -518,8 +518,8 @@
 
         <div class="text-center mt-4">
             <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
-            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2">下書き保存</button>
-            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn">申請する</button>
+            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2" data-submit-lock>下書き保存</button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn" data-submit-lock>申請する</button>
             {% if is_edit_mode and expense and expense.status_cd.status_cd == 'DRAFT' %}
             <button type="button" class="btn btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">
                 <i class="fas fa-trash-alt me-1"></i>下書きを削除
@@ -799,6 +799,14 @@
 
 {% block extra_js %}
 <script>
+// エラーがある場合はページ読み込み時に先頭のエラーまでスクロール
+document.addEventListener('DOMContentLoaded', function() {
+    var firstError = document.querySelector('.alert-danger');
+    if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+});
+
 // ── ドロップゾーン ──────────────────────────────────────────────────────────
 function bindDropZones(context) {
     const root = context || document;
@@ -1180,6 +1188,15 @@ document.addEventListener('input', function(e) {
             var errEl = parent.querySelector('.corpo-card-no-js-error');
             if (errEl) errEl.remove();
         }
+    }
+});
+
+// ページ離脱警告 + 二重送信防止
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form[enctype]');
+    if (form) {
+        window.bindFormDirtyGuard(form);
+        window.bindFormSubmitLock(form);
     }
 });
 
