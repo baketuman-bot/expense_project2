@@ -164,6 +164,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 IMAGE_UP_APP_BASE_URL = (os.environ.get('IMAGE_UP_APP_BASE_URL') or '').strip().rstrip('/')
 IMAGE_UP_APP_TIMEOUT = int(os.environ.get('IMAGE_UP_APP_TIMEOUT', '15'))
 
+# メールリンク用サイトURL
+# 環境変数 SITE_URL で本番URLを上書き可能
+# 例: SITE_URL=https://myapp.onrender.com
+SITE_URL = os.environ.get('SITE_URL', 'http://172.16.100.150')
+
 # カスタムユーザー
 AUTH_USER_MODEL = 'expenses.M_User'
 
