@@ -299,7 +299,7 @@
                         {% elif s.allowed_bumon_scope == 'others' %}
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-6">
-                                    <label class="form-label small">所属部署を選択</label>
+                                    <label class="form-label small">負担部門を選択</label>
                                     <select class="form-select approver-group-select" name="approver_step_{{ s.step_id }}_group" data-step-id="{{ s.step_id }}">
                                         <option value="">選択してください</option>
                                         {% for g in groups %}
@@ -971,9 +971,33 @@ document.getElementById('submit-btn').addEventListener('click', function(e) {
         }
     });
 
+    // コーポレートカード番号チェック（コーポレートカード支払い選択時は必須）
+    document.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+        var noId = sel.id.replace(/-corpo_card$/, '-corpo_card_no');
+        var noInput = document.getElementById(noId);
+        if (!noInput) return;
+        var parent = noInput.closest('.form-group') || noInput.parentElement;
+        var errEl = parent ? parent.querySelector('.corpo-card-no-js-error') : null;
+        if (String(sel.value) === '2' && !noInput.value.trim()) {
+            hasError = true;
+            noInput.classList.add('is-invalid');
+            if (!errEl && parent) {
+                var div = document.createElement('div');
+                div.className = 'invalid-feedback d-block corpo-card-no-js-error';
+                div.textContent = 'コーポレートカード支払いを選択した場合、カード番号を入力してください。';
+                parent.appendChild(div);
+            }
+        } else {
+            noInput.classList.remove('is-invalid');
+            if (errEl) errEl.remove();
+        }
+    });
+
     if (hasError) {
         e.preventDefault();
-        const firstErr = document.querySelector('#bumon_cd.is-invalid, [data-approver-required].is-invalid');
+        const firstErr = document.querySelector(
+            '#bumon_cd.is-invalid, [data-approver-required].is-invalid, [data-corpo-card-no].is-invalid'
+        );
         if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 });
@@ -989,6 +1013,17 @@ document.addEventListener('change', function(e) {
         const container = e.target.closest('.mb-3');
         const errDiv = container ? container.querySelector('.approver-step-error') : null;
         if (errDiv) errDiv.classList.add('d-none');
+    }
+});
+// コーポレートカード番号入力時のリアルタイムエラークリア
+document.addEventListener('input', function(e) {
+    if (e.target && e.target.hasAttribute('data-corpo-card-no') && e.target.value.trim()) {
+        e.target.classList.remove('is-invalid');
+        var parent = e.target.closest('.form-group') || e.target.parentElement;
+        if (parent) {
+            var errEl = parent.querySelector('.corpo-card-no-js-error');
+            if (errEl) errEl.remove();
+        }
     }
 });
 // ======= 入力バリデーション エンド =======

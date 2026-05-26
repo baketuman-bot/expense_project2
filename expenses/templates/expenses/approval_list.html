@@ -75,10 +75,10 @@
                                     {% for approval in approvals %}
                                     <tr class="table-row-link" data-href="{% url 'expenses:approval_detail' approval.expense_main_id %}">
                                         <td class="text-center">
-                                            <span class="badge bg-primary">#{{ approval.expense_main_id }}</span>
+                                            <span class="badge bg-primary" style="font-size:14px;">#{{ approval.expense_main_id }}</span>
                                         </td>
                                         <td>
-                                            <div class="d-flex align-items-center">
+                                            <div class="d-flex align-items-center" style="font-size:15px;">
                                                 <i class="fas fa-user-circle text-muted me-2"></i>
                                                 {{ approval.man_number.user_name }}
                                             </div>

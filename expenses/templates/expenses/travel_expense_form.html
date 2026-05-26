@@ -480,7 +480,7 @@
                         {% elif s.allowed_bumon_scope == 'others' %}
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-6">
-                                    <label class="form-label small">所属部署を選択</label>
+                                    <label class="form-label small">負担部門を選択</label>
                                     <select class="form-select approver-group-select" name="approver_step_{{ s.step_id }}_group" data-step-id="{{ s.step_id }}">
                                         <option value="">選択してください</option>
                                         {% for g in groups %}
@@ -1118,6 +1118,33 @@ document.getElementById('submit-btn').addEventListener('click', function(e) {
         }
     });
 
+    // ⑤ コーポレートカード番号（コーポレートカード支払い選択時は必須）
+    document.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+        var noInput = sel.closest('tr, .travel-expense-detail-panel, .accom-detail-panel, form');
+        noInput = noInput ? noInput.querySelector('[data-corpo-card-no]') : null;
+        if (!noInput) {
+            var noId = sel.id.replace(/-corpo_card$/, '-corpo_card_no');
+            noInput = document.getElementById(noId);
+        }
+        if (!noInput) return;
+        var parent = noInput.closest('.col-md-4') || noInput.parentElement;
+        var errEl = parent ? parent.querySelector('.corpo-card-no-js-error') : null;
+        if (String(sel.value) === '2' && !noInput.value.trim()) {
+            hasError = true;
+            noInput.classList.add('is-invalid');
+            if (!errEl && parent) {
+                var div = document.createElement('div');
+                div.className = 'invalid-feedback d-block corpo-card-no-js-error';
+                div.textContent = 'コーポレートカード支払いを選択した場合、カード番号を入力してください。';
+                parent.appendChild(div);
+            }
+            firstErrors.push(noInput);
+        } else {
+            noInput.classList.remove('is-invalid');
+            if (errEl) errEl.remove();
+        }
+    });
+
     if (hasError) {
         e.preventDefault();
         if (firstErrors.length > 0 && firstErrors[0]) {
@@ -1142,6 +1169,17 @@ document.addEventListener('change', function(e) {
         var container = e.target.closest('.mb-3');
         var errDiv = container ? container.querySelector('.approver-step-error') : null;
         if (errDiv) errDiv.classList.add('d-none');
+    }
+});
+// コーポレートカード番号入力時のリアルタイムエラークリア
+document.addEventListener('input', function(e) {
+    if (e.target && e.target.hasAttribute('data-corpo-card-no') && e.target.value.trim()) {
+        e.target.classList.remove('is-invalid');
+        var parent = e.target.closest('.col-md-4') || e.target.parentElement;
+        if (parent) {
+            var errEl = parent.querySelector('.corpo-card-no-js-error');
+            if (errEl) errEl.remove();
+        }
     }
 });
 

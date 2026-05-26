@@ -97,7 +97,14 @@
                     data-bs-target="#sidebar-grp-{{ forloop.counter }}"
                     aria-expanded="false"
                     aria-controls="sidebar-grp-{{ forloop.counter }}">
-                <span>{{ grp.menu_group_name }}</span>
+                <span class="precision-group-label">
+                    {% if grp.menu_group == 'PAY' %}<i class="fas fa-receipt" aria-hidden="true"></i>
+                    {% elif grp.menu_group == 'TRV' %}<i class="fas fa-plane-departure" aria-hidden="true"></i>
+                    {% elif grp.menu_group == 'REC' %}<i class="fas fa-utensils" aria-hidden="true"></i>
+                    {% elif grp.menu_group == 'LON' %}<i class="fas fa-coins" aria-hidden="true"></i>
+                    {% else %}<i class="fas fa-folder-open" aria-hidden="true"></i>{% endif %}
+                    {{ grp.menu_group_name }}
+                </span>
                 <svg class="precision-chevron-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>

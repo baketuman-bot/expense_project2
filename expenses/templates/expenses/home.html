@@ -2,7 +2,17 @@
 {% load expense_extras %}
 
 {% block content %}
-<div class="container">
+<div class="page-head mb-4">
+    <h2 class="page-title">
+        <span class="pt-ico"><i class="fas fa-home"></i></span>
+        ダッシュボード
+    </h2>
+    <div class="page-actions">
+        <a href="{% url 'expenses:expense_create' %}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus"></i> 新規申請
+        </a>
+    </div>
+</div>
 
     <!-- 承認待ち（承認者・経理・最終承認者のみ表示） -->
     {% if user.role in 'approver,accountant,final_approver' %}
@@ -142,5 +152,4 @@
         </div>
     </div>
 
-</div>
 {% endblock %}

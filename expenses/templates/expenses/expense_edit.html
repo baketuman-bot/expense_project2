@@ -429,7 +429,7 @@
                         {% elif s.allowed_bumon_scope == 'others' %}
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-6">
-                                        <label class="form-label small">所属部署を選択</label>
+                                        <label class="form-label small">負担部門を選択</label>
                                         <select class="form-select approver-group-select" name="approver_step_{{ s.step_id }}_group" data-step-id="{{ s.step_id }}">
                                             <option value="">選択してください</option>
                                             {% for g in groups %}

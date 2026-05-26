@@ -78,7 +78,7 @@
                                     {% for expense in expenses %}
                                     <tr class="table-row-link" data-href="{% url 'expenses:expense_detail' expense.expense_main_id %}">
                                         <td class="text-center">
-                                            <span class="badge bg-primary">#{{ expense.expense_main_id }}</span>
+                                            <span class="badge bg-primary" style="font-size:14px;">#{{ expense.expense_main_id }}</span>
                                         </td>
                                         <td>
                                             <small class="text-muted">{{ expense.created_at|date:"Y/m/d" }}</small>

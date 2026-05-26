@@ -660,12 +660,12 @@ def expense_edit(request, pk):
                 _allow_qs_cnt = expense.contents.filter(content__row_type='allowance').exclude(document_detail_id__in=delete_detail_ids).count()
                 _post_fs['accom-INITIAL_FORMS'] = str(_accom_qs_cnt)
                 _post_fs['allow-INITIAL_FORMS'] = str(_allow_qs_cnt)
-            formset = TravelDetailEditFormSet(_post_fs, request.FILES, queryset=_travel_qs, prefix='travel')
+            formset = TravelDetailEditFormSet(_post_fs, request.FILES, queryset=_travel_qs, prefix='travel', is_draft=is_draft_edit)
             # 宿泊費フォームセット
             _accom_qs = expense.contents.filter(content__row_type='accommodation')
             if delete_detail_ids:
                 _accom_qs = _accom_qs.exclude(document_detail_id__in=delete_detail_ids)
-            accom_formset = AccommodationEditFormSet(_post_fs, request.FILES, queryset=_accom_qs, prefix='accom')
+            accom_formset = AccommodationEditFormSet(_post_fs, request.FILES, queryset=_accom_qs, prefix='accom', is_draft=is_draft_edit)
             # 日当フォームセット
             _allow_qs = expense.contents.filter(content__row_type='allowance')
             if delete_detail_ids:
@@ -679,7 +679,7 @@ def expense_edit(request, pk):
             if delete_detail_ids:
                 _post_fs = request.POST.copy()
                 _post_fs['form-INITIAL_FORMS'] = str(_contents_qs.count())
-            formset = ExpenseDetailEditFormSet(_post_fs, request.FILES, queryset=_contents_qs, account_queryset=_aq_edit)
+            formset = ExpenseDetailEditFormSet(_post_fs, request.FILES, queryset=_contents_qs, account_queryset=_aq_edit, is_draft=is_draft_edit)
         
         # 通貨コードの検証
         tsuka_cd = (request.POST.get('tsuka_cd') or '').strip()
@@ -1472,11 +1472,11 @@ def expense_create(request, document_type_id=None):
         allow_formset = None
         tra_items = M_Item.objects.filter(data_kbn='TRA').order_by('key')
         if _is_travel_doc_type(resolved_doc_type):
-            formset = TravelDetailFormSet(request.POST, request.FILES, prefix='travel')
-            accom_formset = AccommodationFormSet(request.POST, request.FILES, prefix='accom')
+            formset = TravelDetailFormSet(request.POST, request.FILES, prefix='travel', is_draft=is_draft)
+            accom_formset = AccommodationFormSet(request.POST, request.FILES, prefix='accom', is_draft=is_draft)
             allow_formset = AllowanceFormSet(request.POST, request.FILES, prefix='allow', tra_items=tra_items)
         else:
-            formset = ExpenseDetailFormSet(request.POST, request.FILES, account_queryset=_aq)
+            formset = ExpenseDetailFormSet(request.POST, request.FILES, account_queryset=_aq, is_draft=is_draft)
         print("Formset is valid:", formset.is_valid())
         # 申請情報の取得
         memo = request.POST.get('memo')
@@ -3824,6 +3824,7 @@ def settings_master_home(request):
 @login_required
 def settings_master_list(request, master_key):
     """マスタ一覧"""
+    from django.db.models import CharField, TextField
     cfg = MASTER_REGISTRY.get(master_key)
     if not cfg:
         raise Http404
@@ -3831,6 +3832,26 @@ def settings_master_list(request, master_key):
     display_name = item.content2 if item else master_key
 
     qs = cfg['model'].objects.all()
+
+    # キーワード検索: list_fields のうち CharField/TextField 列を対象に OR icontains
+    q = request.GET.get('q', '').strip()
+    if q:
+        char_fields = {
+            f.name for f in cfg['model']._meta.get_fields()
+            if isinstance(f, (CharField, TextField))
+        }
+        q_conditions = [
+            Q(**{f'{fn}__icontains': q})
+            for fn, _ in cfg['list_fields']
+            if fn in char_fields
+        ]
+        if q_conditions:
+            combined = q_conditions[0]
+            for cond in q_conditions[1:]:
+                combined |= cond
+            qs = qs.filter(combined)
+
+    total_count = qs.count()
     paginator = Paginator(qs, 50)
     page_obj = paginator.get_page(request.GET.get('page', 1))
     pk_attr = cfg['pk_attr']
@@ -3848,6 +3869,8 @@ def settings_master_list(request, master_key):
         'headers': [label for _, label in list_fields],
         'rows': rows,
         'page_obj': page_obj,
+        'q': q,
+        'total_count': total_count,
     })
 
 

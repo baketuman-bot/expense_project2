@@ -3,6 +3,7 @@
 
 {% block content %}
 <div>
+    <!-- ページヘッド -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div class="d-flex align-items-center gap-3">
             <a href="{% url 'expenses:settings_master_home' %}" class="btn btn-outline-secondary btn-sm">
@@ -18,6 +19,41 @@
         </a>
     </div>
 
+    <!-- 検索フォーム -->
+    <form method="get" class="mb-3">
+        <div class="d-flex gap-2 align-items-center" style="max-width:480px;">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text"
+                       name="q"
+                       value="{{ q }}"
+                       class="form-control"
+                       placeholder="キーワードで絞り込み…"
+                       autocomplete="off">
+                {% if q %}
+                <a href="?{% if page_obj.number > 1 %}page={{ page_obj.number }}{% endif %}"
+                   class="btn btn-outline-secondary"
+                   title="クリア">
+                    <i class="fas fa-times"></i>
+                </a>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary" style="white-space:nowrap;">
+                検索
+            </button>
+        </div>
+    </form>
+
+    <!-- 件数バッジ（検索中のみ表示） -->
+    {% if q %}
+    <p class="small text-muted mb-2">
+        <i class="fas fa-filter me-1"></i>
+        「<strong>{{ q }}</strong>」の検索結果：<strong>{{ total_count }}</strong> 件
+        <a href="{% url 'expenses:settings_master_list' master_key %}" class="ms-2 text-secondary">クリア</a>
+    </p>
+    {% endif %}
+
+    <!-- テーブル -->
     <div class="card" style="display:inline-block; min-width:400px; max-width:100%;">
         <div class="table-responsive">
             <table class="table table-hover table-sm mb-0 align-middle" style="width:auto; min-width:100%;">
@@ -52,24 +88,39 @@
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="{{ headers|length|add:1 }}" class="text-center text-muted py-4">データがありません</td></tr>
+                    <tr>
+                        <td colspan="{{ headers|length|add:1 }}" class="text-center text-muted py-4">
+                            {% if q %}
+                                <i class="fas fa-search me-1"></i>「{{ q }}」に一致するデータがありません
+                            {% else %}
+                                データがありません
+                            {% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 
+    <!-- ページネーション（q を引き継ぐ） -->
     {% if page_obj.has_other_pages %}
     <nav class="mt-3">
         <ul class="pagination pagination-sm justify-content-center mb-0">
             {% if page_obj.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">前へ</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}">前へ</a>
+                </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">前へ</span></li>
             {% endif %}
-            <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+            <li class="page-item disabled">
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
             {% if page_obj.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">次へ</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}">次へ</a>
+                </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">次へ</span></li>
             {% endif %}
