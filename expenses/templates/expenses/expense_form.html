@@ -82,7 +82,7 @@
                                             <div class="invalid-feedback d-block">{{ error }}</div>
                                         {% endfor %}
                                     {% else %}
-                                        {{ detail_form.date|add_class:"form-control" }}
+                                        {{ detail_form.date|add_class:"form-control"|attr:"data-required:true" }}
                                     {% endif %}
                                 </div>
                             </div>
@@ -95,7 +95,7 @@
                                             <div class="invalid-feedback d-block">{{ error }}</div>
                                         {% endfor %}
                                     {% else %}
-                                        {{ detail_form.amount|add_class:"form-control" }}
+                                        {{ detail_form.amount|add_class:"form-control"|attr:"inputmode:numeric"|attr:"type:text"|attr:"data-amount-input:1"|attr:"data-numeric:true" }}
                                     {% endif %}
                                 </div>
                             </div>
@@ -340,8 +340,8 @@
 
         <div class="text-center mt-4">
             <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
-            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2">下書き保存</button>
-            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn">申請する</button>
+            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2" data-submit-lock>下書き保存</button>
+            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn" data-submit-lock>申請する</button>
         </div>
     </form>
 </div>
@@ -1143,5 +1143,30 @@ document.addEventListener('input', function(e) {
     });
 })();
 // ======= 下書き自動保存 エンド =======
+
+// エラーがある場合はページ読み込み時に先頭のエラーまでスクロール
+document.addEventListener('DOMContentLoaded', function() {
+    var firstError = document.querySelector('.alert-danger');
+    if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+});
+
+// ページ離脱警告 + 二重送信防止 + blur バリデーション
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form[enctype]');
+    if (form) {
+        window.bindFormDirtyGuard(form);
+        window.bindFormSubmitLock(form);
+    }
+    window.initFieldValidation(document);
+});
+
+// 動的追加行にも blur バリデーションを適用
+var _origInitAmountFields = window.initAmountFields;
+window.initAmountFields = function(root) {
+    if (_origInitAmountFields) _origInitAmountFields(root);
+    window.initFieldValidation(root || document);
+};
 </script>
 {% endblock %}
