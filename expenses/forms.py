@@ -111,8 +111,9 @@ class ExpenseDetailForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, account_queryset=None, **kwargs):
+    def __init__(self, *args, account_queryset=None, is_draft=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.is_draft = is_draft
         if account_queryset is not None:
             self.fields['account'].queryset = account_queryset
         self.fields['amount'] = CommaDecimalField(
@@ -140,21 +141,23 @@ class ExpenseDetailForm(forms.ModelForm):
         cleaned = super().clean()
         corpo_card = cleaned.get("corpo_card")
         corpo_card_no = (cleaned.get("corpo_card_no") or "").strip()
-        # コーポレートカード支払い選択時はカード番号必須
-        if corpo_card == 2 and not corpo_card_no:
+        # コーポレートカード支払い選択時はカード番号必須（下書き時はスキップ）
+        if not self.is_draft and corpo_card == 2 and not corpo_card_no:
             self.add_error("corpo_card_no", "コーポレートカード支払いを選択した場合、カード番号を入力してください。")
         return cleaned
 
 
 class BaseExpenseDetailFormSet(BaseModelFormSet):
-    """account_queryset をフォームセット経由で各フォームに渡すための基底クラス"""
-    def __init__(self, *args, account_queryset=None, **kwargs):
+    """account_queryset / is_draft をフォームセット経由で各フォームに渡すための基底クラス"""
+    def __init__(self, *args, account_queryset=None, is_draft=False, **kwargs):
         self.account_queryset = account_queryset
+        self.is_draft = is_draft
         super().__init__(*args, **kwargs)
 
     def _construct_form(self, i, **kwargs):
         if self.account_queryset is not None:
             kwargs['account_queryset'] = self.account_queryset
+        kwargs['is_draft'] = self.is_draft
         return super()._construct_form(i, **kwargs)
 
 
@@ -191,7 +194,7 @@ class ApprovalForm(forms.Form):
         ("RETURNED", "差戻し"),
     ]
     status = forms.ChoiceField(choices=STATUS_CHOICES)
-    comment = forms.CharField(widget=forms.Textarea, required=False)
+    comment = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
 
 
 # ─── 出張旅費精算 (DocType=5) 用フォーム ───────────────────────────────────
@@ -341,8 +344,9 @@ class TravelDetailForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, is_draft=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.is_draft = is_draft
         self.fields['amount'] = CommaDecimalField(
             required=False, max_digits=10, decimal_places=2,
             label='運賃(円)',
@@ -373,8 +377,8 @@ class TravelDetailForm(forms.ModelForm):
         cleaned = super().clean()
         corpo_card = cleaned.get("corpo_card")
         corpo_card_no = (cleaned.get("corpo_card_no") or "").strip()
-        # コーポレートカード支払い選択時はカード番号必須
-        if corpo_card == 2 and not corpo_card_no:
+        # コーポレートカード支払い選択時はカード番号必須（下書き時はスキップ）
+        if not self.is_draft and corpo_card == 2 and not corpo_card_no:
             self.add_error("corpo_card_no", "コーポレートカード支払いを選択した場合、カード番号を入力してください。")
         return cleaned
 
@@ -392,9 +396,21 @@ class TravelDetailForm(forms.ModelForm):
         return instance
 
 
+class BaseTravelDetailFormSet(BaseModelFormSet):
+    """is_draft をフォームセット経由で TravelDetailForm に渡すための基底クラス"""
+    def __init__(self, *args, is_draft=False, **kwargs):
+        self.is_draft = is_draft
+        super().__init__(*args, **kwargs)
+
+    def _construct_form(self, i, **kwargs):
+        kwargs['is_draft'] = self.is_draft
+        return super()._construct_form(i, **kwargs)
+
+
 TravelDetailFormSet = modelformset_factory(
     T_DocumentContent,
     form=TravelDetailForm,
+    formset=BaseTravelDetailFormSet,
     extra=1,
     can_delete=False,
     validate_min=False,
@@ -406,6 +422,7 @@ TravelDetailFormSet = modelformset_factory(
 TravelDetailEditFormSet = modelformset_factory(
     T_DocumentContent,
     form=TravelDetailForm,
+    formset=BaseTravelDetailFormSet,
     extra=0,
     can_delete=False,
     validate_min=False,
@@ -479,8 +496,9 @@ class AccommodationForm(forms.ModelForm):
             'tekikaku_cd': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '登録番号'}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, is_draft=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.is_draft = is_draft
         self.fields['amount'] = CommaDecimalField(
             required=False, max_digits=10, decimal_places=2,
             label='金額',
@@ -502,7 +520,8 @@ class AccommodationForm(forms.ModelForm):
         cleaned = super().clean()
         corpo_card = cleaned.get('corpo_card')
         corpo_card_no = (cleaned.get('corpo_card_no') or '').strip()
-        if corpo_card == 2 and not corpo_card_no:
+        # コーポレートカード支払い選択時はカード番号必須（下書き時はスキップ）
+        if not self.is_draft and corpo_card == 2 and not corpo_card_no:
             self.add_error('corpo_card_no', 'コーポレートカード支払いを選択した場合、カード番号を入力してください。')
         return cleaned
 
@@ -517,9 +536,21 @@ class AccommodationForm(forms.ModelForm):
         return instance
 
 
+class BaseAccommodationFormSet(BaseModelFormSet):
+    """is_draft をフォームセット経由で AccommodationForm に渡すための基底クラス"""
+    def __init__(self, *args, is_draft=False, **kwargs):
+        self.is_draft = is_draft
+        super().__init__(*args, **kwargs)
+
+    def _construct_form(self, i, **kwargs):
+        kwargs['is_draft'] = self.is_draft
+        return super()._construct_form(i, **kwargs)
+
+
 AccommodationFormSet = modelformset_factory(
     T_DocumentContent,
     form=AccommodationForm,
+    formset=BaseAccommodationFormSet,
     extra=1,
     can_delete=False,
     validate_min=False,
@@ -531,6 +562,7 @@ AccommodationFormSet = modelformset_factory(
 AccommodationEditFormSet = modelformset_factory(
     T_DocumentContent,
     form=AccommodationForm,
+    formset=BaseAccommodationFormSet,
     extra=0,
     can_delete=False,
     validate_min=False,

@@ -4,33 +4,88 @@
 
 {% block title %}承認詳細 - 申請ID #{{ expense.expense_main_id }}{% endblock %}
 
+{% block sidebar %}{% endblock %}
+
 {% block extra_css %}
 <style>
-    /* 領収書サムネイルのスタイル */
+    /* ──── サイドバー非表示・フル幅レイアウト ──── */
+    body.has-sidebar .precision-main {
+        margin-left: 0 !important;
+    }
+    .precision-shell {
+        max-width: 1600px !important;
+    }
+
+    /* ──── 領収書サムネイル ──── */
     .receipt-thumbnail {
         transition: transform 0.2s ease-in-out;
         max-width: 100%;
         height: auto;
-        max-height: 80vh; /* 画面高の約80%まで拡大 */
-        border: 1px solid #dee2e6;
+        max-height: 75vh;
+        border: none;
         object-fit: contain;
         background-color: #f8f9fa;
     }
-    
+
     .receipt-image-link {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 400px;
+        min-height: 300px;
         overflow: hidden;
         background-color: #f8f9fa;
         text-align: center;
     }
-    
+
     .receipt-image-link:hover .receipt-thumbnail {
-        transform: scale(1.05);
+        transform: scale(1.02);
     }
-    
+
+    /* ──── 添付情報パネル（右側） ──── */
+    .attachment-info-panel {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 20px 22px;
+        background: #fff;
+        min-height: 260px;
+    }
+    .attachment-info-panel .info-row {
+        display: flex;
+        gap: 8px;
+        padding: 7px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+        align-items: flex-start;
+    }
+    .attachment-info-panel .info-row:last-child {
+        border-bottom: none;
+    }
+    .attachment-info-panel .info-label {
+        flex-shrink: 0;
+        width: 72px;
+        color: #6b7280;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding-top: 1px;
+    }
+    .attachment-info-panel .info-value {
+        color: #111827;
+        word-break: break-word;
+    }
+    .attachment-info-panel .info-amount {
+        font-weight: 700;
+        font-size: 15px;
+        color: #047857;
+    }
+
+    /* ──── 承認処理欄 コメント縮小 ──── */
+    #id_comment {
+        height: 68px;
+        min-height: 44px;
+        resize: vertical;
+    }
+
     /* カードのスタイル */
     .card {
         transition: none;
@@ -409,56 +464,86 @@
                         添付書類一覧
                     </h5>
                 </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        {% for detail in expense.details.all %}
-                            {% if detail.attachments.all %}
-                                {% for att in detail.attachments.all %}
-                                <div class="col-12">
-                                    <div class="card h-100">
-                                        <div class="card-header bg-light py-2">
-                                            <small class="text-muted">
-                                                {{ detail.shiharaisaki|default:"-" }}
-                                            </small>
-                                        </div>
-                                        <div class="card-body text-center p-2">
-                                            {% with ext=att.file.name|lower %}
-                                                {% if att.thumbnail %}
-                                                    <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link" title="クリックで原本を表示">
-                                                        <img src="{{ att.thumbnail.url }}" alt="添付" class="img-fluid rounded receipt-thumbnail" style="max-height:85vh; width:auto;">
-                                                    </a>
-                                                {% elif ext|slice:"-4:" == ".jpg" or ext|slice:"-5:" == ".jpeg" or ext|slice:"-4:" == ".png" or ext|slice:"-4:" == ".gif" or ext|slice:"-5:" == ".webp" %}
-                                                    <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link" title="クリックで拡大表示">
-                                                        <img src="{{ att.file.url }}" alt="添付" class="img-fluid rounded receipt-thumbnail" style="max-height:85vh; width:auto;">
-                                                    </a>
-                                                {% else %}
-                                                    <a href="{{ att.file.url }}" target="_blank" class="btn btn-lg btn-outline-primary d-block py-4">
-                                                        <i class="fas fa-file fa-3x mb-2"></i><br>
+                <div class="card-body p-0">
+                    {% for detail in expense.details.all %}
+                        {% if detail.attachments.all %}
+                            {% for att in detail.attachments.all %}
+                            {# ─── 1枚ごとに 画像LEFT / 情報RIGHT ─── #}
+                            <div class="border-bottom" style="{% if not forloop.last %}border-bottom:1px solid #e5e7eb;{% endif %}">
+                                <div class="row g-0">
+                                    {# 左: 画像エリア #}
+                                    <div class="col-md-8" style="border-right:1px solid #e5e7eb; background:#f8f9fa;">
+                                        {% with ext=att.file.name|lower %}
+                                            {% if att.thumbnail %}
+                                                <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link d-block" title="クリックで原本を表示">
+                                                    <img src="{{ att.thumbnail.url }}" alt="添付" class="receipt-thumbnail" style="width:auto;">
+                                                </a>
+                                            {% elif ext|slice:"-4:" == ".jpg" or ext|slice:"-5:" == ".jpeg" or ext|slice:"-4:" == ".png" or ext|slice:"-4:" == ".gif" or ext|slice:"-5:" == ".webp" %}
+                                                <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link d-block" title="クリックで拡大表示">
+                                                    <img src="{{ att.file.url }}" alt="添付" class="receipt-thumbnail" style="width:auto;">
+                                                </a>
+                                            {% else %}
+                                                <div class="receipt-image-link d-flex align-items-center justify-content-center">
+                                                    <a href="{{ att.file.url }}" target="_blank" class="btn btn-lg btn-outline-primary py-4 px-5">
+                                                        <i class="fas fa-file fa-3x mb-2 d-block"></i>
                                                         ファイルを表示
                                                     </a>
-                                                {% endif %}
-                                            {% endwith %}
-                                        </div>
-                                        <div class="card-footer bg-light">
-                                            <small class="text-muted">
-                                                日付: {{ detail.date|date:"Y/m/d" }}<br>
-                                                勘定科目: {{ detail.account.account_name }}<br>
-                                                支払先: {{ detail.shiharaisaki|default:"-" }}<br>
-                                                目的: {{ detail.purpose|truncatechars:30 }}<br>
-                                                金額: {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
-                                            </small>
+                                                </div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                    {# 右: 入力内容パネル #}
+                                    <div class="col-md-4">
+                                        <div class="attachment-info-panel">
+                                            <div class="info-row">
+                                                <span class="info-label">日付</span>
+                                                <span class="info-value">{{ detail.date|date:"Y/m/d"|default:"-" }}</span>
+                                            </div>
+                                            {% if detail.account %}
+                                            <div class="info-row">
+                                                <span class="info-label">勘定科目</span>
+                                                <span class="info-value">{{ detail.account.account_name }}</span>
+                                            </div>
+                                            {% endif %}
+                                            <div class="info-row">
+                                                <span class="info-label">支払先</span>
+                                                <span class="info-value">{{ detail.shiharaisaki|default:"-" }}</span>
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">目的</span>
+                                                <span class="info-value">{{ detail.purpose|default:"-" }}</span>
+                                            </div>
+                                            {% if detail.tekikaku_cd %}
+                                            <div class="info-row">
+                                                <span class="info-label">登録番号</span>
+                                                <span class="info-value">{{ detail.tekikaku_cd }}</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if detail.corpo_card == 2 %}
+                                            <div class="info-row">
+                                                <span class="info-label">カード</span>
+                                                <span class="info-value">
+                                                    <span class="badge" style="background:#dbeafe;color:#1e3a8a;font-size:11px;">CC</span>
+                                                    {% if detail.corpo_card_no %}&nbsp;{{ detail.corpo_card_no }}{% endif %}
+                                                </span>
+                                            </div>
+                                            {% endif %}
+                                            <div class="info-row">
+                                                <span class="info-label">金額</span>
+                                                <span class="info-value info-amount">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                {% endfor %}
-                            {% endif %}
-                        {% empty %}
-                            <div class="col-12 text-center py-5">
-                                <i class="fas fa-exclamation-circle text-muted fa-3x mb-3"></i>
-                                <p class="text-muted mb-0">添付書類がありません</p>
                             </div>
-                        {% endfor %}
-                    </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% empty %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-exclamation-circle text-muted fa-3x mb-3"></i>
+                            <p class="text-muted mb-0">添付書類がありません</p>
+                        </div>
+                    {% endfor %}
                 </div>
             </div>
 
@@ -471,17 +556,17 @@
 
             <!-- 承認フォーム -->
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-gavel"></i>
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="mb-0" style="color:#fff !important;">
+                        <i class="fas fa-gavel" style="color:#fff !important;"></i>
                         承認処理
                     </h5>
                 </div>
                 <div class="card-body">
-                    <form method="post" class="row">
+                    <form method="post" class="row g-2 align-items-end">
                         {% csrf_token %}
-                                
-                        <div class="col-md-4 mb-3">
+
+                        <div class="col-md-2 mb-2">
                             <label for="{{ form.status.id_for_label }}" class="form-label fw-bold">
                                 処理選択
                             </label>
@@ -493,9 +578,9 @@
                             {% endif %}
                         </div>
 
-                        <div class="col-md-8 mb-3">
+                        <div class="col-md-8 mb-2">
                             <label for="{{ form.comment.id_for_label }}" class="form-label fw-bold">
-                                コメント <span class="text-muted">（任意）</span>
+                                コメント <span class="text-muted fw-normal">（任意）</span>
                             </label>
                             {{ form.comment }}
                             {% if form.comment.errors %}
@@ -505,8 +590,8 @@
                             {% endif %}
                         </div>
 
-                        <div class="col-12 text-center">
-                            <button type="submit" class="btn btn-success btn-lg px-5">
+                        <div class="col-md-2 mb-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-success w-100">
                                 <i class="fas fa-check"></i>
                                 処理を実行
                             </button>
@@ -641,6 +726,7 @@
 .approval-timeline-body {
     flex: 1;
     padding-bottom: 20px;
+    font-size: 17px;
 }
 
 .card {
