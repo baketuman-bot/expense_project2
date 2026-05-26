@@ -222,7 +222,7 @@ def _build_approval_request_mail(expense, prefix=""):
         f"合計金額: {tsuka_disp} {amount}\n"
         f"\n"
         f"費用処理アプリ\n"
-        f"http://172.16.100.150/\n"
+        f"{settings.SITE_URL}/\n"
     )
     return subject, body
 
