@@ -55,7 +55,7 @@
         gap: 8px;
         padding: 7px 0;
         border-bottom: 1px solid #f0f0f0;
-        font-size: 13px;
+        font-size: 15px;
         align-items: flex-start;
     }
     .attachment-info-panel .info-row:last-child {
@@ -65,7 +65,7 @@
         flex-shrink: 0;
         width: 72px;
         color: #6b7280;
-        font-size: 11.5px;
+        font-size: 12.5px;
         font-weight: 600;
         padding-top: 1px;
     }
@@ -141,6 +141,11 @@
     <div class="row">
         <div class="col-12">
             <!-- ヘッダー部分 -->
+            <nav class="precision-breadcrumb mb-1" aria-label="パンくずリスト">
+                <a href="{% url 'expenses:approval_list' %}">承認待ち一覧</a>
+                <span class="precision-breadcrumb-sep">›</span>
+                <span class="precision-breadcrumb-current">#{{ expense.expense_main_id }} 承認詳細</span>
+            </nav>
             <div class="page-head mb-4">
                 <div>
                     <h2 class="page-title mb-1">

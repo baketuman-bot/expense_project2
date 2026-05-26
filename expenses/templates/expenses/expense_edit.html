@@ -4,7 +4,17 @@
 
 {% block content %}
 <div class="container">
-    <h2 class="mb-4">経費申請編集</h2>
+    <nav class="precision-breadcrumb mb-1" aria-label="パンくずリスト">
+        <a href="{% url 'expenses:expense_list' %}">経費申請一覧</a>
+        <span class="precision-breadcrumb-sep">›</span>
+        <span class="precision-breadcrumb-current">#{{ expense.expense_main_id }} 編集</span>
+    </nav>
+    <div class="page-head mb-4">
+        <h2 class="page-title">
+            <span class="pt-ico"><i class="fas fa-edit"></i></span>
+            経費申請編集
+        </h2>
+    </div>
 
     {% if latest_return_action %}
     <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %} border-start border-4 border-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %}">

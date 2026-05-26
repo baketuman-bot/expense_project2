@@ -6,6 +6,11 @@
 <div class="container">
     <div class="row">
         <div class="col-12">
+            <nav class="precision-breadcrumb mb-1" aria-label="パンくずリスト">
+                <a href="{% url 'expenses:expense_list' %}">経費申請一覧</a>
+                <span class="precision-breadcrumb-sep">›</span>
+                <span class="precision-breadcrumb-current">#{{ expense.expense_main_id }} 申請詳細</span>
+            </nav>
             <div class="page-head mb-4">
                 <h2 class="page-title mb-0">
                     <span class="pt-ico"><i class="fas fa-file-invoice-dollar"></i></span>
