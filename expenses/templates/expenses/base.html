@@ -347,6 +347,89 @@
         window.bindFormSubmitStrip = bindFormSubmitStrip;
     })();
     </script>
+    <script>
+// ======= フォーム送信中の二重送信防止 =======
+(function(){
+  window.bindFormSubmitLock = function(form) {
+    if (!form || form._submitLockBound) return;
+    form._submitLockBound = true;
+    form.addEventListener('submit', function() {
+      form.querySelectorAll('[data-submit-lock]').forEach(function(btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>送信中…';
+      });
+    });
+  };
+})();
+
+// ======= ページ離脱警告（beforeunload） =======
+(function(){
+  window.bindFormDirtyGuard = function(form) {
+    if (!form || form._dirtyGuardBound) return;
+    form._dirtyGuardBound = true;
+    var dirty = false;
+    form.querySelectorAll(
+      'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=file]), textarea, select'
+    ).forEach(function(el) {
+      el.addEventListener('change', function() { dirty = true; });
+      el.addEventListener('input', function() { dirty = true; });
+    });
+    form.addEventListener('submit', function() { dirty = false; });
+    window.addEventListener('beforeunload', function(e) {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    });
+  };
+})();
+
+// ======= blur 時のリアルタイムバリデーション =======
+(function(){
+  function showError(el, msg) {
+    el.classList.add('is-invalid');
+    var fb = el.parentNode.querySelector('.invalid-feedback');
+    if (!fb) {
+      fb = document.createElement('div');
+      fb.className = 'invalid-feedback';
+      el.parentNode.appendChild(fb);
+    }
+    fb.textContent = msg;
+  }
+  function clearError(el) {
+    el.classList.remove('is-invalid');
+  }
+  window.initFieldValidation = function(root) {
+    var scope = root || document;
+    scope.querySelectorAll('[data-required]').forEach(function(el) {
+      if (el._requiredBound) return;
+      el._requiredBound = true;
+      el.addEventListener('blur', function() {
+        if (!el.value.trim()) {
+          showError(el, '必須項目です');
+        } else {
+          clearError(el);
+        }
+      });
+      el.addEventListener('focus', function() { clearError(el); });
+    });
+    scope.querySelectorAll('[data-numeric]').forEach(function(el) {
+      if (el._numericBound) return;
+      el._numericBound = true;
+      el.addEventListener('blur', function() {
+        var val = el.value.replace(/,/g, '').trim();
+        if (val !== '' && isNaN(parseFloat(val))) {
+          showError(el, '数値を入力してください');
+        } else {
+          clearError(el);
+        }
+      });
+      el.addEventListener('focus', function() { clearError(el); });
+    });
+  };
+})();
+</script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
