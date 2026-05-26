@@ -66,6 +66,7 @@
                                         <th class="text-center" style="width:80px">申請ID</th>
                                         <th>申請者</th>
                                         <th>申請種別</th>
+                                        <th>目的</th>
                                         <th style="width:110px">申請日時</th>
                                         <th class="text-end" style="width:120px">合計金額</th>
                                         <th style="width:90px">ステータス</th>
@@ -92,6 +93,11 @@
                                             {% endwith %}
                                         </td>
                                         <td>
+                                            <span class="text-truncate d-inline-block" style="max-width:200px" title="{{ approval.contents.first.purpose|default:'' }}">
+                                                {{ approval.contents.first.purpose|default:"-"|truncatechars:30 }}
+                                            </span>
+                                        </td>
+                                        <td>
                                             <small class="text-muted">
                                                 {{ approval.created_at|date:"Y/m/d H:i" }}
                                             </small>
@@ -116,8 +122,8 @@
 
                 <!-- ページネーション -->
                 {% if page_obj.paginator.num_pages > 1 %}
-                <div class="d-flex justify-content-between align-items-center mt-3 px-1">
-                    <small class="text-muted">
+                <div class="text-center mt-3">
+                    <small class="text-muted d-block mb-2">
                         全{{ page_obj.paginator.count }}件中
                         {{ page_obj.start_index }}〜{{ page_obj.end_index }}件を表示
                     </small>
