@@ -792,7 +792,7 @@ tr.table-row-link:hover td:first-child{ box-shadow:inset 3px 0 0 var(--primary);
   border-color:var(--line-strong);
   color:var(--ink);
   font-size:13px;
-  padding:5px 10px;
+  padding:7px 14px;
 }
 .precision-main .page-link:hover{
   background:var(--panel);
@@ -947,4 +947,54 @@ body.no-sidebar .precision-main{
 }
 .login-card-body{
   padding:24px 26px;
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+  text-align: center;
+  padding: 56px 24px;
+  color: var(--sub);
+}
+.empty-state-icon {
+  font-size: 40px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.empty-state-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.empty-state-desc {
+  font-size: 13px;
+  color: var(--sub);
+  margin-bottom: 20px;
+}
+
+/* ===== Breadcrumb ===== */
+.precision-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sub);
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.precision-breadcrumb a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.precision-breadcrumb a:hover {
+  text-decoration: underline;
+}
+.precision-breadcrumb-sep {
+  color: var(--muted);
+  font-size: 11px;
+  user-select: none;
+}
+.precision-breadcrumb-current {
+  color: var(--sub);
+  font-weight: 600;
 }
