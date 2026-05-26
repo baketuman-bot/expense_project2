@@ -52,7 +52,10 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted p-3 mb-0">承認待ちの申請はありません。</p>
+                    <div class="empty-state" style="padding:24px;">
+                      <div class="empty-state-icon"><i class="fas fa-clock"></i></div>
+                      <div class="empty-state-title">承認待ちはありません</div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -101,7 +104,10 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted p-3 mb-0">申請中の申請はありません。</p>
+                    <div class="empty-state" style="padding:24px;">
+                      <div class="empty-state-icon"><i class="fas fa-paper-plane"></i></div>
+                      <div class="empty-state-title">申請中の申請はありません</div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -145,7 +151,10 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted p-3 mb-0">下書きはありません。</p>
+                    <div class="empty-state" style="padding:24px;">
+                      <div class="empty-state-icon"><i class="fas fa-edit"></i></div>
+                      <div class="empty-state-title">下書きはありません</div>
+                    </div>
                     {% endif %}
                 </div>
             </div>

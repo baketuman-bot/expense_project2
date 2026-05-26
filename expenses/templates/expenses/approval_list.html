@@ -152,18 +152,17 @@
                 {% endif %}
 
             {% else %}
-                <div class="text-center py-5">
-                    <div class="mb-4">
-                        <i class="fas fa-clipboard-check fa-4x text-muted"></i>
-                    </div>
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i class="fas fa-clipboard-check"></i></div>
                     {% if status_filter or date_from or date_to or keyword %}
-                        <h4 class="text-muted">条件に一致する申請がありません</h4>
+                        <div class="empty-state-title">条件に一致する申請がありません</div>
+                        <div class="empty-state-desc">フィルターを変更してみてください。</div>
                         <a href="{% url 'expenses:approval_list' %}" class="btn btn-outline-secondary">
                             <i class="fas fa-times"></i> フィルタークリア
                         </a>
                     {% else %}
-                        <h4 class="text-muted">承認待ちの申請はありません</h4>
-                        <p class="text-muted">現在、承認待ちの経費申請はありません。</p>
+                        <div class="empty-state-title">承認待ちの申請はありません</div>
+                        <div class="empty-state-desc">現在、承認待ちの経費申請はありません。</div>
                         <a href="{% url 'expenses:home' %}" class="btn btn-primary">
                             <i class="fas fa-home"></i> ホームに戻る
                         </a>
