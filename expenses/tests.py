@@ -1,4 +1,4 @@
-from django.test import TestCase, override_settings
+from django.test import TestCase, override_settings, Client
 from django.conf import settings
 from unittest.mock import MagicMock, patch
 
@@ -86,3 +86,58 @@ class BuildApprovalRequestMailTest(TestCase):
                          "ハードコードされたIPがソースに残っています")
         self.assertNotIn("'http://172.16.100.150/", source,
                          "ハードコードされたIPがソースに残っています")
+
+
+class CheckMobileUploadsSecurityTest(TestCase):
+    """check_mobile_uploads のセキュリティ要件をテストする"""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            man_number='TEST001',
+            user_name='テストユーザー',
+            password='testpass123',
+        )
+        self.client = Client()
+
+    def test_unauthenticated_request_redirects_to_login(self):
+        """未認証ユーザーはログインページにリダイレクトされること（@login_required の挙動）"""
+        response = self.client.get('/api/check_mobile_uploads/?upload_id=abc123')
+        # @login_required はデフォルトでログインページへリダイレクト (302)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/login/', response['Location'])
+
+    @override_settings(DEBUG=False)
+    def test_debug_info_not_in_response_when_debug_false(self):
+        """DEBUG=False の本番環境ではレスポンスに debug キーが含まれないこと"""
+        self.client.force_login(self.user)
+        with patch('expenses.views.check_uploads_by_id', return_value=[]):
+            response = self.client.get('/api/check_mobile_uploads/?upload_id=abc123')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertNotIn('debug', data,
+                         "本番環境でdebug情報がレスポンスに含まれてはいけません")
+
+    @override_settings(DEBUG=True)
+    def test_debug_info_in_response_when_debug_true(self):
+        """DEBUG=True の開発環境ではレスポンスに debug キーが含まれること"""
+        self.client.force_login(self.user)
+        with patch('expenses.views.check_uploads_by_id', return_value=[]):
+            response = self.client.get('/api/check_mobile_uploads/?upload_id=abc123')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('debug', data,
+                      "開発環境ではdebug情報がレスポンスに含まれるべきです")
+
+    @override_settings(DEBUG=False)
+    def test_debug_info_not_in_error_response_when_debug_false(self):
+        """DEBUG=False のエラー時レスポンスにも debug キーが含まれないこと"""
+        self.client.force_login(self.user)
+        with patch('expenses.views.check_uploads_by_id', side_effect=Exception('GCS error')):
+            response = self.client.get('/api/check_mobile_uploads/?upload_id=abc123')
+        self.assertEqual(response.status_code, 500)
+        data = response.json()
+        self.assertNotIn('debug', data,
+                         "本番環境のエラーレスポンスにdebug情報が含まれてはいけません")
+        self.assertIn('error', data)
