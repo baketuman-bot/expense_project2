@@ -95,6 +95,84 @@
     .card {
         transition: none;
     }
+
+    /* ──── 経費明細カード ──── */
+    .detail-item-card {
+        border: 1px solid var(--line, #e5e7eb);
+        border-radius: 6px;
+        margin-bottom: 12px;
+        background: #fff;
+        overflow: hidden;
+    }
+    .detail-item-card:last-of-type {
+        margin-bottom: 0;
+    }
+    .detail-item-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        background: #f9fafb;
+        border-bottom: 1px solid var(--line, #e5e7eb);
+    }
+    .detail-item-num {
+        font-size: 12px;
+        font-weight: 700;
+        color: #fff;
+        background: var(--primary, #17307a);
+        border-radius: 4px;
+        padding: 2px 8px;
+        margin-right: 10px;
+        flex-shrink: 0;
+    }
+    .detail-item-date {
+        font-size: 14px;
+        color: #374151;
+        flex-grow: 1;
+    }
+    .detail-item-amount {
+        font-size: 16px;
+        font-weight: 700;
+        color: #047857;
+    }
+    .detail-item-body {
+        padding: 10px 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 6px 20px;
+    }
+    .detail-item-row {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 14px;
+        padding: 3px 0;
+    }
+    .detail-item-label {
+        flex-shrink: 0;
+        width: 80px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #6b7280;
+    }
+    .detail-item-value {
+        color: #111827;
+        word-break: break-word;
+    }
+    .detail-total-bar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 6px;
+        margin-top: 12px;
+        font-size: 15px;
+        font-weight: 700;
+        color: #047857;
+    }
 </style>
 {% endblock %}
 
@@ -390,7 +468,7 @@
                     </div>
 
                     {% else %}
-                    {# ── 通常の経費明細 ── #}
+                    {# ── 通常の経費明細（カード形式） ── #}
                     <div class="card mb-4">
                         <div class="card-header bg-light">
                             <h5 class="mb-0">
@@ -398,63 +476,66 @@
                                 経費明細
                             </h5>
                         </div>
-                        <div class="card-body p-0">
+                        <div class="card-body">
                             {% if expense.details.all %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>日付</th>
-                                                <th>勘定科目</th>
-                                                <th>目的</th>
-                                                <th>支払先</th>
-                                                <th>コーポレートカード</th>
-                                                <th class="text-end">金額</th>
-                                                <th class="text-center">添付書類</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for detail in expense.details.all %}
-                                            <tr>
-                                                <td>{{ detail.date|date:"Y/m/d" }}</td>
-                                                <td>
-                                                    <span class="badge bg-info">
-                                                        {{ detail.account.account_name }}
-                                                    </span>
-                                                </td>
-                                                <td>{{ detail.purpose|default:"-" }}</td>
-                                                <td>{{ detail.shiharaisaki|default:"-" }}</td>
-                                                <td>
-                                                    {% if detail.corpo_card == 2 %}
-                                                        <span class="badge bg-primary">コーポレートカード支払い</span>
-                                                        {% if detail.corpo_card_no %}<br><small>{{ detail.corpo_card_no }}</small>{% endif %}
-                                                    {% else %}
-                                                        その他
-                                                    {% endif %}
-                                                </td>
-                                                <td class="text-end fw-bold" data-amount="{{ detail.amount|default:0 }}">
-                                                    {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
-                                                </td>
-                                                <td class="text-center">
-                                                    {% if detail.attachments.all %}
-                                                        <span class="badge bg-success me-1"><i class="fas fa-paperclip"></i> {{ detail.attachments.all|length }}</span>
-                                                    {% else %}
-                                                        <span class="badge bg-secondary"><i class="fas fa-times"></i> なし</span>
-                                                    {% endif %}
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                        <tfoot class="table-light">
-                                            <tr>
-                                                <th colspan="5" class="text-end">合計金額</th>
-                                                <th class="text-end text-success">
-                                                    {{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}
-                                                </th>
-                                                <th></th>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                                {% for detail in expense.details.all %}
+                                <div class="detail-item-card">
+                                    <!-- ヘッダー: 番号・日付・金額 -->
+                                    <div class="detail-item-header">
+                                        <span class="detail-item-num">{{ forloop.counter }}</span>
+                                        <span class="detail-item-date">
+                                            <i class="fas fa-calendar-alt text-muted me-1"></i>
+                                            {{ detail.date|date:"Y/m/d"|default:"-" }}
+                                        </span>
+                                        <span class="detail-item-amount" data-amount="{{ detail.amount|default:0 }}">
+                                            {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
+                                        </span>
+                                    </div>
+                                    <!-- ボディ: 各フィールドをグリッドで表示 -->
+                                    <div class="detail-item-body">
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">勘定科目</span>
+                                            <span class="detail-item-value">
+                                                <span class="badge bg-info">{{ detail.account.account_name|default:"-" }}</span>
+                                            </span>
+                                        </div>
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">目的</span>
+                                            <span class="detail-item-value">{{ detail.purpose|default:"-" }}</span>
+                                        </div>
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">支払先</span>
+                                            <span class="detail-item-value">{{ detail.shiharaisaki|default:"-" }}</span>
+                                        </div>
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">支払方法</span>
+                                            <span class="detail-item-value">
+                                                {% if detail.corpo_card == 2 %}
+                                                    <span class="badge bg-primary">コーポレートカード</span>
+                                                    {% if detail.corpo_card_no %}<small class="ms-1 text-muted">{{ detail.corpo_card_no }}</small>{% endif %}
+                                                {% else %}
+                                                    その他
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">添付書類</span>
+                                            <span class="detail-item-value">
+                                                {% if detail.attachments.all %}
+                                                    <span class="badge bg-success"><i class="fas fa-paperclip me-1"></i>{{ detail.attachments.all|length }}件</span>
+                                                {% else %}
+                                                    <span class="text-muted" style="font-size:13px;">なし</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+
+                                <!-- 合計バー -->
+                                <div class="detail-total-bar">
+                                    <span class="text-muted fw-normal" style="font-size:13px;">合計金額</span>
+                                    {{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}
                                 </div>
                             {% else %}
                                 <div class="text-center py-4">
