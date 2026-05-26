@@ -194,7 +194,7 @@ class ApprovalForm(forms.Form):
         ("RETURNED", "差戻し"),
     ]
     status = forms.ChoiceField(choices=STATUS_CHOICES)
-    comment = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
+    comment = forms.CharField(widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}), required=False)
 
 
 # ─── 出張旅費精算 (DocType=5) 用フォーム ───────────────────────────────────
