@@ -516,10 +516,14 @@
         </div>
         {% endif %}
 
+        {# action値はhidden inputで管理。ボタンのname/valueはdisabled時に消えるブラウザ対策 #}
+        <input type="hidden" name="action" id="action-input" value="draft">
         <div class="text-center mt-4">
             <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
-            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2" data-submit-lock>下書き保存</button>
-            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn" data-submit-lock>申請する</button>
+            <button type="submit" value="draft" class="btn btn-outline-primary me-2" data-submit-lock
+                    onclick="document.getElementById('action-input').value='draft'">下書き保存</button>
+            <button type="submit" value="submit" class="btn btn-primary" id="submit-btn" data-submit-lock
+                    onclick="document.getElementById('action-input').value='submit'">申請する</button>
             {% if is_edit_mode and expense and expense.status_cd.status_cd == 'DRAFT' %}
             <button type="button" class="btn btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">
                 <i class="fas fa-trash-alt me-1"></i>下書きを削除

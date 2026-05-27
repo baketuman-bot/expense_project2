@@ -338,10 +338,14 @@
 
         {# 旧式の手動承認者選択UIはワークフローベースに置き換えたため削除 #}
 
+        {# action値はhidden inputで管理。ボタンのname/valueはdisabled時に消えるブラウザ対策 #}
+        <input type="hidden" name="action" id="action-input" value="draft">
         <div class="text-center mt-4">
             <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
-            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2" data-submit-lock>下書き保存</button>
-            <button type="submit" name="action" value="submit" class="btn btn-primary" id="submit-btn" data-submit-lock>申請する</button>
+            <button type="submit" value="draft" class="btn btn-outline-primary me-2" data-submit-lock
+                    onclick="document.getElementById('action-input').value='draft'">下書き保存</button>
+            <button type="submit" value="submit" class="btn btn-primary" id="submit-btn" data-submit-lock
+                    onclick="document.getElementById('action-input').value='submit'">申請する</button>
         </div>
     </form>
 </div>

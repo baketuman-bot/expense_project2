@@ -1459,8 +1459,9 @@ def expense_create(request, document_type_id=None):
 
     if request.method == "POST":
         # 送信アクション（申請 or 下書き）
-        action = request.POST.get('action') or 'submit'
-        is_draft = (action == 'draft')
+        # フォールバックは 'draft'（安全側）。'submit' を明示したときだけ申請扱いにする
+        action = request.POST.get('action') or 'draft'
+        is_draft = (action != 'submit')
         # 二重送信防止用トークン
         submission_id = request.POST.get('submission_id')
         processed = set(request.session.get('processed_submission_ids', []))
