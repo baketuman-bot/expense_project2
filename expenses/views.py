@@ -2802,9 +2802,6 @@ def generate_mobile_upload_qr(request):
     """モバイルアップロード用QRコードを生成するAPI（JSON）。
     GET ?upload_id=xxx の場合は既存IDでQRを再生成。
     """
-
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'セッションが切れました。再ログインしてください。'}, status=401)
     upload_id = request.GET.get('upload_id', '').strip()
     if not upload_id:
         upload_id = uuid.uuid4().hex[:12]

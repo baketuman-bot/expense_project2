@@ -142,3 +142,32 @@ class CheckMobileUploadsSecurityTest(TestCase):
         self.assertNotIn('debug', data,
                          "本番環境のエラーレスポンスにdebug情報が含まれてはいけません")
         self.assertIn('error', data)
+
+
+class GenerateMobileUploadQrSecurityTest(TestCase):
+    """generate_mobile_upload_qr の認証挙動をテストする"""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='test_user_qr',
+            man_number='TEST002',
+            user_name='テストユーザー2',
+            password='testpass123',
+        )
+        self.client = Client()
+
+    def test_unauthenticated_request_redirects_to_login(self):
+        """未認証ユーザーはログインページにリダイレクトされること（@login_required の挙動）"""
+        response = self.client.get('/api/generate_mobile_qr/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/login/', response['Location'])
+
+    def test_no_redundant_auth_check_in_source(self):
+        """generate_mobile_upload_qr に冗長な is_authenticated チェックが残っていないこと"""
+        import inspect
+        from expenses import views
+        source = inspect.getsource(views.generate_mobile_upload_qr)
+        self.assertNotIn('is_authenticated', source,
+                         "generate_mobile_upload_qr に冗長な is_authenticated チェックが残っています")
