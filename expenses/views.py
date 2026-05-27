@@ -1100,6 +1100,9 @@ def expense_edit(request, pk):
                                 )
                             except Exception:
                                 pass
+                            # 下書き時に保存した仮承認者（status='draft'）を削除してから登録
+                            # （削除しないと draft + pending の二重登録になる）
+                            T_DocumentApprover.objects.filter(document_id=expense).delete()
                             # 経理ステップは自動回付、それ以外はフォームの選択値を保存
                             for s in steps:
                                 if s.get('allowed_bumon_scope') == 'keiri' and s.get('candidates'):
