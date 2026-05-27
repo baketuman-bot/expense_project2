@@ -121,9 +121,10 @@ else:
             },
             # 接続の永続化（ローカルでも有効にしておく）
             'CONN_MAX_AGE': 60,
-            'TEST': {
-                'NAME': 'expense_db',
-            },
+            # DANGER: TEST.NAME に本番DBと同名を設定しないこと。
+            # 誤ってテストを実行すると本番DBが削除される。
+            # テストDB名を明示しない場合、Django は 'test_expense_db' を自動使用する。
+            # 'TEST': {'NAME': 'expense_db'},  # ← 絶対に設定しないこと
         }
     }
 
