@@ -2836,6 +2836,7 @@ def generate_mobile_upload_qr(request):
     })
 
 
+@login_required
 def check_mobile_uploads(request):
     """モバイルアップロード済みファイルを確認するAPI（JSON）。
     GET ?upload_id=xxx
@@ -2843,9 +2844,6 @@ def check_mobile_uploads(request):
     import logging, os, traceback as tb
     from .cloud_receipts import check_uploads_by_id, _GCS_ADC_PATH, _gcs_bucket, _gcs_folder
     logger = logging.getLogger(__name__)
-
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'セッションが切れました。再ログインしてください。'}, status=401)
 
     upload_id = request.GET.get('upload_id', '').strip()
     if not upload_id:
@@ -2895,18 +2893,23 @@ def check_mobile_uploads(request):
             except Exception:
                 pass
 
-        return JsonResponse({
+        response_data = {
             'upload_id': upload_id,
             'count': len(items),
             'items': items,
             'thumbnails': thumbnails,
-            'debug': debug_info,
-        })
+        }
+        if settings.DEBUG:
+            response_data['debug'] = debug_info
+        return JsonResponse(response_data)
     except Exception as e:
         debug_info['status'] = 'error'
         debug_info['traceback'] = tb.format_exc()
         logger.error('[check_mobile_uploads] error: %s', tb.format_exc())
-        return JsonResponse({'error': str(e), 'debug': debug_info}, status=500)
+        error_data = {'error': str(e)}
+        if settings.DEBUG:
+            error_data['debug'] = debug_info
+        return JsonResponse(error_data, status=500)
 
 
 # ============================================================

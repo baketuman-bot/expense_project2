@@ -95,6 +95,7 @@ class CheckMobileUploadsSecurityTest(TestCase):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         self.user = User.objects.create_user(
+            username='test_user',
             man_number='TEST001',
             user_name='テストユーザー',
             password='testpass123',
@@ -112,7 +113,7 @@ class CheckMobileUploadsSecurityTest(TestCase):
     def test_debug_info_not_in_response_when_debug_false(self):
         """DEBUG=False の本番環境ではレスポンスに debug キーが含まれないこと"""
         self.client.force_login(self.user)
-        with patch('expenses.views.check_uploads_by_id', return_value=[]):
+        with patch('expenses.cloud_receipts.check_uploads_by_id', return_value=[]):
             response = self.client.get('/api/check_mobile_uploads/?upload_id=abc123')
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -123,7 +124,7 @@ class CheckMobileUploadsSecurityTest(TestCase):
     def test_debug_info_in_response_when_debug_true(self):
         """DEBUG=True の開発環境ではレスポンスに debug キーが含まれること"""
         self.client.force_login(self.user)
-        with patch('expenses.views.check_uploads_by_id', return_value=[]):
+        with patch('expenses.cloud_receipts.check_uploads_by_id', return_value=[]):
             response = self.client.get('/api/check_mobile_uploads/?upload_id=abc123')
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -134,7 +135,7 @@ class CheckMobileUploadsSecurityTest(TestCase):
     def test_debug_info_not_in_error_response_when_debug_false(self):
         """DEBUG=False のエラー時レスポンスにも debug キーが含まれないこと"""
         self.client.force_login(self.user)
-        with patch('expenses.views.check_uploads_by_id', side_effect=Exception('GCS error')):
+        with patch('expenses.cloud_receipts.check_uploads_by_id', side_effect=Exception('GCS error')):
             response = self.client.get('/api/check_mobile_uploads/?upload_id=abc123')
         self.assertEqual(response.status_code, 500)
         data = response.json()
