@@ -850,3 +850,110 @@ class T_Feedback(models.Model):
         verbose_name_plural = '改善要望'
         ordering = ['-created_at', '-feedback_id']
 
+
+class T_Assets(models.Model):
+    """固定資産テーブル（Accessシステム連携 v_assets ビュー相当）"""
+
+    # ── 識別 ──────────────────────────────────────────────────────────────
+    asset_no                       = models.CharField("資産NO",              max_length=13, primary_key=True)
+
+    # ── 科目・部門 ────────────────────────────────────────────────────────
+    account_cd                     = models.CharField("科目コード",           max_length=2,  null=True, blank=True)
+    account_name                   = models.CharField("科目名",               max_length=30, null=True, blank=True)
+    bumon_cd                       = models.CharField("部門コード",           max_length=6,  null=True, blank=True)
+    bumon_name                     = models.CharField("部門名",               max_length=30, null=True, blank=True)
+    accounting_bumon_cd            = models.CharField("会計用部門コード",     max_length=8,  null=True, blank=True)
+
+    # ── 資産名 ────────────────────────────────────────────────────────────
+    asset_name1                    = models.CharField("資産名１",             max_length=60, null=True, blank=True)
+    asset_name2                    = models.CharField("資産名２",             max_length=60, null=True, blank=True)
+
+    # ── 構造細目 ──────────────────────────────────────────────────────────
+    structure_cd                   = models.CharField("構造細目コード",       max_length=5,  null=True, blank=True)
+    structure_name                 = models.CharField("構造名",               max_length=30, null=True, blank=True)
+    detail_name                    = models.CharField("細目名",               max_length=30, null=True, blank=True)
+
+    # ── 配賦 ──────────────────────────────────────────────────────────────
+    alloc_kbn                      = models.CharField("部門配賦区分",         max_length=1,  null=True, blank=True)
+    alloc_rate_cd                  = models.CharField("配賦率コード",         max_length=12, null=True, blank=True)
+
+    # ── 数量・単位・耐用年数 ──────────────────────────────────────────────
+    quantity                       = models.SmallIntegerField("個数",         null=True, blank=True)
+    unit                           = models.CharField("単位",                 max_length=4,  null=True, blank=True)
+    useful_life                    = models.DecimalField("耐用年数",          max_digits=5, decimal_places=2, null=True, blank=True)
+
+    # ── 日付 ──────────────────────────────────────────────────────────────
+    depreciation_start_date        = models.DateTimeField("償却開始日",       null=True, blank=True)
+    acquisition_date               = models.DateTimeField("取得日",           null=True, blank=True)
+    transfer_date                  = models.DateTimeField("異動増日付",       null=True, blank=True)
+    installation_date              = models.DateTimeField("設置日",           null=True, blank=True)
+    disposal_date                  = models.DateTimeField("除却日",           null=True, blank=True)
+    registration_date              = models.DateTimeField("固定登録日",       null=True, blank=True)
+    disposal_registration_date     = models.DateTimeField("除却登録日",       null=True, blank=True)
+    transfer_registration_date     = models.DateTimeField("異動登録日",       null=True, blank=True)
+    special_registration_date      = models.DateTimeField("特割登録日",       null=True, blank=True)
+    depreciation_stop_start_date   = models.DateTimeField("償却停止開始日",   null=True, blank=True)
+    depreciation_stop_end_date     = models.DateTimeField("償却停止終了日",   null=True, blank=True)
+    straight_line_switch_date      = models.DateTimeField("定額切換日",       null=True, blank=True)
+
+    # ── 金額（CURRENCY = decimal 18,4） ───────────────────────────────────
+    acquisition_amount             = models.DecimalField("取得価額",          max_digits=18, decimal_places=4, null=True, blank=True)
+    beginning_amount               = models.DecimalField("期首価額",          max_digits=18, decimal_places=4, null=True, blank=True)
+    beginning_depreciation_diff    = models.DecimalField("期首償却過不足額",  max_digits=18, decimal_places=4, null=True, blank=True)
+    residual_amount                = models.DecimalField("残存価額",          max_digits=18, decimal_places=4, null=True, blank=True)
+    current_optional_depreciation  = models.DecimalField("当期任意償却額",    max_digits=18, decimal_places=4, null=True, blank=True)
+    compression_reserve            = models.DecimalField("圧縮引当金",        max_digits=18, decimal_places=4, null=True, blank=True)
+    beginning_adjustment           = models.DecimalField("期首価額調整額",    max_digits=18, decimal_places=4, null=True, blank=True)
+    depreciation_limit             = models.DecimalField("償却可能限度額",    max_digits=18, decimal_places=4, null=True, blank=True)
+    disposal_amount                = models.DecimalField("処分価額",          max_digits=18, decimal_places=4, null=True, blank=True)
+    special_depreciation_amount    = models.DecimalField("特別償却額",        max_digits=18, decimal_places=4, null=True, blank=True)
+    extra_depreciation_amount      = models.DecimalField("割増償却額",        max_digits=18, decimal_places=4, null=True, blank=True)
+    prev_year_book_amount          = models.DecimalField("前年申告帳簿価額",  max_digits=18, decimal_places=4, null=True, blank=True)
+    prev_year_assessed_amount      = models.DecimalField("前年申告評価額",    max_digits=18, decimal_places=4, null=True, blank=True)
+    switch_book_amount             = models.DecimalField("切換時帳簿価額",    max_digits=18, decimal_places=4, null=True, blank=True)
+    post_switch_annual_depreciation= models.DecimalField("切換後年償却額",    max_digits=18, decimal_places=4, null=True, blank=True)
+
+    # ── フラグ（BIT） ─────────────────────────────────────────────────────
+    current_optional_kbn           = models.SmallIntegerField("当期任意償却区分",  null=True, blank=True)
+    special_rate_input_kbn         = models.SmallIntegerField("特例率入力区分",    null=True, blank=True)
+
+    # ── 区分・コード ──────────────────────────────────────────────────────
+    collateral_kbn                 = models.CharField("担保資産区分",         max_length=1,  null=True, blank=True)
+    special_depreciation_kbn       = models.CharField("特別償却計算区分",     max_length=1,  null=True, blank=True)
+    extra_depreciation_kbn         = models.CharField("割増償却計算区分",     max_length=1,  null=True, blank=True)
+    tax_target_kbn                 = models.CharField("納税対象区分",         max_length=1,  null=True, blank=True)
+    increase_reason                = models.CharField("増加事由",             max_length=1,  null=True, blank=True)
+    disposal_kbn                   = models.CharField("除却区分",             max_length=1,  null=True, blank=True)
+    decrease_kbn                   = models.CharField("減少区分",             max_length=1,  null=True, blank=True)
+
+    # ── 設置場所 ──────────────────────────────────────────────────────────
+    location_cd                    = models.CharField("設置場所コード",       max_length=6,  null=True, blank=True)
+    location_name                  = models.CharField("設置場所名",           max_length=30, null=True, blank=True)
+    city_cd                        = models.CharField("市区町村コード",       max_length=6,  null=True, blank=True)
+    city_name                      = models.CharField("市区町村名",           max_length=30, null=True, blank=True)
+
+    # ── 特例率 ────────────────────────────────────────────────────────────
+    special_rate_numerator         = models.SmallIntegerField("特例率分子",   null=True, blank=True)
+    special_rate_denominator       = models.SmallIntegerField("特例率分母",   null=True, blank=True)
+
+    # ── その他参照 ────────────────────────────────────────────────────────
+    source_asset_no                = models.CharField("異動元資産NO",         max_length=12, null=True, blank=True)
+    supplier_cd                    = models.CharField("購入先コード",         max_length=10, null=True, blank=True)
+    partial_expansion_asset_cd     = models.CharField("一部増設元資産コード", max_length=12, null=True, blank=True)
+    ringi_no                       = models.CharField("稟議NO",              max_length=30, null=True, blank=True)
+    manager                        = models.CharField("管理者",               max_length=30, null=True, blank=True)
+    memo1                          = models.CharField("メモ欄",               max_length=40, null=True, blank=True)
+    memo2                          = models.CharField("メモ欄２",             max_length=40, null=True, blank=True)
+    model_name                     = models.CharField("モデル",               max_length=70, null=True, blank=True)
+    serial_no                      = models.CharField("シリアルNO",          max_length=40, null=True, blank=True)
+    physical_inventory_result      = models.CharField("実地調査結果",         max_length=40, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.asset_no} {self.asset_name1}"
+
+    class Meta:
+        db_table = 'T_ASSETS'
+        verbose_name = '固定資産'
+        verbose_name_plural = '固定資産'
+        ordering = ['asset_no']
+

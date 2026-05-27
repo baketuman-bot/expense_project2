@@ -240,6 +240,24 @@ body.no-sidebar .precision-sidebar{display:none;}
 }
 .precision-link.is-active .precision-ico{ color:var(--primary); }
 
+/* サイドバー 承認待ち件数バッジ */
+.sidebar-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:9px;
+  background:#dc2626;
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+  line-height:1;
+  margin-left:auto;
+  flex-shrink:0;
+}
+
 .precision-section{
   margin-top:14px;
   padding-top:10px;
