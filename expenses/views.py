@@ -17,12 +17,15 @@ from .forms import (
 from .utils import send_notification, steps_with_candidates, get_pending_approvers, candidates_for_step
 from django.utils import timezone
 import uuid
+import logging
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse, Http404
 from django.core.paginator import Paginator
 from django.forms import modelform_factory
 import csv
+
+logger = logging.getLogger(__name__)
 
 from django.core.files.base import ContentFile
 import io
@@ -467,7 +470,7 @@ def expense_detail(request, pk):
                             comment="申請者による取り消し",
                         )
                 except Exception:
-                    pass
+                    logger.warning("Cancel workflow action record failed", exc_info=True)
 
                 return redirect('expenses:expense_list')
             except M_Status.DoesNotExist:
@@ -492,7 +495,7 @@ def expense_detail(request, pk):
                             comment="申請者による取り消し",
                         )
                 except Exception:
-                    pass
+                    logger.warning("Cancel workflow action record failed", exc_info=True)
 
                 return redirect('expenses:expense_list')
         else:
@@ -575,14 +578,14 @@ def expense_edit(request, pk):
     dynamic_fields = []
     try:
         doc_type_for_dyn = getattr(expense, 'document_type', None)
-        if _has_dynamic_fields(doc_type_for_dyn):
+        _dyn_dt = _resolve_dynamic_fields_doc_type(doc_type_for_dyn)  # 1回だけ呼ぶ
+        if _dyn_dt:
             # 既存の（先頭明細の）content を初期値として取り出す
             try:
                 first_detail = expense.contents.order_by('document_detail_id').first()
                 existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
             except Exception:
                 existing_dyn = {}
-            _dyn_dt = _resolve_dynamic_fields_doc_type(doc_type_for_dyn)
             defs = M_DocumentField.objects.filter(document_type=_dyn_dt).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
@@ -993,7 +996,7 @@ def expense_edit(request, pk):
                                 if af:
                                     T_DocumentAttachment.objects.create(detail=adetail, file=af)
                         except Exception as e:
-                            print(f"[WARN] accom receipt save error (edit): {e}", flush=True)
+                            logger.warning("accom receipt save error (edit): %s", e, exc_info=True)
                         # Cloud領収書（連番指定）
                         try:
                             raw_cloud = aform.cleaned_data.get('cloud_receipts')
@@ -1009,7 +1012,7 @@ def expense_edit(request, pk):
                         except CloudReceiptFetchError:
                             raise
                         except Exception as e:
-                            print(f"[WARN] accom cloud receipt error (edit): {e}", flush=True)
+                            logger.warning("accom cloud receipt error (edit): %s", e, exc_info=True)
                         # モバイルQRアップロードID経由
                         try:
                             mobile_upload_id = (aform.cleaned_data.get('mobile_upload_id') or '').strip()
@@ -1021,7 +1024,7 @@ def expense_edit(request, pk):
                         except CloudReceiptFetchError:
                             raise
                         except Exception as e:
-                            print(f"[WARN] accom mobile upload error (edit): {e}", flush=True)
+                            logger.warning("accom mobile upload error (edit): %s", e, exc_info=True)
 
                 if _is_travel_save and allow_formset and allow_formset.is_valid():
                     for alform in allow_formset.forms:
@@ -1202,11 +1205,11 @@ def expense_edit(request, pk):
                             except Exception:
                                 pass
                     except Exception as e:
-                        print("Workflow create on edit error:", str(e))
+                        logger.error("Workflow create on edit error: %s", e, exc_info=True)
 
                 return redirect('expenses:expense_detail', pk=pk)
             except Exception as e:
-                print("Edit error:", str(e))
+                logger.error("Edit error: %s", e, exc_info=True)
                 error_message = f"編集中にエラーが発生しました: {str(e)}"
         else:
             # バリデーションエラー時のメッセージ（既にセット済みの場合は上書きしない）
@@ -1406,9 +1409,9 @@ def expense_create(request, document_type_id=None):
             resolved_doc_type = M_DocumentType.objects.filter(document_type_id=document_type_id).first()
         if not resolved_doc_type:
             resolved_doc_type = M_DocumentType.objects.filter(document_type_name="経費精算書").first()
-        if _has_dynamic_fields(resolved_doc_type):
+        _dyn_dt_c = _resolve_dynamic_fields_doc_type(resolved_doc_type)  # 1回だけ呼ぶ
+        if _dyn_dt_c:
             # 型マッピングと select のオプション解決。全定義をテンプレートへ渡す
-            _dyn_dt_c = _resolve_dynamic_fields_doc_type(resolved_doc_type)
             defs = M_DocumentField.objects.filter(document_type=_dyn_dt_c).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
@@ -1477,7 +1480,6 @@ def expense_create(request, document_type_id=None):
             allow_formset = AllowanceFormSet(request.POST, request.FILES, prefix='allow', tra_items=tra_items)
         else:
             formset = ExpenseDetailFormSet(request.POST, request.FILES, account_queryset=_aq, is_draft=is_draft)
-        print("Formset is valid:", formset.is_valid())
         # 申請情報の取得
         memo = request.POST.get('memo')
         ringi_no = (request.POST.get('ringi_no') or '').strip()
@@ -1496,10 +1498,8 @@ def expense_create(request, document_type_id=None):
             currency_valid = M_Item.objects.filter(data_kbn='CUR', key=tsuka_cd).exists()
         # 旧: 手動承認者選択は廃止（ワークフローステップで管理）
 
-        # デバッグ用: 勘定科目の数を確認
-        print("Available accounts:", M_Account.objects.count())
         if not formset.is_valid():
-            print("Formset errors:", formset.errors)
+            logger.debug("Formset errors: %s", formset.errors)
             error_message = "入力内容にエラーがあります。各明細のエラーメッセージを確認してください。"
 
         # 負担部門のチェック（申請時のみ必須）
@@ -1692,7 +1692,7 @@ def expense_create(request, document_type_id=None):
                         expense.title = (title or "経費申請").strip()
 
                     expense.save()
-                    print("Document saved:", expense.document_id)
+                    logger.debug("Document saved: %s", expense.document_id)
 
                     # 明細データを保存
                     # 出張旅費の場合は勘定科目670・目的を強制セット
@@ -1715,7 +1715,7 @@ def expense_create(request, document_type_id=None):
                     # POSTデータ内のmobile_upload_idを全て確認（デバッグ用）
                     for k, v in request.POST.items():
                         if 'mobile_upload_id' in k and v.strip():
-                            print(f"[DEBUG] POST {k}={v}", flush=True)
+                            logger.debug("POST %s=%s", k, v)
                     for form in formset.forms:
                         if form.is_valid() and form.cleaned_data:
                             detail = form.save(commit=False)
@@ -1750,13 +1750,13 @@ def expense_create(request, document_type_id=None):
                                         files = [f for f in file_field if f]
                                     else:
                                         files = [file_field]
-                                print(f"[DEBUG] travel receipt files for {form.prefix}: {[f.name for f in files if f]}", flush=True)
+                                logger.debug("travel receipt files for %s: %s", form.prefix, [f.name for f in files if f])
                                 for f in files:
                                     if not f:
                                         continue
                                     T_DocumentAttachment.objects.create(detail=detail, file=f)
                             except Exception as e:
-                                print(f"[WARN] travel receipt save error: {e}", flush=True)
+                                logger.warning("travel receipt save error: %s", e, exc_info=True)
 
                             # Cloud領収書の取り込み（連番指定）
                             try:
@@ -1783,22 +1783,22 @@ def expense_create(request, document_type_id=None):
                                 mobile_upload_id = (form.cleaned_data.get('mobile_upload_id') or '').strip()
                                 if not mobile_upload_id:
                                     mobile_upload_id = (request.POST.get(f'{form.prefix}-mobile_upload_id') or '').strip()
-                                print(f"[DEBUG] mobile_upload_id for {form.prefix}: '{mobile_upload_id}'", flush=True)
+                                logger.debug("mobile_upload_id for %s: '%s'", form.prefix, mobile_upload_id)
                                 if mobile_upload_id:
                                     mobile_files = fetch_receipts_by_upload_id(mobile_upload_id)
-                                    print(f"[DEBUG] mobile_files count: {len(mobile_files)}", flush=True)
+                                    logger.debug("mobile_files count: %s", len(mobile_files))
                                     for cf in mobile_files:
                                         att = T_DocumentAttachment(detail=detail)
                                         att.file.save(cf.filename, ContentFile(cf.data), save=True)
-                                        print(f"[DEBUG] saved mobile att: {cf.filename}", flush=True)
+                                        logger.debug("saved mobile att: %s", cf.filename)
                             except CloudReceiptFetchError as e:
-                                print(f"[WARN] mobile upload fetch error: {e}", flush=True)
+                                logger.warning("mobile upload fetch error: %s", e, exc_info=True)
                                 raise
                             except Exception as e:
-                                print(f"[WARN] mobile upload error: {e}", flush=True)
+                                logger.warning("mobile upload error: %s", e, exc_info=True)
                                 raise
 
-                            print("Detail saved:", detail.document_detail_id)
+                            logger.debug("Detail saved: %s", detail.document_detail_id)
 
                     # 宿泊費・日当の保存（新規）
                     if _is_travel_save_c and accom_formset and accom_formset.is_valid():
@@ -1826,7 +1826,7 @@ def expense_create(request, document_type_id=None):
                                     if af:
                                         T_DocumentAttachment.objects.create(detail=adetail, file=af)
                             except Exception as e:
-                                print(f"[WARN] accom receipt save error: {e}", flush=True)
+                                logger.warning("accom receipt save error: %s", e, exc_info=True)
                             # Cloud領収書（連番指定）
                             try:
                                 raw_cloud = aform.cleaned_data.get('cloud_receipts')
@@ -1842,7 +1842,7 @@ def expense_create(request, document_type_id=None):
                             except CloudReceiptFetchError:
                                 raise
                             except Exception as e:
-                                print(f"[WARN] accom cloud receipt error: {e}", flush=True)
+                                logger.warning("accom cloud receipt error: %s", e, exc_info=True)
                             # モバイルQRアップロードID経由
                             try:
                                 mobile_upload_id = (aform.cleaned_data.get('mobile_upload_id') or '').strip()
@@ -1854,7 +1854,7 @@ def expense_create(request, document_type_id=None):
                             except CloudReceiptFetchError:
                                 raise
                             except Exception as e:
-                                print(f"[WARN] accom mobile upload error: {e}", flush=True)
+                                logger.warning("accom mobile upload error: %s", e, exc_info=True)
 
                     if _is_travel_save_c and allow_formset and allow_formset.is_valid():
                         for alform in allow_formset.forms:
@@ -2041,13 +2041,13 @@ def expense_create(request, document_type_id=None):
                     processed.add(submission_id)
                     request.session['processed_submission_ids'] = list(processed)
 
-                print("Redirecting to home")
+                logger.debug("Redirecting to home after create: doc_id=%s", expense.document_id)
                 return redirect('expenses:home')
             except M_Status.DoesNotExist as e:
-                print("Status error:", str(e))
+                logger.error("Status error on create: %s", e, exc_info=True)
                 error_message = "申請ステータスの設定に失敗しました。"
             except Exception as e:
-                print("Unexpected error:", str(e))
+                logger.error("Unexpected error on create: %s", e, exc_info=True)
                 error_message = f"予期せぬエラーが発生しました: {str(e)}"
         elif not currency_valid:
             error_message = "通貨の選択が不正です。"
@@ -2251,10 +2251,10 @@ def expense_copy(request, pk):
     # DocType=4: 動的フィールド定義をコピー元の値でプリセット
     dynamic_fields_for_copy = []
     try:
-        if _has_dynamic_fields(doc_type):
+        _dyn_dt_cp = _resolve_dynamic_fields_doc_type(doc_type)  # 1回だけ呼ぶ
+        if _dyn_dt_cp:
             first_detail = source.contents.order_by('document_detail_id').first()
             existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
-            _dyn_dt_cp = _resolve_dynamic_fields_doc_type(doc_type)
             defs = M_DocumentField.objects.filter(document_type=_dyn_dt_cp).order_by('field_order', 'field_name')
             for d in defs:
                 raw_type = (d.field_type or '').strip().lower()
@@ -2838,9 +2838,8 @@ def check_mobile_uploads(request):
     """モバイルアップロード済みファイルを確認するAPI（JSON）。
     GET ?upload_id=xxx
     """
-    import logging, os, traceback as tb
+    import os, traceback as tb
     from .cloud_receipts import check_uploads_by_id, _GCS_ADC_PATH, _gcs_bucket, _gcs_folder
-    logger = logging.getLogger(__name__)
 
     upload_id = request.GET.get('upload_id', '').strip()
     if not upload_id:

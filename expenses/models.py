@@ -491,11 +491,11 @@ class T_Document(models.Model):
     @property
     def total_amount(self):
         # 明細の金額合計（None は 0 として扱う）
-        amounts = self.contents.values_list('amount', flat=True)
+        # prefetch_related('contents') 使用時はキャッシュを利用するため .all() で走査する
         total = Decimal('0')
-        for a in amounts:
-            if a:
-                total += Decimal(a)
+        for c in self.contents.all():
+            if c.amount:
+                total += Decimal(c.amount)
         return total
 
     @property
