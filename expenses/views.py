@@ -1,7 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.views.decorators.http import require_POST
 from django.conf import settings
+from .views_assets_register import assets_register_list, assets_register_csv  # noqa: F401
 from .models import (
     M_User, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
@@ -549,6 +552,13 @@ def expense_detail(request, pk):
         travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
         travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
 
+    # 遷移元に応じて「一覧に戻る」先を切り替え
+    from_page = request.GET.get('from', '')
+    if from_page == 'settlement':
+        back_url = reverse('expenses:settlement_list')
+    else:
+        back_url = reverse('expenses:expense_list')
+
     return render(request, "expenses/expense_detail.html", {
         "expense": expense,
         "workflow_actions": workflow_actions,
@@ -560,6 +570,7 @@ def expense_detail(request, pk):
         "travel_route_details": travel_route_details,
         "travel_accom_details": travel_accom_details,
         "travel_allow_details": travel_allow_details,
+        "back_url": back_url,
     })
 
 @login_required
@@ -2430,6 +2441,19 @@ def approval_list(request):
 
     progress_by_doc = _get_step_progress_map([d.document_id for d in page_obj])
 
+    # 各文書の現在の承認依頼先を一括取得（step_order 最小 = 現在承認待ちのステップ）
+    page_doc_ids = [d.document_id for d in page_obj]
+    pending_approver_map = {}  # {document_id: user_name}
+    for pa in (
+        T_DocumentApprover.objects
+        .filter(document_id__in=page_doc_ids, status__in=['pending', 'draft'])
+        .select_related('man_number')
+        .order_by('document_id', 'step_order')
+    ):
+        did = pa.document_id_id
+        if did not in pending_approver_map:
+            pending_approver_map[did] = pa.man_number.user_name
+
     return render(request, "expenses/approval_list.html", {
         "approvals": page_obj,
         "page_obj": page_obj,
@@ -2439,6 +2463,7 @@ def approval_list(request):
         "date_to": date_to,
         "keyword": keyword,
         "progress_by_doc": progress_by_doc,
+        "pending_approver_map": pending_approver_map,
     })
 
 
@@ -3810,6 +3835,129 @@ def settings_data_view_browse(request, view_name):
         'has_prev':     page > 1,
         'has_next':     page < num_pages,
         'view_error':   view_error,
+    })
+
+
+@login_required
+def settings_data_view_csv(request, view_name):
+    """データ参照 CSV ダウンロード（検索条件引き継ぎ、全件出力）"""
+    import csv as _csv
+    from django.http import StreamingHttpResponse
+    from django.db import connection as _conn
+    if view_name not in DATA_VIEW_REGISTRY:
+        raise Http404
+    cfg      = DATA_VIEW_REGISTRY[view_name]
+    q        = request.GET.get('q', '').strip()
+    ilike_op = 'ILIKE' if _conn.vendor == 'postgresql' else 'LIKE'
+
+    where_sql, params = '', []
+    if q and cfg['search_cols']:
+        conds     = ' OR '.join(f"{col} {ilike_op} %s" for col in cfg['search_cols'])
+        where_sql = f' WHERE ({conds})'
+        params    = [f'%{q}%'] * len(cfg['search_cols'])
+
+    class EchoBuffer:
+        def write(self, value):
+            return value
+
+    writer = _csv.writer(EchoBuffer())
+
+    def rows():
+        with _conn.cursor() as cur:
+            cur.execute(f"SELECT * FROM {view_name}{where_sql}", params)
+            cols = [d[0] for d in cur.description]
+            yield writer.writerow(cols)
+            while True:
+                chunk = cur.fetchmany(500)
+                if not chunk:
+                    break
+                for row in chunk:
+                    yield writer.writerow(['' if v is None else str(v) for v in row])
+
+    fname    = f"{view_name}.csv"
+    response = StreamingHttpResponse(rows(), content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="{fname}"'
+    return response
+
+
+@login_required
+def settlement_list(request):
+    """精算処理: 最終承認済み(FNS)の申請一覧。精算完了チェックで管理。"""
+    from django.utils import timezone as tz
+
+    # 検索パラメータ
+    q_bumon     = request.GET.get('bumon_cd', '')
+    q_doc_type  = request.GET.get('document_type_id', '')
+    q_date_from = request.GET.get('date_from', '')
+    q_date_to   = request.GET.get('date_to', '')
+    q_settled   = request.GET.get('settled', '')   # '' / '0' / '1'
+
+    qs = (
+        T_Document.objects
+        .filter(status_cd__status_cd='FNS')
+        .select_related('man_number', 'bumon_cd', 'document_type', 'status_cd')
+        .prefetch_related('contents')
+        .order_by('-created_at')
+    )
+
+    if q_bumon:
+        qs = qs.filter(bumon_cd__bumon_cd=q_bumon)
+    if q_doc_type:
+        qs = qs.filter(document_type_id=q_doc_type)
+    if q_date_from:
+        try:
+            qs = qs.filter(created_at__date__gte=q_date_from)
+        except Exception:
+            pass
+    if q_date_to:
+        try:
+            qs = qs.filter(created_at__date__lte=q_date_to)
+        except Exception:
+            pass
+    if q_settled == '1':
+        qs = qs.filter(is_settled=True)
+    elif q_settled == '0':
+        qs = qs.filter(is_settled=False)
+
+    # ページネーション
+    paginator = Paginator(qs, 50)
+    page_num  = request.GET.get('page', 1)
+    try:
+        page_obj = paginator.page(page_num)
+    except Exception:
+        page_obj = paginator.page(1)
+
+    # フィルター用選択肢
+    bumon_choices    = M_Bumon.objects.order_by('bumon_cd').values_list('bumon_cd', 'bumon_name')
+    doc_type_choices = M_DocumentType.objects.order_by('document_type_id').values_list('document_type_id', 'document_type_name')
+
+    return render(request, 'expenses/settlement_list.html', {
+        'page_obj':        page_obj,
+        'total_count':     paginator.count,
+        'bumon_choices':   list(bumon_choices),
+        'doc_type_choices': list(doc_type_choices),
+        'q_bumon':         q_bumon,
+        'q_doc_type':      q_doc_type,
+        'q_date_from':     q_date_from,
+        'q_date_to':       q_date_to,
+        'q_settled':       q_settled,
+    })
+
+
+@login_required
+@require_POST
+def settlement_toggle(request, pk):
+    """精算完了フラグをトグル（AJAX POST）"""
+    import json
+    from django.utils import timezone as tz
+
+    doc = get_object_or_404(T_Document, pk=pk, status_cd__status_cd='FNS')
+    doc.is_settled = not doc.is_settled
+    doc.settled_at = tz.now() if doc.is_settled else None
+    doc.save(update_fields=['is_settled', 'settled_at'])
+    return JsonResponse({
+        'is_settled': doc.is_settled,
+        'settled_at': doc.settled_at.strftime('%Y/%m/%d %H:%M') if doc.settled_at else '',
     })
 
 

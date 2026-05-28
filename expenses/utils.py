@@ -46,50 +46,56 @@ def _related_groups(group_cds):
 
 def candidates_for_step(applicant: M_User, step: M_WorkflowStep):
     """allowed_bumon_scope と approver_post の条件から候補者を返す。
-    前提: M_Post.post_order は値が小さいほど上位。指定職位以上（post_order <= 指定値）を候補とする。
+
+    scope が 'same' / 'any' の場合:
+        post_order <= step.approver_post.post_order（同等以上の役職）で絞り込む。
+    scope が上記以外の場合:
+        step.allowed_bumon_scope == M_User.role かつ
+        user.post_order < step.approver_post.post_order（要求役職より上位）のユーザーを候補とする。
+        （M_Post.post_order は値が小さいほど上位）
     """
     qs = M_User.objects.all()
-
-    # 役職条件
-    if step.approver_post:
-        threshold = step.approver_post.post_order
-        qs = qs.filter(post_cd__post_order__lte=threshold)
 
     # 自分自身は除外
     qs = qs.exclude(pk=applicant.pk)
 
     scope = str(step.allowed_bumon_scope or 'any').strip().lower()
+
     if scope == 'same':
-        # 候補グループの抽出ロジック（指定SQL準拠）:
+        # 役職条件（同等以上: post_order <= threshold）
+        if step.approver_post:
+            threshold = step.approver_post.post_order
+            qs = qs.filter(post_cd__post_order__lte=threshold)
+        # グループ条件:
         #   SELECT gg.group_cd FROM v_group gg
         #   WHERE gg.relation_group_cd IN (
         #       SELECT g.relation_group_cd FROM v_group g
         #       WHERE g.group_cd = '申請者の所属グループ'
         #   )
-        # 意味: 申請者グループが属する上位組織群を共通祖先に持つ全グループ
-        #       = 申請者グループ・兄弟グループ・その配下グループが候補範囲
-        # 申請者の所属グループを取得
+        # = 申請者グループと共通の上位組織に属する全グループ
         applicant_group_cds = M_BelongTo.objects.filter(man_number=applicant).values('group_cd__group_cd')
-        # Inner: 申請者グループの relation_group_cd（上位組織＋自身）を取得
         inner_cds = V_Group.objects.filter(
             group_cd__in=Subquery(applicant_group_cds)
         ).exclude(relation_group_cd='').values('relation_group_cd')
-        # Outer: inner の relation_group_cd を持つ group_cd を取得
-        #        = 申請者と共通の上位組織に属する全グループ
         target_group_cds = V_Group.objects.filter(
             relation_group_cd__in=Subquery(inner_cds)
         ).exclude(relation_group_cd='').values('group_cd')
-        # 候補ユーザーは target_group_cds に所属する
         qs = qs.filter(belongs__group_cd__group_cd__in=Subquery(target_group_cds)).distinct()
-    elif scope == 'keiri':
-        # 経理系ロール（自動回付想定）
-        qs = qs.filter(role__in=['accountant', 'final_approver'])
-    elif scope == 'parent':
-        # 未定義のため、最小限: 自部門と同系列（v_group を親方向に解釈できるなら拡張）。当面は any と同等で返す。
-        pass
+
+    elif scope == 'any':
+        # 組織条件なし、役職条件のみ（同等以上）
+        if step.approver_post:
+            threshold = step.approver_post.post_order
+            qs = qs.filter(post_cd__post_order__lte=threshold)
+
     else:
-        # any: 組織条件なし
-        pass
+        # 'same'/'any' 以外:
+        #   user.role == scope  かつ
+        #   user.post_order < step.approver_post.post_order（要求役職より厳密に上位）
+        qs = qs.filter(role=scope)
+        if step.approver_post:
+            threshold = step.approver_post.post_order
+            qs = qs.filter(post_cd__post_order__lt=threshold)
 
     return qs.order_by('post_cd__post_order', 'user_name').distinct()
 

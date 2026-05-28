@@ -17,22 +17,25 @@
 expense_project2/
 ├── expense_project/       # Django project config (settings, urls, wsgi/asgi)
 ├── expenses/              # メインDjangoアプリ
-│   ├── models.py          # 全モデル定義 (~800行)
-│   ├── views.py           # ビューロジック (~3700行)
+│   ├── models.py          # 全モデル定義 (~850行)
+│   ├── views.py           # ビューロジック (~4000行)
+│   ├── views_assets_register.py  # 固定資産台帳ビュー (assets_register_list, assets_register_csv)
 │   ├── forms.py           # フォーム定義 (~500行)
 │   ├── utils.py           # ワークフロー・通知・承認者候補ユーティリティ
-│   ├── context_processors.py  # サイドバー用コンテキスト (sidebar_expense_groups)
+│   ├── context_processors.py  # サイドバー用コンテキスト (sidebar_expense_groups, pending_approval_count)
 │   ├── urls.py            # URLルーティング
 │   ├── admin.py           # Django Admin設定
 │   ├── auth_backends.py   # 社員番号(man_number)認証バックエンド
 │   ├── cloud_receipts.py  # GCS領収書ハンドリング
 │   ├── templates/expenses/  # HTMLテンプレート
 │   │   ├── _expense_info_section.html  # 申請情報ブロック (include用)
+│   │   ├── assets_register_list.html   # 固定資産台帳一覧
+│   │   ├── settlement_list.html        # 精算処理一覧
 │   │   └── ...
 │   ├── static/expenses/     # CSS/JS (swiss.css)
 │   ├── templatetags/        # カスタムテンプレートタグ
-│   ├── management/commands/ # load_initial_master, superuser, migrate_legacy
-│   ├── migrations/          # DBマイグレーション (最新: 0052)
+│   ├── management/commands/ # load_initial_master, superuser, migrate_legacy, import_assets
+│   ├── migrations/          # DBマイグレーション (最新: 0055)
 │   └── fixtures/            # テストデータ
 ├── templates/registration/  # ログインテンプレート
 ├── media/                   # アップロードファイル (領収書等)
@@ -60,6 +63,10 @@ python manage.py superuser
 
 # 静的ファイル収集
 python manage.py collectstatic --no-input
+
+# 固定資産データインポート (T_ASSETS)
+python manage.py import_assets <tsvファイルパス>
+python manage.py import_assets <tsvファイルパス> --dry-run  # 確認のみ
 
 # 本番ビルド (build.sh)
 pip install -r requirements.txt && python3 manage.py collectstatic --no-input && python3 manage.py migrate && python3 manage.py superuser && python3 manage.py load_initial_master
@@ -95,6 +102,7 @@ pip install -r requirements.txt && python3 manage.py collectstatic --no-input &&
 - 各グループをアコーディオン形式で表示（Bootstrap collapse）
 - `sidebar_expense_groups`: `list of (M_DocumentGroup, [M_DocumentType])` タプル
 - 固定資産グループ（`category='assets'`）はサイドバー下部に固定表示（別セクション）
+- `pending_approval_count`: ログインユーザーの承認待ち件数（`T_DocumentApprover` + `T_Document.status_cd='INPRO'`）。サイドバーの「承認待ち」リンク右端にバッジ表示
 
 **判定ヘルパー (views.py):**
 - `_is_travel_doc_type(doc_type)`: `menu_group == 'TRV'` で判定（TRV グループ全体に適用）
@@ -202,7 +210,7 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 
 **マスタ (M_):** M_User, M_Bumon(部門), M_Post(役職), M_Group(部署), M_BelongTo(所属), M_Account(勘定科目), M_Item(汎用マスタ), M_Status, M_DocumentType, M_DocumentGroup, M_DocumentField, M_AccountDocument, M_WorkflowTemplate, M_WorkflowStep
 
-**トランザクション (T_):** T_Document(申請ヘッダ), T_DocumentContent(明細), T_DocumentAttachment(添付), T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover, **T_Feedback(改善要望)**
+**トランザクション (T_):** T_Document(申請ヘッダ), T_DocumentContent(明細), T_DocumentAttachment(添付), T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover, T_Feedback(改善要望), **T_Assets(固定資産台帳)**
 
 **ビュー (V_, unmanaged):** V_Group(組織階層), V_User(ユーザー情報非正規化)
 
@@ -214,6 +222,9 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - `M_DocumentField.row_break`: BooleanField 行ブレーク制御
 - `M_DocumentField.col_width`: IntegerField カラム幅 (Bootstrap col-md-N)
 - `T_Feedback`: 改善要望テーブル (migration 0044〜0046)
+- `T_Assets`: 固定資産台帳テーブル (migration 0053〜0054)
+- `T_Document.is_settled`: 精算完了フラグ BooleanField(default=False) (migration 0055)
+- `T_Document.settled_at`: 精算日時 DateTimeField(null=True, blank=True) (migration 0055)
 
 **T_Feedback モデル:**
 ```python
@@ -229,9 +240,49 @@ class T_Feedback(models.Model):
     # db_table = 't_feedback' (utf8mb4_unicode_ci で統一済み)
 ```
 
+**T_Assets モデル:**
+```python
+class T_Assets(models.Model):
+    # PK
+    asset_no = CharField(max_length=13, primary_key=True)
+    # 全非PKフィールドは null=True, blank=True
+    # 金額: DecimalField(max_digits=18, decimal_places=4)
+    # 日付: DateTimeField
+    # BIT型: SmallIntegerField
+    # db_table = 'T_ASSETS'（大文字）
+```
+- Accessの `v_assets` ビューからデータをインポート（`import_assets` 管理コマンド）
+- 68フィールド。PK（asset_no）以外は全てnull=True, blank=True
+- インポートは cp932(Shift-JIS) エンコードのTSVファイルを `ACCESS_COLUMNS` リストで位置ベースマッピング
+- インポート結果: 約2365件（`update_or_create` でupsert）
+
+**T_Document 精算フィールド:**
+```python
+is_settled = BooleanField("精算完了", default=False)
+settled_at = DateTimeField("精算日時", null=True, blank=True)
+```
+- 最終承認済み（FNS）の申請に対して、経理が精算完了をチェックするためのフィールド
+- `settlement_toggle` ビュー（AJAX POST）でトグル。`settled_at` は自動設定
+
 **MySQL コレーション注意:**
 - 既存テーブルは `utf8mb4_unicode_ci`
 - 新テーブル作成時に Django が別コレーションで作る場合がある → migration で `ALTER TABLE ... CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci` を実行して統一すること（0045, 0046 参照）
+
+**M_Item (data_kbn) の種別一覧:**
+
+| data_kbn | 用途 | 備考 |
+|---|---|---|
+| `CUR` | 通貨コード | key=通貨コード, content=通貨名 |
+| `PAY` | 精算方法 | key=コード, content=表示名 |
+| `TRA` | 日当単価 | key=種別コード, content=種別名, content2=単価金額。TRVグループ日当フォームで使用 |
+| `MST` | マスタ設定メニュー | key=連番, content=MASTER_REGISTRYキー, content2=表示名 |
+
+**M_Item (data_kbn='MST') の既知問題:**
+- key=06: `content='m_document_types'`（誤）→ 正しくは `m_document_type`（単数形）
+- key=12: `content='m_workflow_steps'`（誤）→ 正しくは `m_workflow_step`（単数形）
+- key=13: `content='m_workflow_templates'`（誤）→ 正しくは `m_workflow_template`（単数形）
+- `m_document_group` エントリが欠落（MASTER_REGISTRYには存在）
+- `data_kbn='TRA'`（日当単価）が0件 → 出張旅費精算の日当計算が機能しない（要データ追加）
 
 ### URL Routes
 
@@ -253,6 +304,8 @@ class T_Feedback(models.Model):
 /assets/                   → 固定資産ホーム (category='assets')
 /assets/list/              → 固定資産申請一覧
 /assets/new/<type_id>/     → 固定資産新規作成
+/assets/register/          → 固定資産台帳一覧 (T_Assets)
+/assets/register/csv/      → 固定資産台帳 CSV出力
 /feedback/                 → 改善要望一覧
 /feedback/new/             → 改善要望 新規登録
 /feedback/<id>/            → 改善要望 詳細
@@ -263,6 +316,11 @@ class T_Feedback(models.Model):
 /settings/approval_admin/  → 承認管理一覧 (承認フロー表示・強制操作)
 /settings/approval_admin/<id>/        → 承認管理詳細
 /settings/approval_admin/<id>/action/ → 強制承認・却下・削除 (POST)
+/settings/data_view/                  → データ参照ホーム
+/settings/data_view/<view_name>/      → データ参照 (DBビュー表示・検索)
+/settings/data_view/<view_name>/csv/  → データ参照 CSV出力
+/settings/settlement/                 → 精算処理 (FNS申請の精算完了管理)
+/settings/settlement/<id>/toggle/     → 精算完了フラグ トグル (AJAX POST)
 /settings/master/                     → マスタ設定ホーム
 /settings/master/<key>/               → マスタ一覧
 /settings/master/<key>/create/        → マスタ新規作成
@@ -294,6 +352,7 @@ class T_Feedback(models.Model):
 - Django FormSet でフォーム明細行を管理
 - JSONField (`T_DocumentContent.content`) で可変データを保存
 - テンプレート内で Bootstrap ベースのレイアウト
+- ビューが大きくなる場合は別ファイル（例: `views_assets_register.py`）に切り出して `views.py` で `from .views_xxx import ...` でインポート
 
 ## Forms
 
@@ -386,6 +445,7 @@ class T_Feedback(models.Model):
 - `.badge-inprogress`: 申請中・承認中（ネイビー #17307a・白文字）
 - `.badge-step-wait`: 承認待ちStep（淡青 #dbeafe・紺文字・ボーダーあり）
 - `.status-pill-mid-approved`: 中間承認ステータス（FNS緑と区別するための青系）
+- `.sidebar-badge`: サイドバーの承認待ち件数バッジ（赤背景・白文字・右端配置）
 
 **カード:**
 - 影なし (`box-shadow: none !important`)・1px ヘアラインボーダー・2px 角丸
@@ -434,6 +494,25 @@ class T_Feedback(models.Model):
 - テンプレート内で `{% if is_admin %}` を使って回答・状況フォームを出し分ける
 - **注意**: `is_admin` を渡し忘れると Django テンプレートが未定義変数を空文字（falsy）として評価し、ボタンが表示されなくなる
 
+## 固定資産台帳 (T_Assets)
+
+### 概要
+- AccessのMDBファイル（`fpack/FDATA001.MDB`）の `v_assets` ビューからデータをインポート
+- `import_assets` 管理コマンド（`expenses/management/commands/import_assets.py`）でTSVファイルを取り込む
+- テーブル: `T_ASSETS`（大文字）、約2365件
+
+### ビュー・テンプレート
+- `views_assets_register.py`: 一覧・CSV出力ビュー
+  - `assets_register_list`: キーワード・部門・科目・除却状態・取得日でフィルタ、50件/ページ
+  - `assets_register_csv`: 全68列のCSVをStreamingHttpResponseで出力
+- `assets_register_list.html`: 一覧テンプレート
+  - 表示列: 資産NO・部門・科目・資産名1・資産名2・取得日・設置場所・状態
+  - 状態: 在籍=「有」バッジ / 除却済=「除却済」バッジ
+  - 1レコード1行表示
+
+### サイドバー
+- 固定資産セクションに「固定資産台帳」メニューリンクを表示（DBアイコン付き）
+
 ## 管理者設定 (Admin Panel)
 
 サイドバーに「管理者設定」セクション。全ユーザーに表示。
@@ -459,6 +538,23 @@ class T_Feedback(models.Model):
   - `reject`: 現ステップを却下 → REJECTED → 申請者にメール
   - `delete`: 文書を削除（関連レコードも CASCADE）
 
+### データ参照 (`/settings/data_view/`)
+
+- `DATA_VIEW_REGISTRY` でホワイトリスト管理されたDBビューを表示・検索・CSV出力
+- CSV出力ボタンを `page-head` 内の `page-actions` に配置
+- `settings_data_view_csv` ビューが `StreamingHttpResponse` + `fetchmany(500)` でCSVを出力
+- 検索中はCSVボタンに「検索中」バッジを表示
+
+### 精算処理 (`/settings/settlement/`)
+
+- **対象**: ステータスが「最終承認（FNS）」の申請のみ
+- **フィルター**: 部門・申請種別・申請日（から/まで）・精算状態（すべて/未精算/精算済）
+- **表示列**: 申請ID（詳細リンクあり）・申請種別・申請者・部門・申請日・合計金額・精算状態・精算日時・精算完了チェック
+- **精算完了チェック**: クリックするとAJAX POST（`/settings/settlement/<id>/toggle/`）で即時トグル
+  - 精算済: 行が緑背景・「精算済」バッジ・精算日時を表示
+  - 未精算: 黄バッジ表示
+- **モデルフィールド**: `T_Document.is_settled`（BooleanField）・`T_Document.settled_at`（DateTimeField）
+
 ### マスタ設定 (`/settings/master/`)
 
 - `M_Item.data_kbn='MST'` のレコードでメニューを生成
@@ -466,7 +562,7 @@ class T_Feedback(models.Model):
   - `content2` = 表示名
 - `MASTER_REGISTRY`（views.py内）で各マスタのモデル・一覧フィールド・フォームフィールド・PKを定義
 - `modelform_factory` でフォームを動的生成・Bootstrap クラスを自動付与
-- 対応マスタキー: `m_bumon`, `m_post`, `m_account`, `m_status`, `m_item`, `m_group`, `m_belong_to`, `m_workflow_template`, `m_workflow_step`, `m_document_type`, `m_document_field`, `m_account_document`, `m_user`
+- 対応マスタキー: `m_bumon`, `m_post`, `m_account`, `m_status`, `m_item`, `m_group`, `m_belong_to`, `m_workflow_template`, `m_workflow_step`, `m_document_type`, `m_document_field`, `m_account_document`, `m_user`, `m_document_group`
 - 編集時はユーザー定義PK（CharField型）フォームから除外してPK変更を防止
 - `m_document_type` 登録フィールド: `category` を含む（'expense'/'assets'）
 - `m_document_field` 登録フィールド: `section_header`（セクション区切り見出し）、`col_width`、`row_break`、`required`、`placeholder`、`field_help_text`、`calc_formula` を含む

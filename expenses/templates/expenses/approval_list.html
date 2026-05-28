@@ -70,6 +70,7 @@
                                         <th style="width:110px">申請日時</th>
                                         <th class="text-end" style="width:120px">合計金額</th>
                                         <th style="width:90px">ステータス</th>
+                                        <th style="width:130px">承認依頼先</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -111,6 +112,16 @@
                                             <span class="{{ approval.status_cd.status_cd|status_badge_class }}">
                                                 {% status_label approval progress_by_doc %}
                                             </span>
+                                        </td>
+                                        <td class="text-nowrap">
+                                            {% with approver_name=pending_approver_map|get_item:approval.document_id %}
+                                            {% if approver_name %}
+                                                <i class="fas fa-user-check text-primary me-1" style="font-size:11px;"></i>
+                                                <span style="font-size:0.85rem;">{{ approver_name }}</span>
+                                            {% else %}
+                                                <span class="text-muted" style="font-size:0.85rem;">—</span>
+                                            {% endif %}
+                                            {% endwith %}
                                         </td>
                                     </tr>
                                     {% endfor %}

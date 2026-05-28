@@ -1,0 +1,201 @@
+{% extends "expenses/base.html" %}
+{% load expense_extras %}
+
+{% block content %}
+<div class="mt-4">
+
+    <!-- ページタイトル -->
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-database"></i></span>
+            固定資産台帳
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:assets_register_csv' %}?keyword={{ keyword|urlencode }}&bumon_cd={{ bumon_cd|urlencode }}&account_cd={{ account_cd|urlencode }}&disposal={{ disposal }}&date_from={{ date_from }}&date_to={{ date_to }}"
+               class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-download"></i> CSV出力
+            </a>
+        </div>
+    </div>
+
+    <!-- 検索フォーム -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                <!-- キーワード -->
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">キーワード</label>
+                    <input type="text" name="keyword" class="form-control form-control-sm"
+                           placeholder="資産NO・資産名・稟議NO・管理者・S/N"
+                           value="{{ keyword }}">
+                </div>
+                <!-- 部門 -->
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">部門</label>
+                    <select name="bumon_cd" class="form-select form-select-sm">
+                        <option value="">すべて</option>
+                        {% for cd, name in bumon_choices %}
+                        <option value="{{ cd }}" {% if bumon_cd == cd %}selected{% endif %}>
+                            {{ cd }} {{ name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- 科目 -->
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">科目</label>
+                    <select name="account_cd" class="form-select form-select-sm">
+                        <option value="">すべて</option>
+                        {% for cd, name in account_choices %}
+                        <option value="{{ cd }}" {% if account_cd == cd %}selected{% endif %}>
+                            {{ cd }} {{ name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- 除却状態 -->
+                <div class="col-md-1">
+                    <label class="form-label small mb-1">状態</label>
+                    <select name="disposal" class="form-select form-select-sm">
+                        <option value=""   {% if disposal == '' %}selected{% endif %}>すべて</option>
+                        <option value="0"  {% if disposal == '0' %}selected{% endif %}>在籍</option>
+                        <option value="1"  {% if disposal == '1' %}selected{% endif %}>除却済</option>
+                    </select>
+                </div>
+                <!-- 取得日 -->
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">取得日（から）</label>
+                    <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">取得日（まで）</label>
+                    <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}">
+                </div>
+                <!-- ボタン -->
+                <div class="col-12 d-flex gap-2 pt-1">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-search"></i> 検索
+                    </button>
+                    <a href="{% url 'expenses:assets_register_list' %}" class="btn btn-outline-secondary btn-sm">
+                        クリア
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 件数表示 -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted small">全 <strong>{{ total_count }}</strong> 件</span>
+        <span class="text-muted small">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }} ページ</span>
+    </div>
+
+    <!-- テーブル -->
+    {% if page_obj.object_list %}
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0" style="font-size:0.82rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-nowrap">資産NO</th>
+                        <th class="text-nowrap">部門</th>
+                        <th class="text-nowrap">科目</th>
+                        <th class="text-nowrap">資産名1</th>
+                        <th class="text-nowrap">資産名2</th>
+                        <th class="text-nowrap">取得日</th>
+                        <th class="text-nowrap">設置場所</th>
+                        <th class="text-nowrap">状態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in page_obj.object_list %}
+                    <tr>
+                        <td class="text-nowrap font-monospace">{{ asset.asset_no }}</td>
+                        <td class="text-nowrap">
+                            {% if asset.bumon_name %}
+                                <span class="text-muted" style="font-size:0.78rem;">{{ asset.bumon_cd }}</span>
+                                {{ asset.bumon_name }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="text-nowrap">
+                            {% if asset.account_name %}
+                                <span class="text-muted" style="font-size:0.78rem;">{{ asset.account_cd }}</span>
+                                {{ asset.account_name }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ asset.asset_name1|default:"-" }}</td>
+                        <td>{{ asset.asset_name2|default:"-" }}</td>
+                        <td class="text-nowrap">{{ asset.acquisition_date|date:"Y/m/d"|default:"-" }}</td>
+                        <td class="text-nowrap">{{ asset.location_name|default:"-" }}</td>
+                        <td class="text-nowrap">
+                            {% if asset.disposal_kbn and asset.disposal_kbn != '0' %}
+                                <span class="badge bg-secondary">除却済</span>
+                            {% else %}
+                                <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">有</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ページネーション -->
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="mt-3">
+        <ul class="pagination pagination-sm justify-content-center flex-wrap">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1&keyword={{ keyword|urlencode }}&bumon_cd={{ bumon_cd|urlencode }}&account_cd={{ account_cd|urlencode }}&disposal={{ disposal }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    &laquo; 最初
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&keyword={{ keyword|urlencode }}&bumon_cd={{ bumon_cd|urlencode }}&account_cd={{ account_cd|urlencode }}&disposal={{ disposal }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    前へ
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}&keyword={{ keyword|urlencode }}&bumon_cd={{ bumon_cd|urlencode }}&account_cd={{ account_cd|urlencode }}&disposal={{ disposal }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&keyword={{ keyword|urlencode }}&bumon_cd={{ bumon_cd|urlencode }}&account_cd={{ account_cd|urlencode }}&disposal={{ disposal }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    次へ
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&keyword={{ keyword|urlencode }}&bumon_cd={{ bumon_cd|urlencode }}&account_cd={{ account_cd|urlencode }}&disposal={{ disposal }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                    最後 &raquo;
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center text-muted py-5">
+            <i class="fas fa-search fa-2x mb-2 d-block"></i>
+            該当する固定資産はありません。
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

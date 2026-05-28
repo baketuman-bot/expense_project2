@@ -30,6 +30,13 @@
       </h2>
       <p class="text-muted small mt-1 mb-0">{{ cfg.description }} — {{ total }} 件</p>
     </div>
+    <div class="page-actions">
+      <a href="{% url 'expenses:settings_data_view_csv' view_name %}{% if q %}?q={{ q|urlencode }}{% endif %}"
+         class="btn btn-outline-primary btn-sm">
+        <i class="fas fa-download"></i> CSV出力
+        {% if q %}<span class="badge bg-primary ms-1">検索中</span>{% endif %}
+      </a>
+    </div>
   </div>
 
   {% if view_error %}

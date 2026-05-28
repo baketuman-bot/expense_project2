@@ -1531,13 +1531,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!tbody || !totalFormsEl || !addBtn) return;
 
     var formCount = parseInt(totalFormsEl.value) || 0;
-    // tra_items のデータ: key→content2 マッピング（amount 計算用）
-    var traItems = {% if tra_items %}[{% for item in tra_items %}{"key":"{{ item.key|escapejs }}","content2":"{{ item.content2|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %};
+    // tra_items のデータ: key→単価マッピング（content フィールドに単価金額が入っている）
+    var traItems = {% if tra_items %}[{% for item in tra_items %}{"key":"{{ item.key|escapejs }}","price":"{{ item.content|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]{% else %}[]{% endif %};
 
     function getUnitPrice(key) {
         for (var i = 0; i < traItems.length; i++) {
             if (traItems[i].key === key) {
-                var v = parseFloat(traItems[i].content2.replace(/,/g, ''));
+                var v = parseFloat(traItems[i].price.replace(/,/g, ''));
                 return isNaN(v) ? 0 : v;
             }
         }

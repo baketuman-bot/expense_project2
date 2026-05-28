@@ -28,6 +28,9 @@ urlpatterns = [
     path("assets/", views.asset_home, name="asset_home"),
     path("assets/list/", views.asset_list, name="asset_list"),
     path("assets/new/<int:document_type_id>/", views.expense_create, name="asset_create_by_type"),
+    # 固定資産台帳（T_ASSETS）
+    path("assets/register/", views.assets_register_list, name="assets_register_list"),
+    path("assets/register/csv/", views.assets_register_csv, name="assets_register_csv"),
     # 改善要望
     path("feedback/", views.feedback_list, name="feedback_list"),
     path("feedback/new/", views.feedback_create, name="feedback_create"),
@@ -37,11 +40,15 @@ urlpatterns = [
     # 管理者画面 (設定)
     path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),
     path("settings/data_view/<str:view_name>/", views.settings_data_view_browse, name="settings_data_view_browse"),
+    path("settings/data_view/<str:view_name>/csv/", views.settings_data_view_csv, name="settings_data_view_csv"),
     path("settings/", views.settings_home, name="settings_home"),
     path("settings/export/", views.settings_export, name="settings_export"),
     path("settings/approval_admin/", views.settings_approval_admin, name="settings_approval_admin"),
     path("settings/approval_admin/<int:pk>/", views.settings_approval_detail, name="settings_approval_detail"),
     path("settings/approval_admin/<int:pk>/action/", views.settings_force_action, name="settings_force_action"),
+    # 精算処理
+    path("settings/settlement/", views.settlement_list, name="settlement_list"),
+    path("settings/settlement/<int:pk>/toggle/", views.settlement_toggle, name="settlement_toggle"),
     # マスタ設定
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),

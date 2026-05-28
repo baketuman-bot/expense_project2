@@ -1,0 +1,271 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.settle-check {
+  width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);
+}
+.settled-row td { background: #f0fdf4 !important; }
+.settled-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 600;
+  background: #dcfce7; color: #15803d; border: 1px solid #86efac;
+}
+.unsettled-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 600;
+  background: #fef9c3; color: #92400e; border: 1px solid #fde68a;
+}
+/* 行クリックで詳細へ */
+tbody tr[data-href] { cursor: pointer; }
+tbody tr[data-href]:hover td:not(.no-row-link) {
+  background-color: var(--primary-soft) !important;
+  box-shadow: none;
+}
+tbody tr[data-href] td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+/* チェックボックス列はホバー強調しない */
+td.no-row-link { cursor: default; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mt-4">
+
+  <!-- ページタイトル -->
+  <div class="page-head mb-3">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-check-circle"></i></span>
+      精算処理
+    </h2>
+  </div>
+
+  <!-- 検索フォーム -->
+  <div class="card mb-3">
+    <div class="card-body py-2">
+      <form method="get" class="row g-2 align-items-end">
+        <!-- 部門 -->
+        <div class="col-md-2">
+          <label class="form-label small mb-1">部門</label>
+          <select name="bumon_cd" class="form-select form-select-sm">
+            <option value="">すべて</option>
+            {% for cd, name in bumon_choices %}
+            <option value="{{ cd }}" {% if q_bumon == cd %}selected{% endif %}>{{ cd }} {{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- 申請種別 -->
+        <div class="col-md-2">
+          <label class="form-label small mb-1">申請種別</label>
+          <select name="document_type_id" class="form-select form-select-sm">
+            <option value="">すべて</option>
+            {% for tid, tname in doc_type_choices %}
+            <option value="{{ tid }}" {% if q_doc_type == tid|stringformat:"s" %}selected{% endif %}>{{ tname }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- 承認完了日 from -->
+        <div class="col-md-2">
+          <label class="form-label small mb-1">申請日（から）</label>
+          <input type="date" name="date_from" class="form-control form-control-sm" value="{{ q_date_from }}">
+        </div>
+        <!-- 承認完了日 to -->
+        <div class="col-md-2">
+          <label class="form-label small mb-1">申請日（まで）</label>
+          <input type="date" name="date_to" class="form-control form-control-sm" value="{{ q_date_to }}">
+        </div>
+        <!-- 精算状態 -->
+        <div class="col-md-1">
+          <label class="form-label small mb-1">精算状態</label>
+          <select name="settled" class="form-select form-select-sm">
+            <option value=""  {% if q_settled == '' %}selected{% endif %}>すべて</option>
+            <option value="0" {% if q_settled == '0' %}selected{% endif %}>未精算</option>
+            <option value="1" {% if q_settled == '1' %}selected{% endif %}>精算済</option>
+          </select>
+        </div>
+        <!-- ボタン -->
+        <div class="col-12 d-flex gap-2 pt-1">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="fas fa-search"></i> 検索
+          </button>
+          <a href="{% url 'expenses:settlement_list' %}" class="btn btn-outline-secondary btn-sm">クリア</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 件数 -->
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="text-muted small">全 <strong>{{ total_count }}</strong> 件</span>
+    <span class="text-muted small">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }} ページ</span>
+  </div>
+
+  <!-- テーブル -->
+  {% if page_obj.object_list %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0" style="font-size:0.83rem;">
+        <thead class="table-light">
+          <tr>
+            <th class="text-nowrap">申請ID</th>
+            <th class="text-nowrap">申請種別</th>
+            <th class="text-nowrap">申請者</th>
+            <th class="text-nowrap">部門</th>
+            <th class="text-nowrap">申請日</th>
+            <th class="text-end text-nowrap">合計金額</th>
+            <th class="text-nowrap">精算状態</th>
+            <th class="text-nowrap">精算日時</th>
+            <th class="text-center text-nowrap">精算完了</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in page_obj.object_list %}
+          <tr id="row-{{ doc.document_id }}"
+              data-href="{% url 'expenses:expense_detail' doc.document_id %}?from=settlement"
+              {% if doc.is_settled %}class="settled-row"{% endif %}>
+            <td class="text-nowrap">
+              <a href="{% url 'expenses:expense_detail' doc.document_id %}" class="text-decoration-none">
+                #{{ doc.document_id }}
+              </a>
+            </td>
+            <td class="text-nowrap">{{ doc.document_type.document_type_name }}</td>
+            <td class="text-nowrap">{{ doc.man_number.user_name }}</td>
+            <td class="text-nowrap">
+              {% if doc.bumon_cd %}
+                <span class="text-muted" style="font-size:0.78rem;">{{ doc.bumon_cd.bumon_cd }}</span>
+                {{ doc.bumon_cd.bumon_name }}
+              {% else %}-{% endif %}
+            </td>
+            <td class="text-nowrap">{{ doc.created_at|date:"Y/m/d" }}</td>
+            <td class="text-end text-nowrap">{{ doc.total_amount|floatformat:0 }}</td>
+            <td id="badge-{{ doc.document_id }}">
+              {% if doc.is_settled %}
+                <span class="settled-badge">精算済</span>
+              {% else %}
+                <span class="unsettled-badge">未精算</span>
+              {% endif %}
+            </td>
+            <td id="settled-at-{{ doc.document_id }}" class="text-nowrap text-muted" style="font-size:0.78rem;">
+              {% if doc.settled_at %}{{ doc.settled_at|date:"Y/m/d H:i" }}{% else %}—{% endif %}
+            </td>
+            <td class="text-center no-row-link">
+              <input type="checkbox"
+                     class="settle-check"
+                     data-id="{{ doc.document_id }}"
+                     {% if doc.is_settled %}checked{% endif %}
+                     title="精算完了をトグル">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ページネーション -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center flex-wrap">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page=1&bumon_cd={{ q_bumon|urlencode }}&document_type_id={{ q_doc_type }}&date_from={{ q_date_from }}&date_to={{ q_date_to }}&settled={{ q_settled }}">
+          &laquo; 最初
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&bumon_cd={{ q_bumon|urlencode }}&document_type_id={{ q_doc_type }}&date_from={{ q_date_from }}&date_to={{ q_date_to }}&settled={{ q_settled }}">
+          前へ
+        </a>
+      </li>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ num }}&bumon_cd={{ q_bumon|urlencode }}&document_type_id={{ q_doc_type }}&date_from={{ q_date_from }}&date_to={{ q_date_to }}&settled={{ q_settled }}">
+            {{ num }}
+          </a>
+        </li>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}&bumon_cd={{ q_bumon|urlencode }}&document_type_id={{ q_doc_type }}&date_from={{ q_date_from }}&date_to={{ q_date_to }}&settled={{ q_settled }}">
+          次へ
+        </a>
+      </li>
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&bumon_cd={{ q_bumon|urlencode }}&document_type_id={{ q_doc_type }}&date_from={{ q_date_from }}&date_to={{ q_date_to }}&settled={{ q_settled }}">
+          最後 &raquo;
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center text-muted py-5">
+      <i class="fas fa-check-circle fa-2x mb-2 d-block"></i>
+      該当する申請はありません。
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function () {
+  // 行クリックで詳細画面へ遷移（チェックボックス列・リンクはそのまま）
+  document.querySelectorAll('tbody tr[data-href]').forEach(function (tr) {
+    tr.addEventListener('click', function (e) {
+      // チェックボックス列・<a>タグ・<input>タグのクリックは無視
+      if (e.target.closest('.no-row-link') || e.target.closest('a') || e.target.tagName === 'INPUT') return;
+      window.location.href = tr.dataset.href;
+    });
+  });
+}());
+
+(function () {
+  const TOGGLE_URL_BASE = "{% url 'expenses:settlement_toggle' 0 %}".replace('/0/', '/');
+
+  document.querySelectorAll('.settle-check').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      const docId = this.dataset.id;
+      const url   = TOGGLE_URL_BASE + docId + '/toggle/';
+      const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+      fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+      })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        const row      = document.getElementById('row-' + docId);
+        const badge    = document.getElementById('badge-' + docId);
+        const settledAt = document.getElementById('settled-at-' + docId);
+
+        if (data.is_settled) {
+          row.classList.add('settled-row');
+          badge.innerHTML = '<span class="settled-badge">精算済</span>';
+          settledAt.textContent = data.settled_at;
+        } else {
+          row.classList.remove('settled-row');
+          badge.innerHTML = '<span class="unsettled-badge">未精算</span>';
+          settledAt.textContent = '—';
+        }
+      })
+      .catch(function () {
+        // エラー時はチェック状態を元に戻す
+        cb.checked = !cb.checked;
+        alert('更新に失敗しました。');
+      });
+    });
+  });
+}());
+</script>
+{% endblock %}

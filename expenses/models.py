@@ -474,6 +474,8 @@ class T_Document(models.Model):
     pay_kbn = models.CharField("精算方法", max_length=2, db_column='pay_kbn', null=True, blank=True)
     created_at = models.DateTimeField("作成日時", auto_now_add=True)
     updated_at = models.DateTimeField("更新日時", auto_now=True)
+    is_settled = models.BooleanField("精算完了", default=False, db_column='is_settled')
+    settled_at = models.DateTimeField("精算日時", null=True, blank=True, db_column='settled_at')
 
     def __str__(self):
         return f"{self.document_id} - {self.title}"
