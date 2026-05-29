@@ -102,7 +102,7 @@
                         <td><span class="badge bg-secondary fw-normal" style="font-size:11px">{{ doc.document_type.document_type_name }}</span></td>
                         <td class="text-muted small">{{ doc.created_at|date:"Y/m/d H:i" }}</td>
                         <td class="text-muted small">{% if last_dt %}{{ last_dt|date:"Y/m/d H:i" }}{% else %}-{% endif %}</td>
-                        <td class="small">{{ doc.man_number.user_name }}</td>
+                        <td class="small">{{ doc.man_number.last_name }}</td>
                         <td class="small text-truncate" style="max-width:140px">
                             {% with doc.contents.first as c %}{{ c.purpose|default:"-" }}{% endwith %}
                         </td>
@@ -123,11 +123,11 @@
                                     <span class="flow-item">
                                         <span class="flow-name">{{ ap.name }}</span>
                                         {% if ap.status == 'APPROVED' %}
-                                            <span class="flow-arrow-ok">▶▶▶</span>
+                                            <span class="flow-arrow-ok">▶</span>
                                         {% elif ap.status == 'REJECTED' or ap.status == 'RETURNED' %}
-                                            <span class="flow-arrow-ng">◀◀◀</span>
+                                            <span class="flow-arrow-ng">◀</span>
                                         {% else %}
-                                            <span class="flow-arrow-pend">▷▷▷</span>
+                                            <span class="flow-arrow-pend">▷</span>
                                         {% endif %}
                                     </span>
                                 {% endfor %}

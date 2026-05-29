@@ -352,7 +352,7 @@
                                     <small class="text-muted">{{ act.actioned_at|date:"Y/m/d H:i" }}</small>
                                 </div>
                                 <div class="text-muted small mt-1">
-                                    <i class="fas fa-user me-1"></i>{{ act.approver_man_number.user_name }}
+                                    <i class="fas fa-user me-1"></i>{{ act.approver_man_number.last_name }}
                                     {% if act.step %}<span class="ms-2 badge bg-light text-dark border">Step {{ act.step.step_order }}</span>{% endif %}
                                 </div>
                                 {% if act.comment %}
@@ -378,7 +378,7 @@
                                     <span class="badge badge-step-wait">Step {{ pa.step_order }}</span>
                                 </div>
                                 <div class="text-muted small mt-1">
-                                    <i class="fas fa-user me-1"></i>{{ pa.man_number.user_name }}
+                                    <i class="fas fa-user me-1"></i>{{ pa.man_number.last_name }}
                                     {% if pa.man_number.post_cd %}<span class="ms-1">（{{ pa.man_number.post_cd.post_name }}）</span>{% endif %}
                                 </div>
                             </div>

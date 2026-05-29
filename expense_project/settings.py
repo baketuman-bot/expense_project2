@@ -193,7 +193,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = False
 EMAIL_USE_SSL = False
 EMAIL_TIMEOUT = 10
-DEFAULT_FROM_EMAIL = 'idc_work@idc-com.co.jp'
+DEFAULT_FROM_EMAIL = 'keiri@idc-com.co.jp'
 
 # 強制転送先（設定時は全メールがこのアドレスへ送信される。空文字で無効）
 EMAIL_FORCE_TO = os.environ.get('EMAIL_FORCE_TO', '')

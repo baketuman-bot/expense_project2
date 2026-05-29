@@ -206,6 +206,17 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 - `M_Post.post_order` で役職フィルタ (値が小さい=上位)
 - 申請者自身は常に候補から除外
 
+**連続ステップ自動承認 (`approval_detail` ビュー APPROVED ブランチ):**
+
+同一ユーザーが連続する複数ステップを担当している場合、手前ステップの承認時に後続ステップも自動承認される。
+
+- 実装: `approval_detail` ビューの APPROVED ブランチで while ループにより実現
+- 次ステップの `T_DocumentApprover` に自分（`man_number=request.user`、`status='pending'`）が登録されていれば自動承認→次ステップへを繰り返す
+- 自動承認時: `T_WorkflowAction` を `comment='（連続ステップ自動承認）'` で記録、`T_DocumentApprover.status='APPROVED'`
+- 最終ステップまで自動承認した場合は FNS に遷移（次承認者へのメール通知はスキップ）
+- **対象外**: `role='approver'`（全件特権ロール、無限ループ防止）および `is_superuser=True`
+- OR承認クリーンアップ: 自動承認後も同ステップの残り pending レコードを削除してから次へ進む
+
 ### Database Models
 
 **マスタ (M_):** M_User, M_Bumon(部門), M_Post(役職), M_Group(部署), M_BelongTo(所属), M_Account(勘定科目), M_Item(汎用マスタ), M_Status, M_DocumentType, M_DocumentGroup, M_DocumentField, M_AccountDocument, M_WorkflowTemplate, M_WorkflowStep
@@ -340,6 +351,7 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 
 - `SECRET_KEY`, `DEBUG`, `DATABASE_URL`: 環境変数から取得
 - `EMAIL_HOST`: 社内SMTP (172.16.100.243:25, 認証なし)
+- `DEFAULT_FROM_EMAIL`: `keiri@idc-com.co.jp`（送信元メールアドレス）
 - `EMAIL_FORCE_TO`: テスト時のメール宛先強制変更
 - `GCS_PROJECT_ID`, `GCS_BUCKET_NAME`: Cloud Storage設定
 - `IMAGE_UP_APP_BASE_URL`: Cloud Run 領収書アップロードアプリURL

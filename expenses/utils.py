@@ -126,9 +126,9 @@ def steps_with_candidates(applicant: M_User, workflow_template):
 def get_pending_approvers(document):
     """承認予定者（未処理）一覧を返す。
 
-    T_DocumentApprover に登録済みの pending/draft 行に加え、
-    M_WorkflowStep の allowed_bumon_scope='keiri' で、まだ APPROVED アクションが
-    行われていない経理ステップを補完して返す。
+    T_DocumentApprover に登録済みの pending/draft 行を返す。
+    keiri スコープのステップは複数候補者が登録されている場合でも
+    「経理部門」として1エントリに集約して返す。
 
     テンプレートが参照する属性: step_order / man_number.user_name /
     man_number.post_cd.post_name
@@ -153,36 +153,49 @@ def get_pending_approvers(document):
         .select_related('approver_post')
         .order_by('step_order')
     )
-    if not keiri_steps:
-        return sorted(explicit, key=lambda x: x.step_order or 0)
+    keiri_step_ids = {s.step_id for s in keiri_steps}
+    keiri_step_map = {s.step_id: s for s in keiri_steps}
 
-    covered_step_ids = {pa.step_id_id for pa in explicit if pa.step_id_id}
     done_step_ids = set(
         T_WorkflowAction.objects
         .filter(instance__document_id=document, action_status_id='APPROVED')
         .values_list('step_id', flat=True)
     )
 
-    applicant = document.man_number
-    extras = []
+    # explicit リストを処理:
+    #   keiri ステップ → step_id ごとに「経理部門」として1エントリに集約
+    #   非 keiri ステップ → そのまま返す
+    result = []
+    seen_keiri_step_ids = set()
+    for pa in explicit:
+        sid = pa.step_id_id
+        if sid in keiri_step_ids:
+            if sid not in seen_keiri_step_ids:
+                seen_keiri_step_ids.add(sid)
+                step_obj = keiri_step_map.get(sid)
+                post_ns = SimpleNamespace(
+                    post_name=(step_obj.approver_post.post_name if step_obj and step_obj.approver_post else '')
+                )
+                user_ns = SimpleNamespace(user_name='経理部門', last_name='経理部門', post_cd=post_ns)
+                result.append(SimpleNamespace(
+                    step_order=pa.step_order,
+                    man_number=user_ns,
+                ))
+        else:
+            result.append(pa)
+
+    # keiri ステップで T_DocumentApprover 未登録のもの（フォールバック補完）
+    covered_step_ids = {pa.step_id_id for pa in explicit if pa.step_id_id}
     for step in keiri_steps:
         if step.step_id in covered_step_ids or step.step_id in done_step_ids:
             continue
-        cand = candidates_for_step(applicant, step).first()
-        if cand:
-            post_ns = SimpleNamespace(
-                post_name=(cand.post_cd.post_name if cand.post_cd else '')
-            ) if cand.post_cd else None
-            user_ns = SimpleNamespace(user_name=cand.user_name, post_cd=post_ns)
-        else:
-            post_ns = SimpleNamespace(
-                post_name=step.approver_post.post_name
-            ) if step.approver_post else None
-            user_ns = SimpleNamespace(user_name='経理担当', post_cd=post_ns)
-        extras.append(SimpleNamespace(
+        post_ns = SimpleNamespace(
+            post_name=(step.approver_post.post_name if step.approver_post else '')
+        )
+        user_ns = SimpleNamespace(user_name='経理部門', post_cd=post_ns)
+        result.append(SimpleNamespace(
             step_order=step.step_order,
             man_number=user_ns,
         ))
 
-    combined = explicit + extras
-    return sorted(combined, key=lambda x: x.step_order or 0)
+    return sorted(result, key=lambda x: x.step_order or 0)
