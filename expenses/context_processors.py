@@ -21,10 +21,10 @@ def sidebar_context(request):
 
     # 承認待ち件数: 自分が現在のワークフローステップの担当者（pending）として
     # 登録されており、かつ INPRO 状態の申請数
-    # role='approver' / is_superuser は INPRO 全件を対象（特権）
+    # has_role('approver') は INPRO 全件を対象（特権）
     pending_approval_count = 0
     try:
-        if request.user.role == 'approver' or request.user.is_superuser:
+        if request.user.has_role('approver'):
             pending_approval_count = T_Document.objects.filter(
                 status_cd__status_cd='INPRO'
             ).count()

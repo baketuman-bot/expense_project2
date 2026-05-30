@@ -2422,7 +2422,7 @@ def _build_my_approvals_qs(user):
         status_cd__status_cd__in=['INPRO', 'APPROVED']
     ).select_related('status_cd', 'document_type', 'man_number', 'bumon_cd').prefetch_related('contents')
 
-    if user.role == 'approver' or user.is_superuser:
+    if user.has_role('approver'):
         # 特権: 申請中の全件を対象
         return base_qs
 
@@ -2555,8 +2555,8 @@ def approval_detail(request, pk):
     expense = get_object_or_404(T_Document, pk=pk)
     if request.method == "POST":
         # 担当者チェック: 現ステップのT_DocumentApproverに登録されているか確認
-        # is_superuser / role='approver'（特権）はバイパス
-        if not request.user.is_superuser and request.user.role != 'approver':
+        # has_role('approver')（特権）はバイパス
+        if not request.user.has_role('approver'):
             from .models import T_WorkflowInstance as _TWI, T_DocumentApprover as _TDA
             _inst = _TWI.objects.filter(document_id=expense).order_by('-started_at').first()
             if _inst:
@@ -2657,9 +2657,9 @@ def approval_detail(request, pk):
 
                                 # ── 連続ステップ自動承認 ─────────────────────────────────────
                                 # 同一人物が続くステップを担当している場合、手前ステップ承認時に自動承認
-                                # role='approver'（全件特権）は対象外（全ステップ担当者扱いとなりループになるため）
+                                # has_role('approver')（全件特権）は対象外（全ステップ担当者扱いとなりループになるため）
                                 reached_fns_auto = False
-                                if request.user.role != 'approver' and not request.user.is_superuser:
+                                if not request.user.has_role('approver'):
                                     while True:
                                         _auto_qs = T_DocumentApprover.objects.filter(
                                             document_id=expense,
@@ -4275,7 +4275,7 @@ def feedback_create(request):
 
 def _feedback_notify_superusers(fb, submitter):
     from .utils import send_notification
-    superusers = M_User.objects.filter(is_superuser=True).exclude(email__isnull=True).exclude(email='')
+    superusers = M_User.objects.filter(roles__role='admin').exclude(email__isnull=True).exclude(email='')
     subject = '【改善要望】#' + str(fb.feedback_id) + ' 新規登録'
     message = (
         '改善要望が登録されました。\n\n'
@@ -4293,7 +4293,7 @@ def _feedback_notify_superusers(fb, submitter):
 def feedback_detail(request, pk):
     from .models import T_Feedback
     fb = get_object_or_404(T_Feedback, pk=pk)
-    is_admin = bool(request.user.is_superuser)
+    is_admin = request.user.has_role('admin')
     return render(request, 'expenses/feedback_detail.html', {'fb': fb, 'is_admin': is_admin})
 
 
@@ -4301,7 +4301,7 @@ def feedback_detail(request, pk):
 def feedback_edit(request, pk):
     from .models import T_Feedback
     fb = get_object_or_404(T_Feedback, pk=pk)
-    is_admin = request.user.is_superuser
+    is_admin = request.user.has_role('admin')
     is_owner = (fb.man_number_id == request.user.man_number)
     if not is_admin and not is_owner:
         raise PermissionDenied()
@@ -4336,7 +4336,7 @@ def feedback_edit(request, pk):
 def feedback_delete(request, pk):
     from .models import T_Feedback
     fb = get_object_or_404(T_Feedback, pk=pk)
-    is_admin = request.user.is_superuser
+    is_admin = request.user.has_role('admin')
     is_owner = (fb.man_number_id == request.user.man_number)
     if not is_admin and not is_owner:
         raise PermissionDenied()

@@ -343,8 +343,19 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 
 - カスタム認証バックエンド `ManNumberModelBackend`: 社員番号 (`man_number`) でログイン
 - カスタムユーザーモデル `M_User` (AbstractUser拡張): man_number, user_name, bumon_cd, post_cd, role
-- ロール: employee / approver / accountant / final_approver
-- `M_User.is_superuser=True`: スーパーユーザー（Django 標準フィールド）。改善要望の回答・状況編集権限を持つ
+- **`M_UserRole`**: ユーザー追加ロールテーブル（`m_user_role`）。man_number FK + role CharField で構成。1ユーザーに複数ロールを付与可能
+- **`M_User.has_role(role_name)`**: `role == role_name` または `M_UserRole` に登録があれば True。ビュー内の権限チェックはすべてこのメソッドで統一
+- アプリ内の権限チェックに `is_superuser` を使用しない。`is_superuser` は Django Admin 専用（別アカウント管理）
+- ロール定義（`role` フィールドまたは `M_UserRole.role` で設定）:
+  - `employee`: 一般社員（デフォルト）
+  - `approver`: 全件承認権限（`has_role('approver')` でチェック）
+  - `accountant`: 経理担当
+  - `final_approver`: 経理承認
+  - `admin`: アプリ管理者（改善要望回答・状況編集）
+  - `keiri`: keiri スコープの承認候補（`M_WorkflowStep.allowed_bumon_scope='keiri'`）
+  - `assets`: 固定資産スコープの承認候補（同上）
+  - ※ `M_WorkflowStep.allowed_bumon_scope` の値と `M_UserRole.role` が一致するユーザーが承認候補になる
+- `candidates_for_step` の `else` ブランチ: `Q(role=scope) | Q(roles__role=scope)` で `M_UserRole` も参照
 - 全ビューに `@login_required`
 
 ## Configuration

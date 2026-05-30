@@ -71,11 +71,33 @@ class M_User(AbstractUser):
         ("final_approver", "経理承認者"),
     ], default="employee")
 
+    def has_role(self, role_name):
+        """primary role または M_UserRole に role_name が含まれるか判定する。"""
+        return self.role == role_name or self.roles.filter(role=role_name).exists()
+
     def __str__(self):
         return self.user_name
 
     class Meta:
         db_table = 'm_user'
+
+
+class M_UserRole(models.Model):
+    man_number = models.ForeignKey(
+        M_User,
+        to_field='man_number',
+        db_column='man_number',
+        on_delete=models.CASCADE,
+        related_name='roles',
+        verbose_name='社員番号',
+    )
+    role = models.CharField("ロール", max_length=50)
+
+    class Meta:
+        db_table = 'm_user_role'
+        unique_together = ('man_number', 'role')
+        verbose_name = 'ユーザーロール'
+        verbose_name_plural = 'ユーザーロール'
 
 
 # 勘定科目マスタ

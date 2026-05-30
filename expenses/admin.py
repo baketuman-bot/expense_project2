@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.http import HttpResponse
 import csv
 from .models import (
-    M_User, M_Bumon, M_Post, M_Status, M_Account, M_Group, M_BelongTo, V_Group,
+    M_User, M_UserRole, M_Bumon, M_Post, M_Status, M_Account, M_Group, M_BelongTo, V_Group,
     T_Document, T_DocumentContent, M_DocumentField, M_AccountDocument
 )
 
@@ -47,6 +47,14 @@ class GroupRelationAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False  # 削除を禁止
 
+class UserRoleInline(admin.TabularInline):
+    model = M_UserRole
+    extra = 1
+    fields = ('role',)
+    verbose_name = '追加ロール'
+    verbose_name_plural = '追加ロール'
+
+
 @admin.register(M_User)
 class CustomUserAdmin(UserAdmin):
     list_display = ('username', 'man_number', 'user_name', 'email', 'bumon_cd', 'post_cd', 'role', 'is_staff')
@@ -65,6 +73,7 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('username', 'man_number', 'user_name', 'email')
     ordering = ('username',)
     filter_horizontal = ('user_permissions',)
+    inlines = [UserRoleInline]
 
 class DocumentContentInline(admin.TabularInline):
     model = T_DocumentContent
