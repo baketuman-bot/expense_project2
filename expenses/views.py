@@ -4029,7 +4029,7 @@ def settlement_menu(request):
 @login_required
 def settlement_classify(request):
     """未清算データ分類: settle_kbn IS NULL の明細に精算方法を割り当てる"""
-    PAY_KBN_TO_ACTION = {'01': 'SAL_PRE', '02': 'CAS_PRE', '03': 'LON_PRE'}
+    PAY_KBN_TO_STATUS_CD = {'01': 'SAL_PRE', '02': 'CAS_PRE', '03': 'LON_PRE'}
 
     if request.method == 'POST':
         selected_ids = request.POST.getlist('selected_ids')
@@ -4049,17 +4049,16 @@ def settlement_classify(request):
     )
 
     stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
-    action_to_status_cd = {s.action_name: s.status_cd for s in stl_statuses}
 
     rows = []
     for content in contents:
         if content.corpo_card_no:
-            default_action = 'COC_PRE'
+            default_status_cd = 'COC_PRE'
         else:
-            default_action = PAY_KBN_TO_ACTION.get(content.document.pay_kbn or '', '')
+            default_status_cd = PAY_KBN_TO_STATUS_CD.get(content.document.pay_kbn or '', '')
         rows.append({
             'content': content,
-            'default_status_cd': action_to_status_cd.get(default_action, ''),
+            'default_status_cd': default_status_cd,
         })
 
     return render(request, 'expenses/settlement_classify.html', {
