@@ -4297,7 +4297,6 @@ def _feedback_notify_superusers(fb, submitter):
 
 def _feedback_notify_submitter(fb, updater):
     from .models import T_Feedback
-    from .utils import send_notification
     submitter = fb.man_number
     if not submitter or not getattr(submitter, 'email', None):
         return

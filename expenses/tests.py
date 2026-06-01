@@ -207,7 +207,7 @@ class FeedbackNotifySubmitterTest(TestCase):
     def test_notify_submitter_sends_email(self):
         """_feedback_notify_submitter は提出者のメールアドレスへ send_notification を呼ぶ"""
         from expenses.views import _feedback_notify_submitter
-        with patch('expenses.utils.send_notification') as mock_send:
+        with patch('expenses.views.send_notification') as mock_send:
             _feedback_notify_submitter(self.fb, self.admin_user)
         mock_send.assert_called_once()
         call_args = mock_send.call_args[0]
@@ -220,14 +220,14 @@ class FeedbackNotifySubmitterTest(TestCase):
         from expenses.views import _feedback_notify_submitter
         self.submitter.email = ''
         self.submitter.save()
-        with patch('expenses.utils.send_notification') as mock_send:
+        with patch('expenses.views.send_notification') as mock_send:
             _feedback_notify_submitter(self.fb, self.admin_user)
         mock_send.assert_not_called()
 
     def test_feedback_edit_with_notify_sends_email(self):
         """feedback_edit に notify_submitter=1 を POST すると提出者に通知される"""
         self.client.force_login(self.admin_user)
-        with patch('expenses.utils.send_notification') as mock_send:
+        with patch('expenses.views.send_notification') as mock_send:
             response = self.client.post(
                 f'/feedback/{self.fb.pk}/edit/',
                 {
@@ -244,7 +244,7 @@ class FeedbackNotifySubmitterTest(TestCase):
     def test_feedback_edit_without_notify_skips_email(self):
         """feedback_edit に notify_submitter=0 を POST すると通知されない"""
         self.client.force_login(self.admin_user)
-        with patch('expenses.utils.send_notification') as mock_send:
+        with patch('expenses.views.send_notification') as mock_send:
             response = self.client.post(
                 f'/feedback/{self.fb.pk}/edit/',
                 {
@@ -253,6 +253,17 @@ class FeedbackNotifySubmitterTest(TestCase):
                     'status_cd': '02',
                     'notify_submitter': '0',
                 },
+            )
+        self.assertEqual(response.status_code, 302)
+        mock_send.assert_not_called()
+
+    def test_feedback_edit_notify_ignored_for_non_admin(self):
+        """非adminオーナーが notify_submitter=1 を POST しても通知されない"""
+        self.client.force_login(self.submitter)
+        with patch('expenses.views.send_notification') as mock_send:
+            response = self.client.post(
+                f'/feedback/{self.fb.pk}/edit/',
+                {'request_text': '変更', 'notify_submitter': '1'},
             )
         self.assertEqual(response.status_code, 302)
         mock_send.assert_not_called()
