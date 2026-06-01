@@ -20,7 +20,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .no-print button {
       padding: 6px 18px;
@@ -36,37 +36,29 @@
       border-color: #17307a;
     }
 
-    .doc-block {
-      margin-bottom: 28px;
-    }
-
-    .doc-header {
+    /* ── ページヘッダー（検印欄含む、全体で1か所） ── */
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 8px;
-      border-bottom: 1.5px solid #17307a;
+      border-bottom: 2px solid #17307a;
       padding-bottom: 6px;
+      margin-bottom: 14px;
     }
-    .doc-header-left h2 {
-      font-size: 14px;
+    .page-header-left h1 {
+      font-size: 16px;
       font-weight: bold;
-      margin: 0 0 5px 0;
+      margin: 0 0 3px 0;
     }
-    .doc-meta {
-      display: grid;
-      grid-template-columns: max-content 1fr max-content 1fr;
-      gap: 3px 12px;
+    .page-header-left .sub {
       font-size: 10.5px;
+      color: #555;
     }
-    .doc-meta .lbl { color: #555; white-space: nowrap; }
-    .doc-meta .wide { grid-column: 2 / span 3; }
 
-    /* 検印欄 */
+    /* 検印欄（1か所） */
     .stamp-area {
       display: flex;
       border: 1.5px solid #000;
-      margin-left: 20px;
       flex-shrink: 0;
     }
     .stamp-box {
@@ -85,6 +77,36 @@
       background: #f3f4f8;
     }
     .stamp-box-inner { flex: 1; }
+
+    /* ── ドキュメントブロック ── */
+    .doc-block {
+      margin-bottom: 22px;
+    }
+
+    /* 申請情報（2行テーブル） */
+    .doc-info {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+      margin-bottom: 6px;
+    }
+    .doc-info td {
+      border: 1px solid #bbb;
+      padding: 3px 7px;
+      white-space: nowrap;
+    }
+    .doc-info td.lbl {
+      background: #eef0f8;
+      color: #444;
+      font-weight: bold;
+      width: 1%;
+    }
+    .doc-info td.val {
+      min-width: 80px;
+    }
+    .doc-info td.val-wide {
+      /* 件名など長くなりうる列 */
+    }
 
     /* 明細テーブル */
     .detail-table {
@@ -130,52 +152,53 @@
   </span>
 </div>
 
+<!-- 検印欄：全体で1か所 -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>現金精算 明細</h1>
+    <div class="sub">印刷日: {{ print_date|date:"Y年m月d日 H:i" }}　{{ doc_groups|length }} 件</div>
+  </div>
+  <div class="stamp-area">
+    <div class="stamp-box">
+      <div class="stamp-box-label">担当</div>
+      <div class="stamp-box-inner"></div>
+    </div>
+    <div class="stamp-box">
+      <div class="stamp-box-label">確認</div>
+      <div class="stamp-box-inner"></div>
+    </div>
+    <div class="stamp-box">
+      <div class="stamp-box-label">承認</div>
+      <div class="stamp-box-inner"></div>
+    </div>
+  </div>
+</div>
+
 {% for group in doc_groups %}
 {% with doc=group.document %}
 <div class="doc-block{% if not forloop.last %} page-break{% endif %}">
 
-  <div class="doc-header">
-    <div class="doc-header-left">
-      <h2>現金精算 明細　<small style="font-weight:normal; font-size:12px;">申請ID: {{ doc.document_id }}</small></h2>
-      <div class="doc-meta">
-        <span class="lbl">申請種別</span><span>{{ doc.document_type.document_type_name }}</span>
-        <span class="lbl">申請日</span><span>{{ doc.created_at|date:"Y年m月d日" }}</span>
-
-        <span class="lbl">申請者</span>
-        <span>{{ doc.man_number.user_name }}（{{ doc.man_number.man_number }}）</span>
-        <span class="lbl">部門</span>
-        <span>{% if doc.bumon_cd %}{{ doc.bumon_cd.bumon_name }}{% else %}-{% endif %}</span>
-
-        <span class="lbl">件名</span><span>{{ doc.title }}</span>
-        <span class="lbl">稟議No</span><span>{{ doc.ringi_no|default:"-" }}</span>
-
-        <span class="lbl">精算方法</span>
-        <span>{{ pay_kbn_map|get_item:doc.pay_kbn|default:doc.pay_kbn|default:"-" }}</span>
-        <span class="lbl">通貨</span>
-        <span>{{ doc.tsuka_cd|default:"JPY" }}</span>
-
-        {% if doc.memo %}
-        <span class="lbl">備考</span><span class="wide">{{ doc.memo }}</span>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- 検印欄（右上） -->
-    <div class="stamp-area">
-      <div class="stamp-box">
-        <div class="stamp-box-label">担当</div>
-        <div class="stamp-box-inner"></div>
-      </div>
-      <div class="stamp-box">
-        <div class="stamp-box-label">確認</div>
-        <div class="stamp-box-inner"></div>
-      </div>
-      <div class="stamp-box">
-        <div class="stamp-box-label">承認</div>
-        <div class="stamp-box-inner"></div>
-      </div>
-    </div>
-  </div>
+  <!-- 申請情報（2行） -->
+  <table class="doc-info">
+    <tr>
+      <td class="lbl">申請ID</td><td class="val">{{ doc.document_id }}</td>
+      <td class="lbl">申請種別</td><td class="val">{{ doc.document_type.document_type_name }}</td>
+      <td class="lbl">申請者</td><td class="val">{{ doc.man_number.user_name }}（{{ doc.man_number.man_number }}）</td>
+      <td class="lbl">部門</td><td class="val">{% if doc.bumon_cd %}{{ doc.bumon_cd.bumon_name }}{% else %}-{% endif %}</td>
+      <td class="lbl">申請日</td><td class="val">{{ doc.created_at|date:"Y/m/d" }}</td>
+    </tr>
+    <tr>
+      <td class="lbl">件名</td><td class="val-wide" colspan="3">{{ doc.title }}</td>
+      <td class="lbl">稟議No</td><td class="val">{{ doc.ringi_no|default:"-" }}</td>
+      <td class="lbl">精算方法</td><td class="val">{{ pay_kbn_map|get_item:doc.pay_kbn|default:doc.pay_kbn|default:"-" }}</td>
+      <td class="lbl">通貨</td><td class="val">{{ doc.tsuka_cd|default:"JPY" }}</td>
+    </tr>
+    {% if doc.memo %}
+    <tr>
+      <td class="lbl">備考</td><td colspan="9">{{ doc.memo }}</td>
+    </tr>
+    {% endif %}
+  </table>
 
   <!-- 明細テーブル -->
   <table class="detail-table">
@@ -187,7 +210,6 @@
         <th>支払先</th>
         <th>目的</th>
         <th>登録番号</th>
-        <th>法人カード</th>
         <th>カード下4桁</th>
         <th class="num">金額</th>
       </tr>
@@ -201,8 +223,7 @@
         <td>{{ c.shiharaisaki|default:"-" }}</td>
         <td>{{ c.purpose|default:"-" }}</td>
         <td style="white-space:nowrap;">{{ c.tekikaku_cd|default:"-" }}</td>
-        <td class="ctr">{% if c.corpo_card %}有{% else %}-{% endif %}</td>
-        <td style="white-space:nowrap;">{{ c.corpo_card_no|default:"-" }}</td>
+        <td class="ctr">{{ c.corpo_card_no|default:"-" }}</td>
         <td class="num" data-amount="{{ c.amount|default:0 }}">
           {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
         </td>
@@ -211,7 +232,7 @@
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="8" class="num">合計</td>
+        <td colspan="7" class="num">合計</td>
         <td class="num total-cell">-</td>
       </tr>
     </tfoot>
