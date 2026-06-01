@@ -165,7 +165,8 @@ SELECT
   dc.corpo_card,
   dc.corpo_card_no,
   d.pay_kbn,
-  dc.settle_kbn
+  dc.settle_kbn,
+  d.status_cd_id
 FROM t_documentcontents dc
 LEFT JOIN t_documents      d  ON d.document_id       = dc.document_id
 LEFT JOIN m_document_types dt ON dt.document_type_id = d.document_type_id

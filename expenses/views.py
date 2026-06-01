@@ -4044,7 +4044,7 @@ def settlement_classify(request):
     contents = (
         T_DocumentContent.objects
         .select_related('document', 'document__document_type')
-        .filter(settle_kbn__isnull=True)
+        .filter(settle_kbn__isnull=True, document__status_cd_id='FNS')
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
 
