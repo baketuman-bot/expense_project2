@@ -2,6 +2,15 @@
 
 社内向け費用精算Webアプリケーション。document_typeに応じた入力フォームの切り替え、上長承認・経理承認のワークフロー機能を備える。
 
+## ⚠️ 重要: 本番環境での開発
+
+**このプロジェクトは本番環境のデータベース (`expense_db`) を直接使用して開発している。**
+
+- **テーブルデータの削除・消去は厳禁。** `DELETE`, `TRUNCATE`, `DROP TABLE`, `DROP DATABASE` などの破壊的操作を実行してはならない。
+- **`python manage.py test` を実行する際は `DJANGO_TEST_DB_NAME=expense_db` を絶対に使用しない。** Django のテストランナーが本番DBを消去する危険がある。テスト実行には MySQL 管理者による `test_expense_db` への権限付与が必要。
+- **`python manage.py flush` を実行してはならない。** 全テーブルのデータが消去される。
+- マイグレーションは `AddField` / `AlterField` など非破壊的な操作のみ行う。データを削除するマイグレーションは事前に必ずバックアップを取ること。
+
 ## Tech Stack
 
 - **Backend:** Django 5.2.6 / Python 3.12+
@@ -342,20 +351,19 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 ### Authentication
 
 - カスタム認証バックエンド `ManNumberModelBackend`: 社員番号 (`man_number`) でログイン
-- カスタムユーザーモデル `M_User` (AbstractUser拡張): man_number, user_name, bumon_cd, post_cd, role
-- **`M_UserRole`**: ユーザー追加ロールテーブル（`m_user_role`）。man_number FK + role CharField で構成。1ユーザーに複数ロールを付与可能
-- **`M_User.has_role(role_name)`**: `role == role_name` または `M_UserRole` に登録があれば True。ビュー内の権限チェックはすべてこのメソッドで統一
+- カスタムユーザーモデル `M_User` (AbstractUser拡張): man_number, user_name, bumon_cd, post_cd
+- **`M_UserRole`**: ユーザーロールテーブル（`m_user_role`）。man_number FK + role CharField。1ユーザーに複数ロールを付与可能。Django Admin のユーザー編集画面でインライン管理
+- **`M_User.has_role(role_name)`**: `M_UserRole` に role_name が登録されていれば True。ビュー内の権限チェックはすべてこのメソッドで統一
 - アプリ内の権限チェックに `is_superuser` を使用しない。`is_superuser` は Django Admin 専用（別アカウント管理）
-- ロール定義（`role` フィールドまたは `M_UserRole.role` で設定）:
-  - `employee`: 一般社員（デフォルト）
+- ロール定義（`M_UserRole.role` に文字列で登録）:
   - `approver`: 全件承認権限（`has_role('approver')` でチェック）
   - `accountant`: 経理担当
   - `final_approver`: 経理承認
   - `admin`: アプリ管理者（改善要望回答・状況編集）
-  - `keiri`: keiri スコープの承認候補（`M_WorkflowStep.allowed_bumon_scope='keiri'`）
+  - `keiri`: keiri スコープの承認候補（`M_WorkflowStep.allowed_bumon_scope='keiri'` と一致）
   - `assets`: 固定資産スコープの承認候補（同上）
-  - ※ `M_WorkflowStep.allowed_bumon_scope` の値と `M_UserRole.role` が一致するユーザーが承認候補になる
-- `candidates_for_step` の `else` ブランチ: `Q(role=scope) | Q(roles__role=scope)` で `M_UserRole` も参照
+  - ※ `M_WorkflowStep.allowed_bumon_scope` の値と `M_UserRole.role` が一致するユーザーが `candidates_for_step` の対象になる
+- `candidates_for_step` の `else` ブランチ: `roles__role=scope` で `M_UserRole` を参照
 - 全ビューに `@login_required`
 
 ## Configuration
