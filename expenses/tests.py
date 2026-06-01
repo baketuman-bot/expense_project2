@@ -171,3 +171,88 @@ class GenerateMobileUploadQrSecurityTest(TestCase):
         source = inspect.getsource(views.generate_mobile_upload_qr)
         self.assertNotIn('is_authenticated', source,
                          "generate_mobile_upload_qr に冗長な is_authenticated チェックが残っています")
+
+
+class FeedbackNotifySubmitterTest(TestCase):
+    """改善要望 更新時の提出者メール通知テスト"""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import T_Feedback, M_UserRole
+        User = get_user_model()
+
+        self.submitter = User.objects.create_user(
+            username='submitter_u001',
+            man_number='U001',
+            user_name='提出者A',
+            password='pass123',
+            email='submitter@example.com',
+        )
+        self.admin_user = User.objects.create_user(
+            username='admin_a001',
+            man_number='A001',
+            user_name='管理者B',
+            password='pass123',
+            email='admin@example.com',
+        )
+        M_UserRole.objects.create(man_number=self.admin_user, role='admin')
+
+        self.fb = T_Feedback.objects.create(
+            man_number=self.submitter,
+            request_text='テスト要望',
+            status_cd='00',
+        )
+        self.client = Client()
+
+    def test_notify_submitter_sends_email(self):
+        """_feedback_notify_submitter は提出者のメールアドレスへ send_notification を呼ぶ"""
+        from expenses.views import _feedback_notify_submitter
+        with patch('expenses.utils.send_notification') as mock_send:
+            _feedback_notify_submitter(self.fb, self.admin_user)
+        mock_send.assert_called_once()
+        call_args = mock_send.call_args[0]
+        self.assertEqual(call_args[0], 'submitter@example.com')
+        self.assertIn(str(self.fb.feedback_id), call_args[1])
+        self.assertIn('管理者B', call_args[2])
+
+    def test_notify_submitter_skips_if_no_email(self):
+        """提出者のメールアドレスが空の場合は send_notification を呼ばない"""
+        from expenses.views import _feedback_notify_submitter
+        self.submitter.email = ''
+        self.submitter.save()
+        with patch('expenses.utils.send_notification') as mock_send:
+            _feedback_notify_submitter(self.fb, self.admin_user)
+        mock_send.assert_not_called()
+
+    def test_feedback_edit_with_notify_sends_email(self):
+        """feedback_edit に notify_submitter=1 を POST すると提出者に通知される"""
+        self.client.force_login(self.admin_user)
+        with patch('expenses.utils.send_notification') as mock_send:
+            response = self.client.post(
+                f'/feedback/{self.fb.pk}/edit/',
+                {
+                    'request_text': 'テスト要望',
+                    'response_text': '対応しました',
+                    'status_cd': '02',
+                    'notify_submitter': '1',
+                },
+            )
+        self.assertEqual(response.status_code, 302)
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args[0][0], 'submitter@example.com')
+
+    def test_feedback_edit_without_notify_skips_email(self):
+        """feedback_edit に notify_submitter=0 を POST すると通知されない"""
+        self.client.force_login(self.admin_user)
+        with patch('expenses.utils.send_notification') as mock_send:
+            response = self.client.post(
+                f'/feedback/{self.fb.pk}/edit/',
+                {
+                    'request_text': 'テスト要望',
+                    'response_text': '対応しました',
+                    'status_cd': '02',
+                    'notify_submitter': '0',
+                },
+            )
+        self.assertEqual(response.status_code, 302)
+        mock_send.assert_not_called()

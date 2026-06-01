@@ -105,6 +105,10 @@ else:
     if 'DEBUG' not in os.environ:
         DEBUG = True
     # ローカル開発はMySQL (既存設定) を使用
+    # DJANGO_TEST_DB_NAME 環境変数でテスト用DBを指定可能（デフォルト: test_expense_db）
+    # ※ ex_user は CREATE DATABASE 権限がないため、test_expense_db を使うには
+    #   別途 MySQL 管理者が GRANT ALL ON `test_expense_db`.* TO 'ex_user'@'%' を実行すること。
+    _test_db_name = os.environ.get('DJANGO_TEST_DB_NAME', 'test_expense_db')
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -125,6 +129,7 @@ else:
             # 誤ってテストを実行すると本番DBが削除される。
             # テストDB名を明示しない場合、Django は 'test_expense_db' を自動使用する。
             # 'TEST': {'NAME': 'expense_db'},  # ← 絶対に設定しないこと
+            'TEST': {'NAME': _test_db_name},
         }
     }
 
