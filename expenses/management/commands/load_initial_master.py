@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 
 from expenses.models import (
     M_Status, M_Bumon, M_Post, M_Group, M_Account, M_Item,
-    M_WorkflowTemplate, M_WorkflowStep, M_DocumentType, M_BelongTo,
+    M_WorkflowTemplate, M_WorkflowStep, M_DocumentType, M_BelongTo, M_UserRole,
 )
 
 
@@ -128,11 +128,11 @@ class Command(BaseCommand):
                     email="approver@example.com",
                     man_number="E0002",
                     user_name="承認者",
-                    role="approver",
                 )
                 approver.bumon_cd = M_Bumon.objects.filter(pk="ADMIN").first()
                 approver.post_cd = M_Post.objects.filter(pk="MGR").first()
                 approver.save()
+                M_UserRole.objects.get_or_create(man_number=approver, role="approver")
 
             if not User.objects.filter(username="employee").exists():
                 employee = User.objects.create_user(
@@ -141,7 +141,6 @@ class Command(BaseCommand):
                     email="employee@example.com",
                     man_number="E0003",
                     user_name="一般社員",
-                    role="employee",
                 )
                 employee.bumon_cd = M_Bumon.objects.filter(pk="SALES").first()
                 employee.post_cd = M_Post.objects.filter(pk="EMP").first()

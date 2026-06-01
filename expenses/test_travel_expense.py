@@ -6,7 +6,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 
 from expenses.models import (
-    M_User, M_Bumon, M_Post, M_Group, M_BelongTo, M_Status,
+    M_User, M_UserRole, M_Bumon, M_Post, M_Group, M_BelongTo, M_Status,
     M_DocumentType, M_WorkflowTemplate, M_WorkflowStep, M_Item,
     T_Document, T_DocumentContent,
 )
@@ -81,7 +81,6 @@ class TravelExpenseFormTest(TestCase):
                 user_name='申請 太郎(test)',
                 bumon_cd=cls.bumon,
                 post_cd=cls.post_emp,
-                role='employee',
             )
         )
         cls.applicant.set_password('x')
@@ -94,11 +93,11 @@ class TravelExpenseFormTest(TestCase):
                 user_name='承認 次郎(test)',
                 bumon_cd=cls.bumon,
                 post_cd=cls.post_mgr,
-                role='approver',
             )
         )
         cls.approver.set_password('x')
         cls.approver.save()
+        M_UserRole.objects.get_or_create(man_number=cls.approver, role='approver')
 
         M_BelongTo.objects.get_or_create(man_number=cls.applicant, group_cd=cls.grp)
         M_BelongTo.objects.get_or_create(man_number=cls.approver, group_cd=cls.grp)

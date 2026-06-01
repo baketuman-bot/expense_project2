@@ -1,0 +1,131 @@
+{% extends "expenses/base.html" %}
+
+{% block content %}
+<div class="mt-4" style="max-width:1200px;">
+
+  <div class="page-head mb-3">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-tags"></i></span>
+      未清算データ分類
+    </h2>
+    <div class="page-actions">
+      <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>精算処理メニューへ
+      </a>
+    </div>
+  </div>
+
+  {% if rows %}
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="d-flex align-items-center gap-3 mb-2">
+      <span class="text-muted small">{{ rows|length }} 件</span>
+      <a href="#" id="select-all" class="small">全選択</a>
+      <a href="#" id="deselect-all" class="small">全解除</a>
+      <button type="submit" class="btn btn-primary btn-sm ms-auto">
+        <i class="fas fa-check me-1"></i>チェック済を精算開始
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 small">
+          <thead>
+            <tr>
+              <th class="text-nowrap">申請ID</th>
+              <th class="text-nowrap">申請種別</th>
+              <th class="text-nowrap">明細日付</th>
+              <th>申請件名</th>
+              <th>支払先</th>
+              <th class="text-end text-nowrap">金額</th>
+              <th class="text-nowrap">精算方法</th>
+              <th class="text-center text-nowrap">精算開始</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            {% with c=row.content %}
+            <tr class="classify-row">
+              <td class="text-nowrap">
+                <a href="{% url 'expenses:expense_detail' c.document_id %}" target="_blank">
+                  {{ c.document_id }}
+                </a>
+              </td>
+              <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
+              <td class="text-nowrap">{{ c.date|date:"Y/m/d" }}</td>
+              <td>{{ c.document.title }}</td>
+              <td>{{ c.shiharaisaki|default:"-" }}</td>
+              <td class="text-end text-nowrap">
+                {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
+              </td>
+              <td>
+                <select name="settle_kbn_{{ c.document_detail_id }}"
+                        class="form-select form-select-sm settle-kbn-select"
+                        style="min-width:160px;"
+                        data-detail-id="{{ c.document_detail_id }}">
+                  <option value="">-- 選択 --</option>
+                  {% for s in stl_statuses %}
+                  <option value="{{ s.status_cd }}"
+                    {% if s.status_cd == row.default_status_cd %}selected{% endif %}>
+                    {{ s.status_name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="text-center">
+                <input type="checkbox"
+                       class="form-check-input classify-check"
+                       name="selected_ids"
+                       value="{{ c.document_detail_id }}">
+              </td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mt-2 d-flex justify-content-end">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fas fa-check me-1"></i>チェック済を精算開始
+      </button>
+    </div>
+  </form>
+
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center text-muted py-5">
+      <i class="fas fa-check-circle fa-2x mb-2 d-block" style="color:var(--primary);"></i>
+      未分類の明細データはありません。
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function () {
+  const selectAll = document.getElementById('select-all');
+  const deselectAll = document.getElementById('deselect-all');
+
+  function getChecks() {
+    return document.querySelectorAll('.classify-check');
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('click', function (e) {
+      e.preventDefault();
+      getChecks().forEach(function (c) { c.checked = true; });
+    });
+  }
+  if (deselectAll) {
+    deselectAll.addEventListener('click', function (e) {
+      e.preventDefault();
+      getChecks().forEach(function (c) { c.checked = false; });
+    });
+  }
+})();
+</script>
+{% endblock %}

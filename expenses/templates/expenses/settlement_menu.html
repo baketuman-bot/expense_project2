@@ -1,0 +1,101 @@
+{% extends "expenses/base.html" %}
+
+{% block content %}
+<div class="mt-4" style="max-width:860px;">
+
+  <div class="page-head mb-4">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-check-circle"></i></span>
+      精算処理
+    </h2>
+  </div>
+
+  <div class="row g-3">
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_classify' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-tags"></i></span>
+            <div>
+              <div class="fw-bold">未清算データ分類</div>
+              <div class="text-muted small">精算方法を割り当てる</div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_cash' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-money-bill-wave"></i></span>
+            <div>
+              <div class="fw-bold">現金精算処理</div>
+              <div class="text-muted small">現金で精算する申請を処理</div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_transfer' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-university"></i></span>
+            <div>
+              <div class="fw-bold">口座振込処理</div>
+              <div class="text-muted small">銀行振込で精算する申請を処理</div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_corp_card' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-credit-card"></i></span>
+            <div>
+              <div class="fw-bold">法人カード未払計上</div>
+              <div class="text-muted small">法人カード支払を計上する</div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_payroll' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-file-invoice-dollar"></i></span>
+            <div>
+              <div class="fw-bold">給与振込処理</div>
+              <div class="text-muted small">給与振込で精算する申請を処理</div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_auto_debit' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-sync-alt"></i></span>
+            <div>
+              <div class="fw-bold">自動引き落とし処理</div>
+              <div class="text-muted small">自動引落の申請を処理</div>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

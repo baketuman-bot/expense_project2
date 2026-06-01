@@ -57,17 +57,17 @@ class UserRoleInline(admin.TabularInline):
 
 @admin.register(M_User)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('username', 'man_number', 'user_name', 'email', 'bumon_cd', 'post_cd', 'role', 'is_staff')
-    list_filter = ('is_staff', 'bumon_cd', 'post_cd', 'role')
+    list_display = ('username', 'man_number', 'user_name', 'email', 'bumon_cd', 'post_cd', 'is_staff')
+    list_filter = ('is_staff', 'bumon_cd', 'post_cd')
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('個人情報', {'fields': ('man_number', 'user_name', 'email', 'bumon_cd', 'post_cd', 'role')}),
+        ('個人情報', {'fields': ('man_number', 'user_name', 'email', 'bumon_cd', 'post_cd')}),
         ('権限', {'fields': ('is_active', 'is_staff', 'is_superuser', 'user_permissions')}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('username', 'password1', 'password2', 'man_number', 'user_name', 'email', 'bumon_cd', 'post_cd', 'role'),
+            'fields': ('username', 'password1', 'password2', 'man_number', 'user_name', 'email', 'bumon_cd', 'post_cd'),
         }),
     )
     search_fields = ('username', 'man_number', 'user_name', 'email')

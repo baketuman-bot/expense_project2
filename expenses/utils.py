@@ -90,9 +90,9 @@ def candidates_for_step(applicant: M_User, step: M_WorkflowStep):
 
     else:
         # 'same'/'any' 以外:
-        #   (user.role == scope OR M_UserRole に scope が登録済み) かつ
+        #   M_UserRole に scope が登録済み かつ
         #   user.post_order < step.approver_post.post_order（要求役職より厳密に上位）
-        qs = qs.filter(Q(role=scope) | Q(roles__role=scope))
+        qs = qs.filter(roles__role=scope)
         if step.approver_post:
             threshold = step.approver_post.post_order
             qs = qs.filter(post_cd__post_order__lt=threshold)

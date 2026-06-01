@@ -4021,6 +4021,105 @@ def settings_data_view_csv(request, view_name):
 
 
 @login_required
+def settlement_menu(request):
+    """精算処理メニュー: 6つの精算処理区分を表示する"""
+    return render(request, 'expenses/settlement_menu.html', {'current': 'settlement_menu'})
+
+
+@login_required
+def settlement_classify(request):
+    """未清算データ分類: settle_kbn IS NULL の明細に精算方法を割り当てる"""
+    PAY_KBN_TO_ACTION = {'01': 'SAL_PRE', '02': 'CAS_PRE', '03': 'LON_PRE'}
+
+    if request.method == 'POST':
+        selected_ids = request.POST.getlist('selected_ids')
+        for detail_id in selected_ids:
+            settle_kbn_val = request.POST.get(f'settle_kbn_{detail_id}', '').strip()
+            if settle_kbn_val:
+                T_DocumentContent.objects.filter(
+                    document_detail_id=detail_id
+                ).update(settle_kbn=settle_kbn_val)
+        return redirect('expenses:settlement_classify')
+
+    contents = (
+        T_DocumentContent.objects
+        .select_related('document', 'document__document_type')
+        .filter(settle_kbn__isnull=True)
+        .order_by('document__document_type_id', 'document__document_id', 'date')
+    )
+
+    stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
+    action_to_status_cd = {s.action_name: s.status_cd for s in stl_statuses}
+
+    rows = []
+    for content in contents:
+        if content.corpo_card_no:
+            default_action = 'COC_PRE'
+        else:
+            default_action = PAY_KBN_TO_ACTION.get(content.document.pay_kbn or '', '')
+        rows.append({
+            'content': content,
+            'default_status_cd': action_to_status_cd.get(default_action, ''),
+        })
+
+    return render(request, 'expenses/settlement_classify.html', {
+        'rows': rows,
+        'stl_statuses': stl_statuses,
+        'current': 'settlement_classify',
+    })
+
+
+@login_required
+def settlement_cash(request):
+    """現金精算処理（表示のみ）"""
+    return render(request, 'expenses/settlement_stub.html', {
+        'title': '現金精算処理',
+        'icon': 'fa-money-bill-wave',
+        'current': 'settlement_cash',
+    })
+
+
+@login_required
+def settlement_transfer(request):
+    """口座振込処理（表示のみ）"""
+    return render(request, 'expenses/settlement_stub.html', {
+        'title': '口座振込処理',
+        'icon': 'fa-university',
+        'current': 'settlement_transfer',
+    })
+
+
+@login_required
+def settlement_corp_card(request):
+    """法人カード未払計上（表示のみ）"""
+    return render(request, 'expenses/settlement_stub.html', {
+        'title': '法人カード未払計上',
+        'icon': 'fa-credit-card',
+        'current': 'settlement_corp_card',
+    })
+
+
+@login_required
+def settlement_payroll(request):
+    """給与振込処理（表示のみ）"""
+    return render(request, 'expenses/settlement_stub.html', {
+        'title': '給与振込処理',
+        'icon': 'fa-file-invoice-dollar',
+        'current': 'settlement_payroll',
+    })
+
+
+@login_required
+def settlement_auto_debit(request):
+    """自動引き落とし処理（表示のみ）"""
+    return render(request, 'expenses/settlement_stub.html', {
+        'title': '自動引き落とし処理',
+        'icon': 'fa-sync-alt',
+        'current': 'settlement_auto_debit',
+    })
+
+
+@login_required
 def settlement_list(request):
     """精算処理: 最終承認済み(FNS)の申請一覧。精算完了チェックで管理。"""
     from django.utils import timezone as tz

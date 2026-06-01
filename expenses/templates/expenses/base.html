@@ -131,52 +131,6 @@
         {% endfor %}
 
         <div class="precision-section">
-            <div class="precision-section-label">固定資産</div>
-            <ul class="precision-nav">
-                <li>
-                    <a class="precision-link {% if current == 'asset_home' %}is-active{% endif %}" href="{% url 'expenses:asset_home' %}">
-                        <span class="precision-ico" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M3 11.5 12 4l9 7.5"></path>
-                                <path d="M5 10.5V20h14v-9.5"></path>
-                            </svg>
-                        </span>
-                        <span>トップ</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="precision-link {% if current == 'asset_list' %}is-active{% endif %}" href="{% url 'expenses:asset_list' %}">
-                        <span class="precision-ico" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M8 6h13"></path>
-                                <path d="M8 12h13"></path>
-                                <path d="M8 18h13"></path>
-                                <path d="M3 6h.01"></path>
-                                <path d="M3 12h.01"></path>
-                                <path d="M3 18h.01"></path>
-                            </svg>
-                        </span>
-                        <span>取得報告書一覧</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="precision-link {% if current == 'assets_register_list' %}is-active{% endif %}" href="{% url 'expenses:assets_register_list' %}">
-                        <span class="precision-ico" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                                <path d="M8 21h8"></path>
-                                <path d="M12 17v4"></path>
-                                <path d="M7 8h.01"></path><path d="M11 8h6"></path>
-                                <path d="M7 12h.01"></path><path d="M11 12h6"></path>
-                            </svg>
-                        </span>
-                        <span>固定資産台帳</span>
-                    </a>
-                </li>
-            </ul>
-        </div>
-
-        <div class="precision-section">
             <ul class="precision-nav">
                 <li>
                     <a class="precision-link {% if current == 'approval_list' or current == 'approval_detail' %}is-active{% endif %}" href="{% url 'expenses:approval_list' %}">
@@ -259,7 +213,7 @@
                     </a>
                 </li>
                 <li>
-                    <a class="precision-link {% if current == 'settlement_list' %}is-active{% endif %}" href="{% url 'expenses:settlement_list' %}">
+                    <a class="precision-link {% if current == 'settlement_menu' or current == 'settlement_classify' or current == 'settlement_cash' or current == 'settlement_transfer' or current == 'settlement_corp_card' or current == 'settlement_payroll' or current == 'settlement_auto_debit' or current == 'settlement_list' %}is-active{% endif %}" href="{% url 'expenses:settlement_menu' %}">
                         <span class="precision-ico" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="20 6 9 17 4 12"></polyline>
@@ -271,12 +225,58 @@
             </ul>
         </div>
 
+        <div class="precision-section">
+            <div class="precision-section-label">固定資産</div>
+            <ul class="precision-nav">
+                <li>
+                    <a class="precision-link {% if current == 'asset_home' %}is-active{% endif %}" href="{% url 'expenses:asset_home' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 11.5 12 4l9 7.5"></path>
+                                <path d="M5 10.5V20h14v-9.5"></path>
+                            </svg>
+                        </span>
+                        <span>トップ</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="precision-link {% if current == 'asset_list' %}is-active{% endif %}" href="{% url 'expenses:asset_list' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 6h13"></path>
+                                <path d="M8 12h13"></path>
+                                <path d="M8 18h13"></path>
+                                <path d="M3 6h.01"></path>
+                                <path d="M3 12h.01"></path>
+                                <path d="M3 18h.01"></path>
+                            </svg>
+                        </span>
+                        <span>取得報告書一覧</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="precision-link {% if current == 'assets_register_list' %}is-active{% endif %}" href="{% url 'expenses:assets_register_list' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                                <path d="M8 21h8"></path>
+                                <path d="M12 17v4"></path>
+                                <path d="M7 8h.01"></path><path d="M11 8h6"></path>
+                                <path d="M7 12h.01"></path><path d="M11 12h6"></path>
+                            </svg>
+                        </span>
+                        <span>固定資産台帳</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
         <div class="precision-user">
             <div class="precision-user-row">
                 <div class="precision-avatar" aria-hidden="true">{{ user.user_name|default:"?"|slice:":1" }}</div>
                 <div>
                     <div class="precision-user-name">{{ user.user_name }}</div>
-                    <div class="precision-user-sub">{{ user.get_role_display }}</div>
+                    <div class="precision-user-sub">{{ user.bumon_cd.bumon_name|default:"" }}</div>
                 </div>
             </div>
             <form method="post" action="{% url 'logout' %}">

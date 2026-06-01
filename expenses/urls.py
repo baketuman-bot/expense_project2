@@ -47,8 +47,15 @@ urlpatterns = [
     path("settings/approval_admin/<int:pk>/", views.settings_approval_detail, name="settings_approval_detail"),
     path("settings/approval_admin/<int:pk>/action/", views.settings_force_action, name="settings_force_action"),
     # 精算処理
-    path("settings/settlement/", views.settlement_list, name="settlement_list"),
+    path("settings/settlement/", views.settlement_menu, name="settlement_menu"),
+    path("settings/settlement/list/", views.settlement_list, name="settlement_list"),
     path("settings/settlement/<int:pk>/toggle/", views.settlement_toggle, name="settlement_toggle"),
+    path("settings/settlement/classify/", views.settlement_classify, name="settlement_classify"),
+    path("settings/settlement/cash/", views.settlement_cash, name="settlement_cash"),
+    path("settings/settlement/transfer/", views.settlement_transfer, name="settlement_transfer"),
+    path("settings/settlement/corp_card/", views.settlement_corp_card, name="settlement_corp_card"),
+    path("settings/settlement/payroll/", views.settlement_payroll, name="settlement_payroll"),
+    path("settings/settlement/auto_debit/", views.settlement_auto_debit, name="settlement_auto_debit"),
     # マスタ設定
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),
