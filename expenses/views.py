@@ -4070,10 +4070,32 @@ def settlement_classify(request):
 
 @login_required
 def settlement_cash(request):
-    """現金精算処理（表示のみ）"""
-    return render(request, 'expenses/settlement_stub.html', {
-        'title': '現金精算処理',
-        'icon': 'fa-money-bill-wave',
+    """現金精算処理: settle_kbn='CAS_PRE' の明細一覧。確定→CAS_INPRO、取消→NULL"""
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        selected_ids = request.POST.getlist('selected_ids')
+        if selected_ids:
+            if action == 'confirm':
+                T_DocumentContent.objects.filter(
+                    document_detail_id__in=selected_ids
+                ).update(settle_kbn='CAS_INPRO')
+            elif action == 'cancel':
+                T_DocumentContent.objects.filter(
+                    document_detail_id__in=selected_ids
+                ).update(settle_kbn=None)
+        return redirect('expenses:settlement_cash')
+
+    contents = (
+        T_DocumentContent.objects
+        .select_related('document', 'document__document_type')
+        .filter(settle_kbn='CAS_PRE', document__status_cd_id='FNS')
+        .order_by('document__document_type_id', 'document__document_id', 'date')
+    )
+
+    rows = [{'content': c} for c in contents]
+
+    return render(request, 'expenses/settlement_cash.html', {
+        'rows': rows,
         'current': 'settlement_cash',
     })
 

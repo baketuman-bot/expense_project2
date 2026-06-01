@@ -1,0 +1,153 @@
+{% extends "expenses/base.html" %}
+
+{% block content %}
+<div class="mt-4" style="max-width:1200px;">
+
+  <div class="page-head mb-3">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-money-bill-wave"></i></span>
+      現金精算処理
+    </h2>
+    <div class="page-actions">
+      <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>精算処理メニューへ
+      </a>
+    </div>
+  </div>
+
+  {% if rows %}
+  <form method="post" id="cash-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="form-action" value="">
+
+    <div class="d-flex align-items-center gap-3 mb-2">
+      <span class="text-muted small">{{ rows|length }} 件</span>
+      <a href="#" id="select-all" class="small">全選択</a>
+      <a href="#" id="deselect-all" class="small">全解除</a>
+      <div class="ms-auto d-flex gap-2">
+        <button type="button" class="btn btn-outline-danger btn-sm" id="btn-cancel">
+          <i class="fas fa-undo me-1"></i>取消
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-confirm">
+          <i class="fas fa-check me-1"></i>精算確定
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 small">
+          <thead>
+            <tr>
+              <th class="text-nowrap">申請ID</th>
+              <th class="text-nowrap">申請種別</th>
+              <th class="text-nowrap">明細日付</th>
+              <th>申請件名</th>
+              <th>支払先</th>
+              <th>目的</th>
+              <th class="text-end text-nowrap">金額</th>
+              <th class="text-nowrap">精算方法</th>
+              <th class="text-center text-nowrap">選択</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            {% with c=row.content %}
+            <tr>
+              <td class="text-nowrap">
+                <a href="{% url 'expenses:expense_detail' c.document_id %}" target="_blank">
+                  {{ c.document_id }}
+                </a>
+              </td>
+              <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
+              <td class="text-nowrap">{{ c.date|date:"Y/m/d" }}</td>
+              <td>{{ c.document.title }}</td>
+              <td>{{ c.shiharaisaki|default:"-" }}</td>
+              <td>{{ c.purpose|default:"-" }}</td>
+              <td class="text-end text-nowrap">
+                {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
+              </td>
+              <td class="text-nowrap">現金精算</td>
+              <td class="text-center">
+                <input type="checkbox"
+                       class="form-check-input cash-check"
+                       name="selected_ids"
+                       value="{{ c.document_detail_id }}">
+              </td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mt-2 d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-danger btn-sm" id="btn-cancel-bottom">
+        <i class="fas fa-undo me-1"></i>取消
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-confirm-bottom">
+        <i class="fas fa-check me-1"></i>精算確定
+      </button>
+    </div>
+  </form>
+
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center text-muted py-5">
+      <i class="fas fa-check-circle fa-2x mb-2 d-block" style="color:var(--primary);"></i>
+      現金精算処理の対象データはありません。
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('cash-form');
+  var actionInput = document.getElementById('form-action');
+
+  function getChecks() {
+    return document.querySelectorAll('.cash-check');
+  }
+
+  function checkedIds() {
+    var ids = [];
+    getChecks().forEach(function (c) { if (c.checked) ids.push(c.value); });
+    return ids;
+  }
+
+  function submit(action) {
+    if (checkedIds().length === 0) {
+      alert('対象行を1件以上選択してください。');
+      return;
+    }
+    var msg = action === 'confirm'
+      ? '選択した ' + checkedIds().length + ' 件を精算確定します。よろしいですか？'
+      : '選択した ' + checkedIds().length + ' 件を取消（未分類に戻す）します。よろしいですか？';
+    if (!confirm(msg)) return;
+    actionInput.value = action;
+    form.submit();
+  }
+
+  ['btn-confirm', 'btn-confirm-bottom'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', function () { submit('confirm'); });
+  });
+  ['btn-cancel', 'btn-cancel-bottom'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', function () { submit('cancel'); });
+  });
+
+  document.getElementById('select-all').addEventListener('click', function (e) {
+    e.preventDefault();
+    getChecks().forEach(function (c) { c.checked = true; });
+  });
+  document.getElementById('deselect-all').addEventListener('click', function (e) {
+    e.preventDefault();
+    getChecks().forEach(function (c) { c.checked = false; });
+  });
+})();
+</script>
+{% endblock %}
