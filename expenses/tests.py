@@ -267,3 +267,65 @@ class FeedbackNotifySubmitterTest(TestCase):
             )
         self.assertEqual(response.status_code, 302)
         mock_send.assert_not_called()
+
+
+class SettleKbnFieldTest(TestCase):
+    """settle_kbn フィールド追加と v_documentcontents ビュー更新のテスト"""
+
+    def test_model_has_settle_kbn_field(self):
+        """T_DocumentContent モデルに settle_kbn フィールドが存在すること"""
+        from expenses.models import T_DocumentContent
+        field = T_DocumentContent._meta.get_field('settle_kbn')
+        self.assertEqual(field.max_length, 10)
+        self.assertTrue(field.null)
+        self.assertTrue(field.blank)
+
+    def test_settle_kbn_can_be_saved_and_retrieved(self):
+        """settle_kbn に値をセットして保存・取得できること"""
+        from expenses.models import (
+            T_DocumentContent, T_Document, M_DocumentType, M_User, M_Status
+        )
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        status, _ = M_Status.objects.get_or_create(
+            status_cd='DRA', defaults={'status_name': '下書き'}
+        )
+        doc_type = M_DocumentType.objects.filter(document_type_id=1).first()
+        if doc_type is None:
+            from expenses.models import M_DocumentGroup
+            grp, _ = M_DocumentGroup.objects.get_or_create(
+                menu_group='PAY',
+                defaults={'menu_group_name': '支出伺い', 'category': 'expense', 'menu_order': 1},
+            )
+            doc_type = M_DocumentType.objects.create(
+                document_type_id=1,
+                document_type_name='テスト種別',
+                menu_group=grp,
+            )
+        user, _ = User.objects.get_or_create(
+            man_number='STL001',
+            defaults={'username': 'settle_test_user', 'user_name': 'テストユーザー'},
+        )
+        doc = T_Document.objects.create(
+            document_type=doc_type,
+            title='テスト申請',
+            man_number=user,
+            status_cd=status,
+        )
+        content = T_DocumentContent.objects.create(
+            document=doc,
+            settle_kbn='01',
+        )
+        retrieved = T_DocumentContent.objects.get(pk=content.pk)
+        self.assertEqual(retrieved.settle_kbn, '01')
+
+    def test_view_sql_contains_pay_kbn(self):
+        """`_V_DOCUMENTCONTENTS` SQL に d.pay_kbn が含まれること"""
+        from expenses.view_sqls import _V_DOCUMENTCONTENTS
+        self.assertIn('d.pay_kbn', _V_DOCUMENTCONTENTS)
+
+    def test_view_sql_contains_settle_kbn(self):
+        """`_V_DOCUMENTCONTENTS` SQL に dc.settle_kbn が含まれること"""
+        from expenses.view_sqls import _V_DOCUMENTCONTENTS
+        self.assertIn('dc.settle_kbn', _V_DOCUMENTCONTENTS)
