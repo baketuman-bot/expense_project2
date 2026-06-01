@@ -28,8 +28,9 @@
             </h5>
         </div>
         <div class="card-body">
-            <form method="post">
+            <form method="post" id="feedback-main-form">
                 {% csrf_token %}
+                <input type="hidden" name="notify_submitter" id="notify-submitter-input" value="0">
 
                 <div class="mb-3">
                     <label class="form-label">要望事項 <span class="text-danger">*</span></label>
@@ -76,6 +77,31 @@
     </div>
 
 </div>
+{% if is_admin and mode == 'edit' %}
+<div class="modal fade" id="notifyModal" tabindex="-1" aria-labelledby="notifyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notifyModalLabel">
+                    <i class="fas fa-envelope me-2 text-primary"></i>メール通知
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if fb.man_number %}<strong>{{ fb.man_number.user_name }}</strong> さん{% else %}提出者{% endif %}に更新内容をメールで通知しますか？
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="btn-notify-no">
+                    通知せずに保存
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-notify-yes">
+                    <i class="fas fa-envelope me-1"></i>通知して保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -88,5 +114,30 @@ if (df) {
         }
     });
 }
+{% if is_admin and mode == 'edit' %}
+(function () {
+    var mainForm = document.getElementById('feedback-main-form');
+    var notifyInput = document.getElementById('notify-submitter-input');
+    var modalEl = document.getElementById('notifyModal');
+    var notifyModal = new bootstrap.Modal(modalEl);
+
+    mainForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        notifyModal.show();
+    });
+
+    document.getElementById('btn-notify-yes').addEventListener('click', function () {
+        notifyInput.value = '1';
+        notifyModal.hide();
+        mainForm.submit();
+    });
+
+    document.getElementById('btn-notify-no').addEventListener('click', function () {
+        notifyInput.value = '0';
+        notifyModal.hide();
+        mainForm.submit();
+    });
+}());
+{% endif %}
 </script>
 {% endblock %}
