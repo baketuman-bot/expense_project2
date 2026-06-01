@@ -1,5 +1,5 @@
-from django.db.models import Subquery, OuterRef, Exists
-from .models import M_DocumentGroup, T_DocumentApprover, T_Document, T_WorkflowInstance
+from django.db.models import Subquery, OuterRef, Exists, Q
+from .models import M_DocumentGroup, T_DocumentApprover, T_Document, T_WorkflowInstance, T_DocumentContent
 
 
 def sidebar_context(request):
@@ -48,7 +48,19 @@ def sidebar_context(request):
     except Exception:
         pass
 
+    # 精算処理待ち件数: FNS かつ settle_kbn が未設定または _PRE 状態の明細
+    settlement_pending_count = 0
+    try:
+        settlement_pending_count = T_DocumentContent.objects.filter(
+            document__status_cd_id='FNS'
+        ).filter(
+            Q(settle_kbn__isnull=True) | Q(settle_kbn__endswith='_PRE')
+        ).count()
+    except Exception:
+        pass
+
     return {
         'sidebar_expense_groups': sidebar_groups,
         'pending_approval_count': pending_approval_count,
+        'settlement_pending_count': settlement_pending_count,
     }

@@ -4022,8 +4022,20 @@ def settings_data_view_csv(request, view_name):
 
 @login_required
 def settlement_menu(request):
-    """精算処理メニュー: 6つの精算処理区分を表示する"""
-    return render(request, 'expenses/settlement_menu.html', {'current': 'settlement_menu'})
+    """精算処理メニュー: 6つの精算処理区分と処理待ち件数を表示する"""
+    base_qs = T_DocumentContent.objects.filter(document__status_cd_id='FNS')
+    counts = {
+        'classify':   base_qs.filter(settle_kbn__isnull=True).count(),
+        'cash':       base_qs.filter(settle_kbn='CAS_PRE').count(),
+        'transfer':   base_qs.filter(settle_kbn='LON_PRE').count(),
+        'corp_card':  base_qs.filter(settle_kbn='COC_PRE').count(),
+        'payroll':    base_qs.filter(settle_kbn='SAL_PRE').count(),
+        'auto_debit': base_qs.filter(settle_kbn='AUT_PRE').count(),
+    }
+    return render(request, 'expenses/settlement_menu.html', {
+        'current': 'settlement_menu',
+        'counts': counts,
+    })
 
 
 @login_required

@@ -17,10 +17,13 @@
         <div class="card h-100 card-hover-primary">
           <div class="card-body d-flex align-items-center gap-3 py-4">
             <span class="pt-ico flex-shrink-0"><i class="fas fa-tags"></i></span>
-            <div>
+            <div class="flex-grow-1">
               <div class="fw-bold">未清算データ分類</div>
               <div class="text-muted small">精算方法を割り当てる</div>
             </div>
+            {% if counts.classify %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.classify }}</span>
+            {% endif %}
           </div>
         </div>
       </a>
@@ -31,10 +34,13 @@
         <div class="card h-100 card-hover-primary">
           <div class="card-body d-flex align-items-center gap-3 py-4">
             <span class="pt-ico flex-shrink-0"><i class="fas fa-money-bill-wave"></i></span>
-            <div>
+            <div class="flex-grow-1">
               <div class="fw-bold">現金精算処理</div>
               <div class="text-muted small">現金で精算する申請を処理</div>
             </div>
+            {% if counts.cash %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.cash }}</span>
+            {% endif %}
           </div>
         </div>
       </a>
@@ -45,10 +51,13 @@
         <div class="card h-100 card-hover-primary">
           <div class="card-body d-flex align-items-center gap-3 py-4">
             <span class="pt-ico flex-shrink-0"><i class="fas fa-university"></i></span>
-            <div>
+            <div class="flex-grow-1">
               <div class="fw-bold">口座振込処理</div>
               <div class="text-muted small">銀行振込で精算する申請を処理</div>
             </div>
+            {% if counts.transfer %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.transfer }}</span>
+            {% endif %}
           </div>
         </div>
       </a>
@@ -59,10 +68,13 @@
         <div class="card h-100 card-hover-primary">
           <div class="card-body d-flex align-items-center gap-3 py-4">
             <span class="pt-ico flex-shrink-0"><i class="fas fa-credit-card"></i></span>
-            <div>
+            <div class="flex-grow-1">
               <div class="fw-bold">法人カード未払計上</div>
               <div class="text-muted small">法人カード支払を計上する</div>
             </div>
+            {% if counts.corp_card %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.corp_card }}</span>
+            {% endif %}
           </div>
         </div>
       </a>
@@ -73,10 +85,13 @@
         <div class="card h-100 card-hover-primary">
           <div class="card-body d-flex align-items-center gap-3 py-4">
             <span class="pt-ico flex-shrink-0"><i class="fas fa-file-invoice-dollar"></i></span>
-            <div>
+            <div class="flex-grow-1">
               <div class="fw-bold">給与振込処理</div>
               <div class="text-muted small">給与振込で精算する申請を処理</div>
             </div>
+            {% if counts.payroll %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.payroll }}</span>
+            {% endif %}
           </div>
         </div>
       </a>
@@ -87,10 +102,13 @@
         <div class="card h-100 card-hover-primary">
           <div class="card-body d-flex align-items-center gap-3 py-4">
             <span class="pt-ico flex-shrink-0"><i class="fas fa-sync-alt"></i></span>
-            <div>
+            <div class="flex-grow-1">
               <div class="fw-bold">自動引き落とし処理</div>
               <div class="text-muted small">自動引落の申請を処理</div>
             </div>
+            {% if counts.auto_debit %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.auto_debit }}</span>
+            {% endif %}
           </div>
         </div>
       </a>

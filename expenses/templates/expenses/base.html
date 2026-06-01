@@ -220,6 +220,7 @@
                             </svg>
                         </span>
                         <span>精算処理</span>
+                        {% if settlement_pending_count %}<span class="sidebar-badge">{{ settlement_pending_count }}</span>{% endif %}
                     </a>
                 </li>
             </ul>
