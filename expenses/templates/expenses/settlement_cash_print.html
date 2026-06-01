@@ -1,0 +1,239 @@
+{% load expense_extras %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>現金精算 明細</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Noto Sans JP", "Meiryo", "MS Gothic", sans-serif;
+      font-size: 11px;
+      color: #000;
+      margin: 0;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .no-print {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .no-print button {
+      padding: 6px 18px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #999;
+      background: #f5f5f5;
+    }
+    .no-print .btn-primary {
+      background: #17307a;
+      color: #fff;
+      border-color: #17307a;
+    }
+
+    .doc-block {
+      margin-bottom: 28px;
+    }
+
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      border-bottom: 1.5px solid #17307a;
+      padding-bottom: 6px;
+    }
+    .doc-header-left h2 {
+      font-size: 14px;
+      font-weight: bold;
+      margin: 0 0 5px 0;
+    }
+    .doc-meta {
+      display: grid;
+      grid-template-columns: max-content 1fr max-content 1fr;
+      gap: 3px 12px;
+      font-size: 10.5px;
+    }
+    .doc-meta .lbl { color: #555; white-space: nowrap; }
+    .doc-meta .wide { grid-column: 2 / span 3; }
+
+    /* 検印欄 */
+    .stamp-area {
+      display: flex;
+      border: 1.5px solid #000;
+      margin-left: 20px;
+      flex-shrink: 0;
+    }
+    .stamp-box {
+      width: 64px;
+      height: 68px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #000;
+    }
+    .stamp-box:last-child { border-right: none; }
+    .stamp-box-label {
+      font-size: 10px;
+      text-align: center;
+      border-bottom: 1px solid #000;
+      padding: 2px 0;
+      background: #f3f4f8;
+    }
+    .stamp-box-inner { flex: 1; }
+
+    /* 明細テーブル */
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+    }
+    .detail-table th {
+      background: #dde2f0;
+      border: 1px solid #888;
+      padding: 3px 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .detail-table td {
+      border: 1px solid #bbb;
+      padding: 3px 5px;
+      vertical-align: top;
+    }
+    .detail-table tfoot td {
+      background: #eef0f8;
+      font-weight: bold;
+      border: 1px solid #888;
+    }
+    .num { text-align: right; white-space: nowrap; }
+    .ctr { text-align: center; }
+
+    @media print {
+      @page { size: A4 portrait; margin: 12mm; }
+      body  { padding: 0; font-size: 10px; }
+      .no-print { display: none !important; }
+      .page-break { page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="no-print">
+  <button class="btn-primary" onclick="window.print()">印刷</button>
+  <button onclick="window.close()">閉じる</button>
+  <span style="color:#555; font-size:12px; margin-left:8px;">
+    印刷日: {{ print_date|date:"Y年m月d日 H:i" }}　{{ doc_groups|length }} 件
+  </span>
+</div>
+
+{% for group in doc_groups %}
+{% with doc=group.document %}
+<div class="doc-block{% if not forloop.last %} page-break{% endif %}">
+
+  <div class="doc-header">
+    <div class="doc-header-left">
+      <h2>現金精算 明細　<small style="font-weight:normal; font-size:12px;">申請ID: {{ doc.document_id }}</small></h2>
+      <div class="doc-meta">
+        <span class="lbl">申請種別</span><span>{{ doc.document_type.document_type_name }}</span>
+        <span class="lbl">申請日</span><span>{{ doc.created_at|date:"Y年m月d日" }}</span>
+
+        <span class="lbl">申請者</span>
+        <span>{{ doc.man_number.user_name }}（{{ doc.man_number.man_number }}）</span>
+        <span class="lbl">部門</span>
+        <span>{% if doc.bumon_cd %}{{ doc.bumon_cd.bumon_name }}{% else %}-{% endif %}</span>
+
+        <span class="lbl">件名</span><span>{{ doc.title }}</span>
+        <span class="lbl">稟議No</span><span>{{ doc.ringi_no|default:"-" }}</span>
+
+        <span class="lbl">精算方法</span>
+        <span>{{ pay_kbn_map|get_item:doc.pay_kbn|default:doc.pay_kbn|default:"-" }}</span>
+        <span class="lbl">通貨</span>
+        <span>{{ doc.tsuka_cd|default:"JPY" }}</span>
+
+        {% if doc.memo %}
+        <span class="lbl">備考</span><span class="wide">{{ doc.memo }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 検印欄（右上） -->
+    <div class="stamp-area">
+      <div class="stamp-box">
+        <div class="stamp-box-label">担当</div>
+        <div class="stamp-box-inner"></div>
+      </div>
+      <div class="stamp-box">
+        <div class="stamp-box-label">確認</div>
+        <div class="stamp-box-inner"></div>
+      </div>
+      <div class="stamp-box">
+        <div class="stamp-box-label">承認</div>
+        <div class="stamp-box-inner"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 明細テーブル -->
+  <table class="detail-table">
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>日付</th>
+        <th>勘定科目</th>
+        <th>支払先</th>
+        <th>目的</th>
+        <th>登録番号</th>
+        <th>法人カード</th>
+        <th>カード下4桁</th>
+        <th class="num">金額</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in group.contents %}
+      <tr>
+        <td class="ctr">{{ forloop.counter }}</td>
+        <td style="white-space:nowrap;">{{ c.date|date:"Y/m/d"|default:"-" }}</td>
+        <td>{% if c.account %}{{ c.account.account_name }}{% else %}-{% endif %}</td>
+        <td>{{ c.shiharaisaki|default:"-" }}</td>
+        <td>{{ c.purpose|default:"-" }}</td>
+        <td style="white-space:nowrap;">{{ c.tekikaku_cd|default:"-" }}</td>
+        <td class="ctr">{% if c.corpo_card %}有{% else %}-{% endif %}</td>
+        <td style="white-space:nowrap;">{{ c.corpo_card_no|default:"-" }}</td>
+        <td class="num" data-amount="{{ c.amount|default:0 }}">
+          {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="8" class="num">合計</td>
+        <td class="num total-cell">-</td>
+      </tr>
+    </tfoot>
+  </table>
+
+</div>
+{% endwith %}
+{% endfor %}
+
+<script>
+(function () {
+  document.querySelectorAll('.detail-table').forEach(function (tbl) {
+    var total = 0;
+    tbl.querySelectorAll('tbody td[data-amount]').forEach(function (td) {
+      var v = parseFloat(td.dataset.amount);
+      if (!isNaN(v)) total += v;
+    });
+    var cell = tbl.querySelector('.total-cell');
+    if (cell) cell.textContent = total.toLocaleString('ja-JP');
+  });
+})();
+</script>
+
+</body>
+</html>

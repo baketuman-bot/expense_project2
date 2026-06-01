@@ -4101,6 +4101,51 @@ def settlement_cash(request):
 
 
 @login_required
+def settlement_cash_print(request):
+    """現金精算処理 明細印刷: 選択した明細を印刷用ページで表示"""
+    if request.method == 'POST':
+        selected_ids = request.POST.getlist('selected_ids')
+    else:
+        ids_str = request.GET.get('ids', '')
+        selected_ids = [i.strip() for i in ids_str.split(',') if i.strip()]
+
+    if not selected_ids:
+        return redirect('expenses:settlement_cash')
+
+    from collections import OrderedDict
+    from django.utils import timezone as tz
+
+    contents = (
+        T_DocumentContent.objects
+        .select_related(
+            'document', 'document__document_type',
+            'document__man_number', 'document__bumon_cd',
+            'account',
+        )
+        .filter(document_detail_id__in=selected_ids)
+        .order_by('document__document_id', 'date', 'document_detail_id')
+    )
+
+    pay_kbn_map = {
+        item.key: item.content
+        for item in M_Item.objects.filter(data_kbn='PAY')
+    }
+
+    doc_groups = OrderedDict()
+    for c in contents:
+        doc_id = c.document_id
+        if doc_id not in doc_groups:
+            doc_groups[doc_id] = {'document': c.document, 'contents': []}
+        doc_groups[doc_id]['contents'].append(c)
+
+    return render(request, 'expenses/settlement_cash_print.html', {
+        'doc_groups': list(doc_groups.values()),
+        'pay_kbn_map': pay_kbn_map,
+        'print_date': tz.now(),
+    })
+
+
+@login_required
 def settlement_transfer(request):
     """口座振込処理（表示のみ）"""
     return render(request, 'expenses/settlement_stub.html', {

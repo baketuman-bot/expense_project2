@@ -52,6 +52,7 @@ urlpatterns = [
     path("settings/settlement/<int:pk>/toggle/", views.settlement_toggle, name="settlement_toggle"),
     path("settings/settlement/classify/", views.settlement_classify, name="settlement_classify"),
     path("settings/settlement/cash/", views.settlement_cash, name="settlement_cash"),
+    path("settings/settlement/cash/print/", views.settlement_cash_print, name="settlement_cash_print"),
     path("settings/settlement/transfer/", views.settlement_transfer, name="settlement_transfer"),
     path("settings/settlement/corp_card/", views.settlement_corp_card, name="settlement_corp_card"),
     path("settings/settlement/payroll/", views.settlement_payroll, name="settlement_payroll"),

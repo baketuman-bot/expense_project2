@@ -150,13 +150,23 @@ CREATE OR REPLACE VIEW v_documentcontents AS
 SELECT
   dc.document_detail_id,
   dc.document_id,
-  d.title           AS document_title,
+  d.title             AS document_title,
   d.document_type_id,
   dt.document_type_name,
   g.menu_group_name,
   g.category,
+  d.man_number        AS applicant_man_number,
+  u.user_name         AS applicant_name,
+  d.bumon_cd,
+  b.bumon_name,
+  d.tsuka_cd,
+  d.memo,
+  d.ringi_no,
+  d.created_at        AS document_created_at,
+  d.is_settled,
+  d.settled_at,
   dc.date,
-  dc.account_id     AS account_cd,
+  dc.account_id       AS account_cd,
   a.account_name,
   dc.tekikaku_cd,
   dc.shiharaisaki,
@@ -172,6 +182,8 @@ LEFT JOIN t_documents      d  ON d.document_id       = dc.document_id
 LEFT JOIN m_document_types dt ON dt.document_type_id = d.document_type_id
 LEFT JOIN m_document_group g  ON g.menu_group        = dt.menu_group
 LEFT JOIN m_account        a  ON a.account_cd        = dc.account_id
+LEFT JOIN m_user           u  ON u.man_number        = d.man_number
+LEFT JOIN m_bumon          b  ON b.bumon_cd          = d.bumon_cd
 """
 
 _V_DOCUMENTS = """
