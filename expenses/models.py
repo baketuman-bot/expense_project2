@@ -48,6 +48,7 @@ class M_Status(models.Model):
     status_name = models.CharField("ステータス名", max_length=50)
     action_name = models.CharField("アクション名", max_length=50, null=True, blank=True)
     order_by = models.IntegerField("表示順", default=100)
+    status_kbn = models.CharField("ステータス区分", max_length=3, null=True, blank=True)
 
     def __str__(self):
         return self.status_name
