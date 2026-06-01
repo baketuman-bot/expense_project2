@@ -50,7 +50,6 @@ SELECT
   bt.belong_id,
   bt.man_number_id  AS man_number,
   u.user_name,
-  u.role,
   bt.group_cd_id    AS group_cd,
   g.group_name,
   g.upper_group_cd,
@@ -89,7 +88,6 @@ SELECT
   u.man_number,
   u.user_name,
   u.email,
-  u.role,
   u.is_superuser,
   u.is_active,
   u.bumon_cd_id   AS bumon_cd,
@@ -136,7 +134,6 @@ SELECT
   ws.allowed_bumon_scope,
   da.man_number   AS approver_man_number,
   u.user_name     AS approver_name,
-  u.role          AS approver_role,
   da.step_order,
   da.status,
   da.approved_at,
@@ -166,7 +163,9 @@ SELECT
   dc.purpose,
   dc.amount,
   dc.corpo_card,
-  dc.corpo_card_no
+  dc.corpo_card_no,
+  d.pay_kbn,
+  dc.settle_kbn
 FROM t_documentcontents dc
 LEFT JOIN t_documents      d  ON d.document_id       = dc.document_id
 LEFT JOIN m_document_types dt ON dt.document_type_id = d.document_type_id
@@ -186,7 +185,6 @@ SELECT
   g.category,
   d.man_number          AS applicant_man_number,
   u.user_name           AS applicant_name,
-  u.role                AS applicant_role,
   d.bumon_cd            AS charge_bumon_cd,
   b.bumon_name          AS charge_bumon_name,
   d.status_cd_id        AS status_cd,

@@ -64,16 +64,9 @@ class M_User(AbstractUser):
     user_name = models.CharField("氏名", max_length=30)
     bumon_cd = models.ForeignKey(M_Bumon, verbose_name="部門", on_delete=models.PROTECT, null=True, blank=True)
     post_cd = models.ForeignKey(M_Post, verbose_name="役職", on_delete=models.PROTECT, null=True, blank=True)
-    role = models.CharField("権限", max_length=20, choices=[
-        ("employee", "従業員"),
-        ("approver", "承認者"),
-        ("accountant", "経理担当者"),
-        ("final_approver", "経理承認者"),
-    ], default="employee")
-
     def has_role(self, role_name):
-        """primary role または M_UserRole に role_name が含まれるか判定する。"""
-        return self.role == role_name or self.roles.filter(role=role_name).exists()
+        """M_UserRole に role_name が登録されているか判定する。"""
+        return self.roles.filter(role=role_name).exists()
 
     def __str__(self):
         return self.user_name
@@ -630,6 +623,7 @@ class T_DocumentContent(models.Model):
     content = models.JSONField("内容JSON", null=True, blank=True)
     corpo_card = models.IntegerField("コーポレートカード支払い", null=True, blank=True)
     corpo_card_no = models.CharField("カード番号", max_length=10, null=True, blank=True)
+    settle_kbn = models.CharField("精算区分", max_length=10, null=True, blank=True, db_column='settle_kbn')
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
 
