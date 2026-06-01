@@ -157,6 +157,9 @@
   <div class="page-header-left">
     <h1>現金精算 明細</h1>
     <div class="sub">印刷日: {{ print_date|date:"Y年m月d日 H:i" }}　{{ doc_groups|length }} 件</div>
+    <div style="margin-top:6px; font-size:18px; font-weight:bold;">
+      合計金額：<span id="grand-total">-</span> 円
+    </div>
   </div>
   <div class="stamp-area">
     <div class="stamp-box">
@@ -191,7 +194,7 @@
       <td class="lbl">件名</td><td class="val-wide" colspan="3">{{ doc.title }}</td>
       <td class="lbl">稟議No</td><td class="val">{{ doc.ringi_no|default:"-" }}</td>
       <td class="lbl">精算方法</td><td class="val">{{ pay_kbn_map|get_item:doc.pay_kbn|default:doc.pay_kbn|default:"-" }}</td>
-      <td class="lbl">通貨</td><td class="val">{{ doc.tsuka_cd|default:"JPY" }}</td>
+      <td class="lbl">通貨</td><td class="val">{{ tsuka_map|get_item:doc.tsuka_cd|default:doc.tsuka_cd|default:"-" }}</td>
     </tr>
     {% if doc.memo %}
     <tr>
@@ -244,15 +247,18 @@
 
 <script>
 (function () {
+  var grandTotal = 0;
   document.querySelectorAll('.detail-table').forEach(function (tbl) {
     var total = 0;
     tbl.querySelectorAll('tbody td[data-amount]').forEach(function (td) {
       var v = parseFloat(td.dataset.amount);
-      if (!isNaN(v)) total += v;
+      if (!isNaN(v)) { total += v; grandTotal += v; }
     });
     var cell = tbl.querySelector('.total-cell');
     if (cell) cell.textContent = total.toLocaleString('ja-JP');
   });
+  var gt = document.getElementById('grand-total');
+  if (gt) gt.textContent = grandTotal.toLocaleString('ja-JP');
 })();
 </script>
 

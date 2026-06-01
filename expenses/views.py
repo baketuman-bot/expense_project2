@@ -4130,6 +4130,10 @@ def settlement_cash_print(request):
         item.key: item.content
         for item in M_Item.objects.filter(data_kbn='PAY')
     }
+    tsuka_map = {
+        item.key: item.content
+        for item in M_Item.objects.filter(data_kbn='CUR')
+    }
 
     doc_groups = OrderedDict()
     for c in contents:
@@ -4141,6 +4145,7 @@ def settlement_cash_print(request):
     return render(request, 'expenses/settlement_cash_print.html', {
         'doc_groups': list(doc_groups.values()),
         'pay_kbn_map': pay_kbn_map,
+        'tsuka_map': tsuka_map,
         'print_date': tz.now(),
     })
 
