@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 from django.conf import settings
 from .views_assets_register import assets_register_list, assets_register_csv  # noqa: F401
 from .models import (
-    M_User, M_Status, M_Account, T_Document, T_DocumentContent,
+    M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
     T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup,
@@ -3783,8 +3783,14 @@ MASTER_REGISTRY = {
     },
     'm_user': {
         'model': M_User,
-        'list_fields': [('man_number', '社員番号'), ('user_name', '氏名'), ('bumon_cd', '部門'), ('post_cd', '役職'), ('role', '権限'), ('is_active', '有効')],
-        'form_fields': ['man_number', 'username', 'user_name', 'email', 'bumon_cd', 'post_cd', 'role', 'is_active'],
+        'list_fields': [('man_number', '社員番号'), ('user_name', '氏名'), ('bumon_cd', '部門'), ('post_cd', '役職'), ('is_active', '有効')],
+        'form_fields': ['man_number', 'username', 'user_name', 'email', 'bumon_cd', 'post_cd', 'is_active'],
+        'pk_attr': 'pk',
+    },
+    'm_user_role': {
+        'model': M_UserRole,
+        'list_fields': [('man_number', '社員'), ('role', 'ロール')],
+        'form_fields': ['man_number', 'role'],
         'pk_attr': 'pk',
     },
 }
@@ -4289,6 +4295,26 @@ def _feedback_notify_superusers(fb, submitter):
         send_notification(su.email, subject, message)
 
 
+def _feedback_notify_submitter(fb, updater):
+    from .models import T_Feedback
+    from .utils import send_notification
+    submitter = fb.man_number
+    if not submitter or not getattr(submitter, 'email', None):
+        return
+    status_label = dict(T_Feedback.STATUS_CHOICES).get(fb.status_cd, fb.status_cd)
+    subject = '【改善要望】#' + str(fb.feedback_id) + ' 状況が更新されました'
+    message = (
+        'あなたの改善要望が更新されました。\n\n'
+        '要望ID : #' + str(fb.feedback_id) + '\n'
+        '状況   : ' + status_label + '\n'
+        '回答   : ' + (fb.response_text or '（未回答）') + '\n'
+        '更新日 : ' + str(fb.updated_at) + '\n'
+        '更新者 : ' + str(getattr(updater, 'user_name', updater)) + '\n\n'
+        '詳細はシステムからご確認ください。'
+    )
+    send_notification(submitter.email, subject, message)
+
+
 @login_required
 def feedback_detail(request, pk):
     from .models import T_Feedback
@@ -4322,6 +4348,8 @@ def feedback_edit(request, pk):
             if status_cd in dict(T_Feedback.STATUS_CHOICES):
                 fb.status_cd = status_cd
         fb.save()
+        if is_admin and request.POST.get('notify_submitter') == '1':
+            _feedback_notify_submitter(fb, request.user)
         return redirect('expenses:feedback_detail', pk=fb.pk)
 
     return render(request, 'expenses/feedback_form.html', {
