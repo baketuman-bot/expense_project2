@@ -656,6 +656,37 @@ class T_DocumentContent(models.Model):
         verbose_name_plural = '文書明細'
 
 
+# 経理修正履歴
+class T_DocumentEditHistory(models.Model):
+    edit_id = models.AutoField("修正ID", primary_key=True)
+    document = models.ForeignKey(
+        T_Document, verbose_name="文書", on_delete=models.CASCADE,
+        related_name='edit_histories', db_column='document_id'
+    )
+    detail = models.ForeignKey(
+        T_DocumentContent, verbose_name="明細", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='edit_histories', db_column='document_detail_id'
+    )
+    man_number = models.ForeignKey(
+        'M_User', to_field='man_number', on_delete=models.CASCADE,
+        db_column='man_number', verbose_name="修正者"
+    )
+    field_name = models.CharField("フィールド名", max_length=100)
+    field_label = models.CharField("フィールドラベル", max_length=100, blank=True)
+    old_value = models.TextField("変更前", blank=True, default='')
+    new_value = models.TextField("変更後", blank=True, default='')
+    edited_at = models.DateTimeField("修正日時", auto_now_add=True)
+
+    class Meta:
+        db_table = 't_document_edit_history'
+        ordering = ['-edited_at']
+        verbose_name = '経費修正履歴'
+        verbose_name_plural = '経費修正履歴'
+
+    def __str__(self):
+        return f"#{self.document_id} {self.field_label or self.field_name}: {self.old_value} → {self.new_value}"
+
+
 # 明細に紐づく複数添付
 class T_DocumentAttachment(models.Model):
     attachment_id = models.AutoField("添付ID", primary_key=True, db_column='attachment_id')
