@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>現金精算 明細</title>
+  <title>{{ print_title }}</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -155,7 +155,7 @@
 <!-- 検印欄：全体で1か所 -->
 <div class="page-header">
   <div class="page-header-left">
-    <h1>現金精算 明細</h1>
+    <h1>{{ print_title }}</h1>
     <div class="sub">印刷日: {{ print_date|date:"Y年m月d日 H:i" }}　{{ doc_groups|length }} 件</div>
     <div style="margin-top:6px; font-size:18px; font-weight:bold;">
       合計金額：<span id="grand-total">-</span> 円

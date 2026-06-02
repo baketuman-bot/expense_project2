@@ -159,6 +159,11 @@
     csrf.name = 'csrfmiddlewaretoken';
     csrf.value = '{{ csrf_token }}';
     f.appendChild(csrf);
+    var titleInp = document.createElement('input');
+    titleInp.type = 'hidden';
+    titleInp.name = 'print_title';
+    titleInp.value = '{{ title }} 明細';
+    f.appendChild(titleInp);
     ids.forEach(function (id) {
       var inp = document.createElement('input');
       inp.type = 'hidden';

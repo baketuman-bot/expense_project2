@@ -4177,12 +4177,14 @@ def settlement_cash(request):
 
 @login_required
 def settlement_cash_print(request):
-    """現金精算処理 明細印刷: 選択した明細を印刷用ページで表示"""
+    """精算処理 明細印刷: 選択した明細を印刷用ページで表示"""
     if request.method == 'POST':
         selected_ids = request.POST.getlist('selected_ids')
+        print_title = request.POST.get('print_title', '精算明細')
     else:
         ids_str = request.GET.get('ids', '')
         selected_ids = [i.strip() for i in ids_str.split(',') if i.strip()]
+        print_title = request.GET.get('print_title', '精算明細')
 
     if not selected_ids:
         return redirect('expenses:settlement_cash')
@@ -4222,6 +4224,7 @@ def settlement_cash_print(request):
         'pay_kbn_map': pay_kbn_map,
         'tsuka_map': tsuka_map,
         'print_date': tz.now(),
+        'print_title': print_title,
     })
 
 
