@@ -1115,6 +1115,8 @@ document.addEventListener('input', function(e) {
 // ======= 下書き自動保存（localStorage） =======
 (function(){
     var STORAGE_KEY = 'expense_new_draft_{{ submission_id }}';
+    // DocType 固定キー（ページ再訪時の復元に使用）
+    var DRAFT_KEY   = 'expense_draft_type_{{ current_doc_type.document_type_id }}';
     var SAVE_INTERVAL = 30000;
     var form = document.querySelector('form[enctype]');
     if (!form) return;
@@ -1129,7 +1131,9 @@ document.addEventListener('input', function(e) {
 
     function saveToStorage() {
         try {
-            localStorage.setItem(STORAGE_KEY, serializeForm());
+            var json = serializeForm();
+            localStorage.setItem(STORAGE_KEY, json);
+            localStorage.setItem(DRAFT_KEY, json);
             var bar = document.getElementById('autosave-bar');
             if (bar) {
                 bar.textContent = '下書きを自動保存しました（' + new Date().toLocaleTimeString('ja-JP') + '）';
@@ -1143,8 +1147,47 @@ document.addEventListener('input', function(e) {
 
     // フォーム送信時はキャッシュを削除
     form.addEventListener('submit', function(){
-        try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(DRAFT_KEY);
+        } catch(e) {}
     });
+
+    // ======= 復元処理 =======
+    document.addEventListener('DOMContentLoaded', function(){
+        var saved = null;
+        try { saved = localStorage.getItem(DRAFT_KEY); } catch(e) {}
+        if (!saved) return;
+
+        var data;
+        try { data = JSON.parse(saved); } catch(e) { return; }
+
+        if (!confirm('前回入力した内容が保存されています。復元しますか？\n（「キャンセル」を選ぶと保存データは削除されます）')) {
+            try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+            return;
+        }
+
+        // 保存時の明細行数に合わせて行を追加
+        var savedTotal = parseInt(data['form-TOTAL_FORMS'] || '1');
+        var totalFormsEl = document.getElementById('id_form-TOTAL_FORMS');
+        var currentTotal = totalFormsEl ? (parseInt(totalFormsEl.value) || 1) : 1;
+        var addBtn = document.getElementById('add-detail');
+        var toAdd = savedTotal - currentTotal;
+        for (var i = 0; i < toAdd; i++) {
+            if (addBtn) addBtn.click();
+        }
+
+        // 行追加後に値をセット（click による DOM 更新を待つ）
+        setTimeout(function(){
+            Object.keys(data).forEach(function(name){
+                var el = form.elements[name];
+                if (!el) return;
+                if (el.type === 'file') return;
+                el.value = data[name];
+            });
+        }, 100);
+    });
+    // ======= 復元処理 エンド =======
 })();
 // ======= 下書き自動保存 エンド =======
 
