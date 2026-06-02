@@ -295,8 +295,8 @@
                                     <tr>
                                         <th>日付</th>
                                         <th>金額</th>
-                                        <th>内外税</th>
                                         <th class="text-end">消費税額</th>
+                                        <th>内外税</th>
                                         <th>目的</th>
                                         <th>支払先</th>
                                         <th>勘定科目</th>
@@ -310,8 +310,8 @@
                                     <tr>
                                         <td>{{ detail.date|date:"Y年m月d日" }}</td>
                                         <td class="text-end" data-amount="{{ detail.amount|default:0 }}">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
-                                        <td>{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</td>
                                         <td class="text-end">{% if detail.consumption_tax %}{{ detail.consumption_tax|floatformat:0 }}{% else %}-{% endif %}</td>
+                                        <td>{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</td>
                                         <td>{{ detail.purpose }}</td>
                                         <td>{{ detail.shiharaisaki }}</td>
                                         <td>{{ detail.account.account_name }}</td>

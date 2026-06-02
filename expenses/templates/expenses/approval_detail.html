@@ -523,16 +523,16 @@
                                                 {% endif %}
                                             </span>
                                         </div>
-                                        <div class="detail-item-row">
-                                            <span class="detail-item-label">内外税区分</span>
-                                            <span class="detail-item-value">{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</span>
-                                        </div>
                                         {% if detail.consumption_tax %}
                                         <div class="detail-item-row">
                                             <span class="detail-item-label">消費税額</span>
                                             <span class="detail-item-value">{{ detail.consumption_tax|floatformat:0 }} 円</span>
                                         </div>
                                         {% endif %}
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">内外税区分</span>
+                                            <span class="detail-item-value">{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</span>
+                                        </div>
                                         <div class="detail-item-row">
                                             <span class="detail-item-label">添付書類</span>
                                             <span class="detail-item-value">
