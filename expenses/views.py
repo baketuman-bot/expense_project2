@@ -4045,7 +4045,7 @@ def settlement_menu(request):
 
 @login_required
 def settlement_classify(request):
-    """未清算データ分類: settle_kbn IS NULL の明細に精算方法を割り当てる"""
+    """未精算データ分類: settle_kbn IS NULL の明細に精算方法を割り当てる"""
     PAY_KBN_TO_STATUS_CD = {'01': 'SAL_PRE', '02': 'CAS_PRE', '03': 'LON_PRE'}
 
     if request.method == 'POST':
