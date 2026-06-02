@@ -1121,11 +1121,14 @@ document.addEventListener('input', function(e) {
     var form = document.querySelector('form[enctype]');
     if (!form) return;
 
+    var EXPIRE_MS = 24 * 60 * 60 * 1000; // 24時間
+
     function serializeForm() {
         var data = {};
         form.querySelectorAll('input:not([type=file]):not([type=hidden]), select, textarea').forEach(function(el) {
             if (el.name) data[el.name] = el.value;
         });
+        data['_saved_at'] = new Date().toISOString();
         return JSON.stringify(data);
     }
 
@@ -1162,7 +1165,26 @@ document.addEventListener('input', function(e) {
         var data;
         try { data = JSON.parse(saved); } catch(e) { return; }
 
-        if (!confirm('前回入力した内容が保存されています。復元しますか？\n（「キャンセル」を選ぶと保存データは削除されます）')) {
+        // 24時間以上前のデータは自動破棄
+        if (data['_saved_at']) {
+            var age = new Date() - new Date(data['_saved_at']);
+            if (age > EXPIRE_MS) {
+                try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+                return;
+            }
+        }
+
+        // 確認ダイアログに件名と保存日時を表示
+        var titleVal   = data['title'] || '（件名なし）';
+        var savedAtStr = data['_saved_at']
+            ? new Date(data['_saved_at']).toLocaleString('ja-JP')
+            : '';
+        var msg = '前回入力した内容が保存されています。復元しますか？'
+            + '\n件名: ' + titleVal
+            + (savedAtStr ? '\n保存日時: ' + savedAtStr : '')
+            + '\n\n（「キャンセル」を選ぶと保存データは削除されます）';
+
+        if (!confirm(msg)) {
             try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
             return;
         }
@@ -1180,6 +1202,7 @@ document.addEventListener('input', function(e) {
         // 行追加後に値をセット（click による DOM 更新を待つ）
         setTimeout(function(){
             Object.keys(data).forEach(function(name){
+                if (name === '_saved_at') return;
                 var el = form.elements[name];
                 if (!el) return;
                 if (el.type === 'file') return;
