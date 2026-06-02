@@ -4129,8 +4129,8 @@ def settlement_cash(request):
                     has_remaining = T_DocumentContent.objects.filter(
                         document_id=doc_id
                     ).filter(
-                        models.Q(settle_kbn__isnull=True) |
-                        models.Q(settle_kbn__endswith='_PRE')
+                        Q(settle_kbn__isnull=True) |
+                        Q(settle_kbn__endswith='_PRE')
                     ).exists()
                     if not has_remaining:
                         T_Document.objects.filter(document_id=doc_id).update(
