@@ -113,6 +113,7 @@ td.no-row-link { cursor: default; }
             <th class="text-nowrap">部門</th>
             <th class="text-nowrap">申請日</th>
             <th class="text-end text-nowrap">合計金額</th>
+            <th class="text-end text-nowrap">消費税合計</th>
             <th class="text-nowrap">精算状態</th>
             <th class="text-nowrap">精算日時</th>
             <th class="text-center text-nowrap">精算完了</th>
@@ -138,6 +139,7 @@ td.no-row-link { cursor: default; }
             </td>
             <td class="text-nowrap">{{ doc.created_at|date:"Y/m/d" }}</td>
             <td class="text-end text-nowrap">{{ doc.total_amount|floatformat:0 }}</td>
+            <td class="text-end text-nowrap text-muted">{% if doc.consumption_tax_total %}{{ doc.consumption_tax_total|floatformat:0 }}{% else %}—{% endif %}</td>
             <td id="badge-{{ doc.document_id }}">
               {% if doc.is_settled %}
                 <span class="settled-badge">精算済</span>

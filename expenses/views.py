@@ -23,7 +23,7 @@ from django.utils import timezone
 import uuid
 import logging
 from django.db import transaction
-from django.db.models import Q, Subquery, OuterRef, Exists
+from django.db.models import Q, Subquery, OuterRef, Exists, Sum
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse, Http404
 from django.core.paginator import Paginator
 from django.forms import modelform_factory
@@ -4326,6 +4326,7 @@ def settlement_list(request):
         .filter(status_cd__status_cd='FNS')
         .select_related('man_number', 'bumon_cd', 'document_type', 'status_cd')
         .prefetch_related('contents')
+        .annotate(consumption_tax_total=Sum('contents__consumption_tax'))
         .order_by('-created_at')
     )
 

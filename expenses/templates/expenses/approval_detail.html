@@ -376,7 +376,8 @@
                                                 {% if detail.shiharaisaki %}<span class="me-3"><span class="text-muted">支払先:</span> {{ detail.shiharaisaki }}</span>{% endif %}
                                                 {% if detail.tekikaku_cd %}<span class="me-3"><span class="text-muted">登録番号:</span> {{ detail.tekikaku_cd }}</span>{% endif %}
                                                 {% if detail.corpo_card == 2 %}<span class="me-2"><span class="badge" style="background:#dbeafe;color:#1e3a8a;font-size:11px;">CC</span> {{ detail.corpo_card_no|default:"" }}</span>{% endif %}
-                                                {% if not detail.purpose and not detail.shiharaisaki and not detail.tekikaku_cd and detail.corpo_card != 2 %}<span class="text-muted">-</span>{% endif %}
+                                                {% if detail.consumption_kbn == 0 %}<span class="me-2"><span class="text-muted">消費税:</span> 内税{% if detail.consumption_tax %} {{ detail.consumption_tax|floatformat:0 }}円{% endif %}</span>{% elif detail.consumption_kbn == 1 %}<span class="me-2"><span class="text-muted">消費税:</span> 外税{% if detail.consumption_tax %} {{ detail.consumption_tax|floatformat:0 }}円{% endif %}</span>{% endif %}
+                                                {% if not detail.purpose and not detail.shiharaisaki and not detail.tekikaku_cd and detail.corpo_card != 2 and detail.consumption_kbn is None %}<span class="text-muted">-</span>{% endif %}
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -398,11 +399,13 @@
                                 <table class="table table-hover mb-0">
                                     <thead class="table-light">
                                         <tr>
-                                            <th style="width:95px">日付</th>
+                                            <th style="width:85px">日付</th>
                                             <th>支払先</th>
-                                            <th style="width:80px">宿泊日数</th>
-                                            <th class="text-end" style="width:105px">金額</th>
-                                            <th class="text-center" style="width:60px">領収書</th>
+                                            <th style="width:70px">宿泊日数</th>
+                                            <th class="text-end" style="width:95px">金額</th>
+                                            <th style="width:60px">内外税</th>
+                                            <th class="text-end" style="width:80px">消費税額</th>
+                                            <th class="text-center" style="width:55px">領収書</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -412,6 +415,8 @@
                                             <td>{{ detail.shiharaisaki|default:"-" }}</td>
                                             <td>{{ detail.content.nights|default:"-" }}</td>
                                             <td class="text-end fw-bold text-success">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+                                            <td>{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</td>
+                                            <td class="text-end">{% if detail.consumption_tax %}{{ detail.consumption_tax|floatformat:0 }}{% else %}-{% endif %}</td>
                                             <td class="text-center">
                                                 {% if detail.attachments.all %}
                                                     <span class="badge bg-success"><i class="fas fa-paperclip"></i> {{ detail.attachments.all|length }}</span>
@@ -514,10 +519,20 @@
                                                     <span class="badge bg-primary">コーポレートカード</span>
                                                     {% if detail.corpo_card_no %}<small class="ms-1 text-muted">{{ detail.corpo_card_no }}</small>{% endif %}
                                                 {% else %}
-                                                    その他
+                                                    不使用
                                                 {% endif %}
                                             </span>
                                         </div>
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">内外税区分</span>
+                                            <span class="detail-item-value">{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</span>
+                                        </div>
+                                        {% if detail.consumption_tax %}
+                                        <div class="detail-item-row">
+                                            <span class="detail-item-label">消費税額</span>
+                                            <span class="detail-item-value">{{ detail.consumption_tax|floatformat:0 }} 円</span>
+                                        </div>
+                                        {% endif %}
                                         <div class="detail-item-row">
                                             <span class="detail-item-label">添付書類</span>
                                             <span class="detail-item-value">
