@@ -3922,6 +3922,13 @@ DATA_VIEW_REGISTRY = {
         'icon':         'fa-stream',
         'search_cols':  ['document_title', 'document_type_name', 'wf_status_name'],
     },
+    'v_settle': {
+        'display_name': '精算ログ',
+        'source_table': 't_settle',
+        'description':  '精算処理ログ ＋ 申請情報 ＋ 処理者',
+        'icon':         'fa-receipt',
+        'search_cols':  ['document_title', 'document_type_name', 'applicant_name', 'processor_name', 'shiharaisaki', 'purpose'],
+    },
 }
 
 

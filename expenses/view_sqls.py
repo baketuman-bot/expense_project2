@@ -280,6 +280,38 @@ LEFT JOIN m_status             ms ON ms.status_cd           = wi.status
 LEFT JOIN m_workflow_steps     ws ON ws.step_id             = wi.step_id
 """
 
+_V_SETTLE = """
+CREATE OR REPLACE VIEW v_settle AS
+SELECT
+  s.settle_id,
+  s.document_id,
+  d.title             AS document_title,
+  d.document_type_id,
+  dt.document_type_name,
+  d.man_number        AS applicant_man_number,
+  au.user_name        AS applicant_name,
+  d.bumon_cd,
+  b.bumon_name,
+  s.document_detail_id,
+  dc.date             AS detail_date,
+  dc.amount           AS detail_amount,
+  dc.shiharaisaki,
+  dc.purpose,
+  s.status_cd,
+  s.settle_ymd,
+  s.man_number        AS processor_man_number,
+  pu.user_name        AS processor_name,
+  s.create_ymd,
+  s.update_ymd
+FROM t_settle s
+LEFT JOIN t_documents      d   ON d.document_id       = s.document_id
+LEFT JOIN m_document_types dt  ON dt.document_type_id = d.document_type_id
+LEFT JOIN m_user           au  ON au.man_number        = d.man_number
+LEFT JOIN m_bumon          b   ON b.bumon_cd           = d.bumon_cd
+LEFT JOIN t_documentcontents dc ON dc.document_detail_id = s.document_detail_id
+LEFT JOIN m_user           pu  ON pu.man_number        = s.man_number
+"""
+
 # ── 公開辞書（migration 0049 / 管理コマンドで使用）──────────────────────────
 ALL_VIEWS = {
     'v_document_types':      _V_DOCUMENT_TYPES,
@@ -294,4 +326,5 @@ ALL_VIEWS = {
     'v_feedback':            _V_FEEDBACK,
     'v_workflow_actions':    _V_WORKFLOW_ACTIONS,
     'v_workflow_instances':  _V_WORKFLOW_INSTANCES,
+    'v_settle':              _V_SETTLE,
 }
