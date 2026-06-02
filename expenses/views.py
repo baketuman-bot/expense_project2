@@ -554,10 +554,12 @@ def expense_detail(request, pk):
 
     # 遷移元に応じて「一覧に戻る」先を切り替え
     from_page = request.GET.get('from', '')
-    if from_page == 'settlement':
-        back_url = reverse('expenses:settlement_list')
-    else:
-        back_url = reverse('expenses:expense_list')
+    back_url_map = {
+        'settlement':          reverse('expenses:settlement_list'),
+        'settlement_classify': reverse('expenses:settlement_classify'),
+        'settlement_cash':     reverse('expenses:settlement_cash'),
+    }
+    back_url = back_url_map.get(from_page, reverse('expenses:expense_list'))
 
     return render(request, "expenses/expense_detail.html", {
         "expense": expense,

@@ -58,7 +58,7 @@
             {% with c=row.content %}
             <tr>
               <td class="text-nowrap">
-                <a href="{% url 'expenses:expense_detail' c.document_id %}" target="_blank">
+                <a href="{% url 'expenses:expense_detail' c.document_id %}?from=settlement_cash">
                   {{ c.document_id }}
                 </a>
               </td>

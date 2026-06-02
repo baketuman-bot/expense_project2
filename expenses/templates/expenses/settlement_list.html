@@ -124,7 +124,7 @@ td.no-row-link { cursor: default; }
               data-href="{% url 'expenses:expense_detail' doc.document_id %}?from=settlement"
               {% if doc.is_settled %}class="settled-row"{% endif %}>
             <td class="text-nowrap">
-              <a href="{% url 'expenses:expense_detail' doc.document_id %}" class="text-decoration-none">
+              <a href="{% url 'expenses:expense_detail' doc.document_id %}?from=settlement" class="text-decoration-none">
                 #{{ doc.document_id }}
               </a>
             </td>
