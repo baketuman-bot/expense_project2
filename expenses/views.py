@@ -556,9 +556,11 @@ def expense_detail(request, pk):
     # 遷移元に応じて「一覧に戻る」先を切り替え
     from_page = request.GET.get('from', '')
     back_url_map = {
-        'settlement':          reverse('expenses:settlement_list'),
-        'settlement_classify': reverse('expenses:settlement_classify'),
-        'settlement_cash':     reverse('expenses:settlement_cash'),
+        'settlement':             reverse('expenses:settlement_list'),
+        'settlement_classify':    reverse('expenses:settlement_classify'),
+        'settlement_cash':        reverse('expenses:settlement_cash'),
+        'settlement_corp_card':   reverse('expenses:settlement_corp_card'),
+        'settlement_payroll':     reverse('expenses:settlement_payroll'),
     }
     back_url = back_url_map.get(from_page, reverse('expenses:expense_list'))
 
@@ -4086,11 +4088,12 @@ def settlement_classify(request):
     })
 
 
-@login_required
-def settlement_cash(request):
-    """現金精算処理: settle_kbn='CAS_PRE' の明細一覧。確定→CAS_INPRO、取消→NULL"""
+def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
+                              current_name, process_label, from_param):
+    """精算処理共通ビュー: pre_kbn → inpro_kbn への確定処理を共通化"""
     import datetime
     from django.utils.timezone import localdate
+
     if request.method == 'POST':
         action = request.POST.get('action')
         selected_ids = request.POST.getlist('selected_ids')
@@ -4102,28 +4105,24 @@ def settlement_cash(request):
 
         if selected_ids:
             if action == 'confirm':
-                # 対象明細を取得（document_id を一緒に拾う）
                 target_contents = list(
                     T_DocumentContent.objects
                     .filter(document_detail_id__in=selected_ids)
                     .select_related('document')
                 )
-                # settle_kbn 更新
                 T_DocumentContent.objects.filter(
                     document_detail_id__in=selected_ids
-                ).update(settle_kbn='CAS_INPRO')
-                # T_Settle ログ書き込み
+                ).update(settle_kbn=inpro_kbn)
                 T_Settle.objects.bulk_create([
                     T_Settle(
                         document_id=c.document_id,
                         document_detail_id=c.document_detail_id,
                         man_number=request.user,
-                        status_cd='CAS_INPRO',
+                        status_cd=inpro_kbn,
                         settle_ymd=settle_ymd,
                     )
                     for c in target_contents
                 ])
-                # 同一 document_id で未処理(NULL)・処理待ち(*_PRE)が残っていなければ精算完了
                 doc_ids = {c.document_id for c in target_contents}
                 for doc_id in doc_ids:
                     has_remaining = T_DocumentContent.objects.filter(
@@ -4141,22 +4140,39 @@ def settlement_cash(request):
                 T_DocumentContent.objects.filter(
                     document_detail_id__in=selected_ids
                 ).update(settle_kbn=None)
-        return redirect('expenses:settlement_cash')
+        return redirect(f'expenses:{current_name}')
 
     contents = (
         T_DocumentContent.objects
         .select_related('document', 'document__document_type')
-        .filter(settle_kbn='CAS_PRE', document__status_cd_id='FNS')
+        .filter(settle_kbn=pre_kbn, document__status_cd_id='FNS')
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
-
     rows = [{'content': c} for c in contents]
+    print_url = reverse('expenses:settlement_cash_print')
 
-    return render(request, 'expenses/settlement_cash.html', {
+    return render(request, 'expenses/settlement_payment_process.html', {
         'rows': rows,
         'today': localdate().isoformat(),
-        'current': 'settlement_cash',
+        'title': page_title,
+        'icon': icon,
+        'process_label': process_label,
+        'from_param': from_param,
+        'print_url': print_url,
+        'current': current_name,
     })
+
+
+@login_required
+def settlement_cash(request):
+    """現金精算処理"""
+    return _settlement_payment_view(
+        request,
+        pre_kbn='CAS_PRE', inpro_kbn='CAS_INPRO',
+        page_title='現金精算処理', icon='fa-money-bill-wave',
+        current_name='settlement_cash', process_label='現金精算',
+        from_param='settlement_cash',
+    )
 
 
 @login_required
@@ -4221,22 +4237,26 @@ def settlement_transfer(request):
 
 @login_required
 def settlement_corp_card(request):
-    """法人カード未払計上（表示のみ）"""
-    return render(request, 'expenses/settlement_stub.html', {
-        'title': '法人カード未払計上',
-        'icon': 'fa-credit-card',
-        'current': 'settlement_corp_card',
-    })
+    """法人カード未払計上: COC_PRE → COC_INPRO"""
+    return _settlement_payment_view(
+        request,
+        pre_kbn='COC_PRE', inpro_kbn='COC_INPRO',
+        page_title='法人カード未払計上', icon='fa-credit-card',
+        current_name='settlement_corp_card', process_label='法人カード未払',
+        from_param='settlement_corp_card',
+    )
 
 
 @login_required
 def settlement_payroll(request):
-    """給与振込処理（表示のみ）"""
-    return render(request, 'expenses/settlement_stub.html', {
-        'title': '給与振込処理',
-        'icon': 'fa-file-invoice-dollar',
-        'current': 'settlement_payroll',
-    })
+    """給与振込処理: SAL_PRE → SAL_INPRO"""
+    return _settlement_payment_view(
+        request,
+        pre_kbn='SAL_PRE', inpro_kbn='SAL_INPRO',
+        page_title='給与振込処理', icon='fa-file-invoice-dollar',
+        current_name='settlement_payroll', process_label='給与振込',
+        from_param='settlement_payroll',
+    )
 
 
 @login_required
