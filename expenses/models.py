@@ -21,6 +21,7 @@ class M_Group(models.Model):
 class M_Bumon(models.Model):
     bumon_cd = models.CharField("部門コード", max_length=15, primary_key=True, default='DEFAULT')
     bumon_name = models.CharField("部門名", max_length=100)
+    cs_kbn = models.SmallIntegerField("CS区分", null=True, blank=True)
 
     def __str__(self):
         return self.bumon_name
