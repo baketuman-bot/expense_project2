@@ -4088,9 +4088,11 @@ def settlement_classify(request):
 @login_required
 def settlement_cash(request):
     """現金精算処理: settle_kbn='CAS_PRE' の明細一覧。確定→CAS_INPRO、取消→NULL"""
+    from django.utils.timezone import localdate
     if request.method == 'POST':
         action = request.POST.get('action')
         selected_ids = request.POST.getlist('selected_ids')
+        settle_ymd_str = request.POST.get('settle_ymd', '').strip()
         if selected_ids:
             if action == 'confirm':
                 T_DocumentContent.objects.filter(
@@ -4113,6 +4115,7 @@ def settlement_cash(request):
 
     return render(request, 'expenses/settlement_cash.html', {
         'rows': rows,
+        'today': localdate().isoformat(),
         'current': 'settlement_cash',
     })
 

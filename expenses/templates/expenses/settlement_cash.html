@@ -20,10 +20,17 @@
     {% csrf_token %}
     <input type="hidden" name="action" id="form-action" value="">
 
-    <div class="d-flex align-items-center gap-3 mb-2">
+    <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
       <span class="text-muted small">{{ rows|length }} 件</span>
       <a href="#" id="select-all" class="small">全選択</a>
       <a href="#" id="deselect-all" class="small">全解除</a>
+
+      <span class="vr mx-1"></span>
+      <label class="form-label small mb-0 text-nowrap" for="settle_ymd">精算日</label>
+      <input type="date" id="settle_ymd" name="settle_ymd"
+             class="form-control form-control-sm" style="width:auto;"
+             value="{{ today }}">
+
       <div class="ms-auto d-flex gap-2">
         <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-print">
           <i class="fas fa-print me-1"></i>明細印刷
