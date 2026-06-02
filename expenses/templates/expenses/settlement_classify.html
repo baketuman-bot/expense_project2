@@ -19,10 +19,20 @@
   <form method="post">
     {% csrf_token %}
 
-    <div class="d-flex align-items-center gap-3 mb-2">
+    <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
       <span class="text-muted small">{{ rows|length }} 件</span>
       <a href="#" id="select-all" class="small">全選択</a>
       <a href="#" id="deselect-all" class="small">全解除</a>
+
+      <span class="vr mx-1"></span>
+      <span class="text-muted small text-nowrap">精算方法別選択:</span>
+      {% for s in stl_statuses %}
+      <button type="button" class="btn btn-outline-secondary btn-sm select-by-kbn"
+              data-kbn="{{ s.status_cd }}">
+        {{ s.status_name }}
+      </button>
+      {% endfor %}
+
       <button type="submit" class="btn btn-primary btn-sm ms-auto">
         <i class="fas fa-check me-1"></i>チェック済を精算開始
       </button>
@@ -128,6 +138,20 @@
       getChecks().forEach(function (c) { c.checked = false; });
     });
   }
+
+  // 精算方法別一括チェック
+  document.querySelectorAll('.select-by-kbn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var kbn = this.dataset.kbn;
+      document.querySelectorAll('.classify-row').forEach(function (row) {
+        var sel = row.querySelector('.settle-kbn-select');
+        var chk = row.querySelector('.classify-check');
+        if (sel && chk && sel.value === kbn) {
+          chk.checked = true;
+        }
+      });
+    });
+  });
 })();
 </script>
 {% endblock %}
