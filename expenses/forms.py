@@ -171,6 +171,9 @@ class ExpenseDetailForm(forms.ModelForm):
         # コーポレートカード支払い選択時はカード番号必須（下書き時はスキップ）
         if not self.is_draft and corpo_card == 2 and not corpo_card_no:
             self.add_error("corpo_card_no", "コーポレートカード支払いを選択した場合、カード番号を入力してください。")
+        # 外税選択時は消費税額必須（下書き時はスキップ）
+        if not self.is_draft and cleaned.get("consumption_kbn") == 1 and not cleaned.get("consumption_tax"):
+            self.add_error("consumption_tax", "外税の場合は消費税額を入力してください。")
         return cleaned
 
 
@@ -434,6 +437,9 @@ class TravelDetailForm(forms.ModelForm):
         # コーポレートカード支払い選択時はカード番号必須（下書き時はスキップ）
         if not self.is_draft and corpo_card == 2 and not corpo_card_no:
             self.add_error("corpo_card_no", "コーポレートカード支払いを選択した場合、カード番号を入力してください。")
+        # 外税選択時は消費税額必須（下書き時はスキップ）
+        if not self.is_draft and cleaned.get("consumption_kbn") == 1 and not cleaned.get("consumption_tax"):
+            self.add_error("consumption_tax", "外税の場合は消費税額を入力してください。")
         return cleaned
 
     def save(self, commit=True):
@@ -604,6 +610,9 @@ class AccommodationForm(forms.ModelForm):
         # コーポレートカード支払い選択時はカード番号必須（下書き時はスキップ）
         if not self.is_draft and corpo_card == 2 and not corpo_card_no:
             self.add_error('corpo_card_no', 'コーポレートカード支払いを選択した場合、カード番号を入力してください。')
+        # 外税選択時は消費税額必須（下書き時はスキップ）
+        if not self.is_draft and cleaned.get('consumption_kbn') == 1 and not cleaned.get('consumption_tax'):
+            self.add_error('consumption_tax', '外税の場合は消費税額を入力してください。')
         return cleaned
 
     def save(self, commit=True):
