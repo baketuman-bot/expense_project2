@@ -178,6 +178,21 @@
                         <div class="row mt-3">
                             <div class="col-md-4">
                                 <div class="form-group">
+                                    {{ detail_form.consumption_kbn.label_tag }}
+                                    {{ detail_form.consumption_kbn|add_class:"form-select" }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    {{ detail_form.consumption_tax.label_tag }}
+                                    {{ detail_form.consumption_tax|add_class:"form-control"|attr:"inputmode:numeric"|attr:"type:text"|attr:"data-amount-input:1" }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="form-group">
                                     {{ detail_form.corpo_card.label_tag }}
                                     {% if detail_form.corpo_card.errors %}
                                         {{ detail_form.corpo_card|add_class:"form-select is-invalid" }}

@@ -221,6 +221,16 @@
                                                 {{ form.corpo_card_no }}
                                             </div>
                                         </div>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-1">{{ form.consumption_kbn.label }}</label>
+                                                {{ form.consumption_kbn }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-1">{{ form.consumption_tax.label }}</label>
+                                                {{ form.consumption_tax }}
+                                            </div>
+                                        </div>
                                         <div class="row g-2 mt-2">
                                             <div class="col-md-12">
                                                 <label class="form-label small mb-1">領収書</label>
@@ -359,6 +369,16 @@
                                             <div class="col-md-4">
                                                 <label class="form-label small mb-1">{{ aform.corpo_card_no.label }}</label>
                                                 {{ aform.corpo_card_no }}
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-1">{{ aform.consumption_kbn.label }}</label>
+                                                {{ aform.consumption_kbn }}
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-1">{{ aform.consumption_tax.label }}</label>
+                                                {{ aform.consumption_tax }}
                                             </div>
                                         </div>
                                         <div class="row g-2 mt-2">
@@ -639,6 +659,16 @@
                     {{ formset.empty_form.corpo_card_no }}
                 </div>
             </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">{{ formset.empty_form.consumption_kbn.label }}</label>
+                    {{ formset.empty_form.consumption_kbn }}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">{{ formset.empty_form.consumption_tax.label }}</label>
+                    {{ formset.empty_form.consumption_tax }}
+                </div>
+            </div>
             <div class="row g-2 mt-2">
                 <div class="col-md-12">
                     <label class="form-label small mb-1">領収書</label>
@@ -719,6 +749,20 @@
                 <div class="col-md-4">
                     <label class="form-label small mb-1">カード番号</label>
                     <input type="text" name="accom-__accom_prefix__-corpo_card_no" class="form-control form-control-sm" placeholder="カード番号（下4桁等）" data-corpo-card-no disabled>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">内外税区分</label>
+                    <select name="accom-__accom_prefix__-consumption_kbn" class="form-select form-select-sm">
+                        <option value="">--</option>
+                        <option value="0">内税</option>
+                        <option value="1">外税</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">消費税額</label>
+                    <input type="text" name="accom-__accom_prefix__-consumption_tax" class="form-control form-control-sm" inputmode="numeric" placeholder="0" data-amount-input autocomplete="off">
                 </div>
             </div>
             <div class="row g-2 mt-2">

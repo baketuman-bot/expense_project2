@@ -642,6 +642,8 @@ class T_DocumentContent(models.Model):
     corpo_card = models.IntegerField("コーポレートカード支払い", null=True, blank=True)
     corpo_card_no = models.CharField("カード番号", max_length=10, null=True, blank=True)
     settle_kbn = models.CharField("精算区分", max_length=10, null=True, blank=True, db_column='settle_kbn')
+    consumption_tax = models.DecimalField("消費税額", max_digits=10, decimal_places=2, null=True, blank=True)
+    consumption_kbn = models.SmallIntegerField("内外税区分", null=True, blank=True)
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
 

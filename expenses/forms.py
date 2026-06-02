@@ -91,9 +91,23 @@ class ExpenseDetailForm(forms.ModelForm):
         }),
     )
 
+    CONSUMPTION_KBN_CHOICES = [
+        ('', '--'),
+        (0, '内税'),
+        (1, '外税'),
+    ]
+    consumption_kbn = forms.TypedChoiceField(
+        label="内外税区分",
+        required=False,
+        choices=CONSUMPTION_KBN_CHOICES,
+        coerce=lambda x: int(x) if x != '' else None,
+        empty_value=None,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
     class Meta:
         model = T_DocumentContent
-        fields = ["date", "amount", "purpose", "shiharaisaki", "account", "tekikaku_cd", "corpo_card", "corpo_card_no"]
+        fields = ["date", "amount", "purpose", "shiharaisaki", "account", "tekikaku_cd", "corpo_card", "corpo_card_no", "consumption_kbn", "consumption_tax"]
         labels = {
             "amount": "金額",
             "purpose": "目的",
@@ -119,6 +133,17 @@ class ExpenseDetailForm(forms.ModelForm):
         self.fields['amount'] = CommaDecimalField(
             required=False, max_digits=10, decimal_places=2,
             label='金額',
+            widget=forms.TextInput(attrs={
+                'class': 'form-control',
+                'inputmode': 'numeric',
+                'placeholder': '0',
+                'data-amount-input': '',
+                'autocomplete': 'off',
+            }),
+        )
+        self.fields['consumption_tax'] = CommaDecimalField(
+            required=False, max_digits=10, decimal_places=2,
+            label='消費税額',
             widget=forms.TextInput(attrs={
                 'class': 'form-control',
                 'inputmode': 'numeric',
@@ -318,9 +343,23 @@ class TravelDetailForm(forms.ModelForm):
         }),
     )
 
+    CONSUMPTION_KBN_CHOICES = [
+        ('', '--'),
+        (0, '内税'),
+        (1, '外税'),
+    ]
+    consumption_kbn = forms.TypedChoiceField(
+        label='内外税区分',
+        required=False,
+        choices=CONSUMPTION_KBN_CHOICES,
+        coerce=lambda x: int(x) if x != '' else None,
+        empty_value=None,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+    )
+
     class Meta:
         model = T_DocumentContent
-        fields = ['date', 'amount', 'shiharaisaki', 'tekikaku_cd', 'corpo_card', 'corpo_card_no']
+        fields = ['date', 'amount', 'shiharaisaki', 'tekikaku_cd', 'corpo_card', 'corpo_card_no', 'consumption_kbn', 'consumption_tax']
         labels = {
             'amount': '運賃(円)',
             'shiharaisaki': '支払先',
@@ -350,6 +389,17 @@ class TravelDetailForm(forms.ModelForm):
         self.fields['amount'] = CommaDecimalField(
             required=False, max_digits=10, decimal_places=2,
             label='運賃(円)',
+            widget=forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'inputmode': 'numeric',
+                'placeholder': '0',
+                'data-amount-input': '',
+                'autocomplete': 'off',
+            }),
+        )
+        self.fields['consumption_tax'] = CommaDecimalField(
+            required=False, max_digits=10, decimal_places=2,
+            label='消費税額',
             widget=forms.TextInput(attrs={
                 'class': 'form-control form-control-sm',
                 'inputmode': 'numeric',
@@ -487,9 +537,23 @@ class AccommodationForm(forms.ModelForm):
         }),
     )
 
+    CONSUMPTION_KBN_CHOICES = [
+        ('', '--'),
+        (0, '内税'),
+        (1, '外税'),
+    ]
+    consumption_kbn = forms.TypedChoiceField(
+        label='内外税区分',
+        required=False,
+        choices=CONSUMPTION_KBN_CHOICES,
+        coerce=lambda x: int(x) if x != '' else None,
+        empty_value=None,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+    )
+
     class Meta:
         model = T_DocumentContent
-        fields = ['date', 'amount', 'shiharaisaki', 'tekikaku_cd', 'corpo_card', 'corpo_card_no']
+        fields = ['date', 'amount', 'shiharaisaki', 'tekikaku_cd', 'corpo_card', 'corpo_card_no', 'consumption_kbn', 'consumption_tax']
         labels = {'amount': '金額', 'shiharaisaki': '支払先', 'tekikaku_cd': '登録番号'}
         widgets = {
             'shiharaisaki': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '例: ○○ホテル'}),
@@ -502,6 +566,17 @@ class AccommodationForm(forms.ModelForm):
         self.fields['amount'] = CommaDecimalField(
             required=False, max_digits=10, decimal_places=2,
             label='金額',
+            widget=forms.TextInput(attrs={
+                'class': 'form-control form-control-sm',
+                'inputmode': 'numeric',
+                'placeholder': '0',
+                'data-amount-input': '',
+                'autocomplete': 'off',
+            }),
+        )
+        self.fields['consumption_tax'] = CommaDecimalField(
+            required=False, max_digits=10, decimal_places=2,
+            label='消費税額',
             widget=forms.TextInput(attrs={
                 'class': 'form-control form-control-sm',
                 'inputmode': 'numeric',
