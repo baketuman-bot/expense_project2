@@ -58,6 +58,8 @@ urlpatterns = [
     path("settings/settlement/corp_card/", views.settlement_corp_card, name="settlement_corp_card"),
     path("settings/settlement/payroll/", views.settlement_payroll, name="settlement_payroll"),
     path("settings/settlement/auto_debit/", views.settlement_auto_debit, name="settlement_auto_debit"),
+    # 仕訳処理
+    path("settings/settlement/journal/", views.settlement_journal, name="settlement_journal"),
     # マスタ設定
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),

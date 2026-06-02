@@ -115,5 +115,28 @@
     </div>
 
   </div>
+
+  <!-- 仕訳処理セクション -->
+  <h5 class="mt-4 mb-2 fw-bold" style="color:#17307a; border-bottom:1px solid #d1d5db; padding-bottom:6px;">仕訳処理</h5>
+  <div class="row g-3">
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_journal' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-book"></i></span>
+            <div class="flex-grow-1">
+              <div class="fw-bold">仕訳作成</div>
+              <div class="text-muted small">会計システム向けデータを生成する</div>
+            </div>
+            {% if counts.journal %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#17307a; color:#fff;">{{ counts.journal }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+    </div>
+
+  </div>
 </div>
 {% endblock %}

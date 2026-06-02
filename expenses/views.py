@@ -4032,6 +4032,7 @@ def settings_data_view_csv(request, view_name):
 def settlement_menu(request):
     """精算処理メニュー: 6つの精算処理区分と処理待ち件数を表示する"""
     base_qs = T_DocumentContent.objects.filter(document__status_cd_id='FNS')
+    journal_kbns = ['CAS_INPRO', 'SAL_INPRO', 'COC_INPRO', 'LON_INPRO']
     counts = {
         'classify':   base_qs.filter(settle_kbn__isnull=True).count(),
         'cash':       base_qs.filter(settle_kbn='CAS_PRE').count(),
@@ -4039,6 +4040,7 @@ def settlement_menu(request):
         'corp_card':  base_qs.filter(settle_kbn='COC_PRE').count(),
         'payroll':    base_qs.filter(settle_kbn='SAL_PRE').count(),
         'auto_debit': base_qs.filter(settle_kbn='AUT_PRE').count(),
+        'journal':    base_qs.filter(settle_kbn__in=journal_kbns).count(),
     }
     return render(request, 'expenses/settlement_menu.html', {
         'current': 'settlement_menu',
@@ -4272,6 +4274,31 @@ def settlement_auto_debit(request):
         'title': '自動引き落とし処理',
         'icon': 'fa-sync-alt',
         'current': 'settlement_auto_debit',
+    })
+
+
+_JOURNAL_KBN_LABEL = {
+    'CAS_INPRO': '現金精算',
+    'SAL_INPRO': '給与振込',
+    'COC_INPRO': '法人カード未払',
+    'LON_INPRO': '前借証',
+}
+
+
+@login_required
+def settlement_journal(request):
+    """仕訳作成: INPRO ステータスの明細一覧を表示し、会計システム向けデータを生成する"""
+    journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
+    contents = (
+        T_DocumentContent.objects
+        .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS')
+        .order_by('document__document_type_id', 'document__document_id', 'date')
+    )
+    rows = [{'content': c, 'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn)} for c in contents]
+    return render(request, 'expenses/settlement_journal.html', {
+        'rows': rows,
+        'current': 'settlement_journal',
     })
 
 
