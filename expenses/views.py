@@ -10,6 +10,7 @@ from .models import (
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
     T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup, M_MailManage,
+    T_Settle,
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -4088,16 +4089,54 @@ def settlement_classify(request):
 @login_required
 def settlement_cash(request):
     """現金精算処理: settle_kbn='CAS_PRE' の明細一覧。確定→CAS_INPRO、取消→NULL"""
+    import datetime
     from django.utils.timezone import localdate
     if request.method == 'POST':
         action = request.POST.get('action')
         selected_ids = request.POST.getlist('selected_ids')
         settle_ymd_str = request.POST.get('settle_ymd', '').strip()
+        try:
+            settle_ymd = datetime.date.fromisoformat(settle_ymd_str)
+        except (ValueError, TypeError):
+            settle_ymd = localdate()
+
         if selected_ids:
             if action == 'confirm':
+                # 対象明細を取得（document_id を一緒に拾う）
+                target_contents = list(
+                    T_DocumentContent.objects
+                    .filter(document_detail_id__in=selected_ids)
+                    .select_related('document')
+                )
+                # settle_kbn 更新
                 T_DocumentContent.objects.filter(
                     document_detail_id__in=selected_ids
                 ).update(settle_kbn='CAS_INPRO')
+                # T_Settle ログ書き込み
+                T_Settle.objects.bulk_create([
+                    T_Settle(
+                        document_id=c.document_id,
+                        document_detail_id=c.document_detail_id,
+                        man_number=request.user,
+                        status_cd='CAS_INPRO',
+                        settle_ymd=settle_ymd,
+                    )
+                    for c in target_contents
+                ])
+                # 同一 document_id で未処理(NULL)・処理待ち(*_PRE)が残っていなければ精算完了
+                doc_ids = {c.document_id for c in target_contents}
+                for doc_id in doc_ids:
+                    has_remaining = T_DocumentContent.objects.filter(
+                        document_id=doc_id
+                    ).filter(
+                        models.Q(settle_kbn__isnull=True) |
+                        models.Q(settle_kbn__endswith='_PRE')
+                    ).exists()
+                    if not has_remaining:
+                        T_Document.objects.filter(document_id=doc_id).update(
+                            is_settled=True,
+                            settled_at=settle_ymd,
+                        )
             elif action == 'cancel':
                 T_DocumentContent.objects.filter(
                     document_detail_id__in=selected_ids
