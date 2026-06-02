@@ -1,0 +1,74 @@
+{% extends "expenses/base.html" %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+<div class="mt-4" style="max-width:640px;">
+
+  <div class="page-head mb-4">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-envelope-open-text"></i></span>
+      メール送信設定
+    </h2>
+  </div>
+
+  {% if messages %}
+  {% for msg in messages %}
+  <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th class="ps-4">カテゴリ</th>
+              <th>説明</th>
+              <th class="text-center" style="width:100px;">送信</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td class="ps-4 fw-bold align-middle text-nowrap">{{ item.label }}</td>
+              <td class="align-middle small text-muted">{{ item.desc }}</td>
+              <td class="text-center align-middle">
+                <div class="form-check form-switch d-flex justify-content-center">
+                  <input class="form-check-input"
+                         type="checkbox"
+                         role="switch"
+                         id="mail_{{ item.key }}"
+                         name="mail_{{ item.key }}"
+                         style="width:2.5em; height:1.4em;"
+                         {% if item.enabled %}checked{% endif %}>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mt-3 d-flex justify-content-end">
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-save me-1"></i>保存
+      </button>
+    </div>
+  </form>
+
+  <div class="mt-4 card accent-neutral">
+    <div class="card-body small text-muted">
+      <strong>補足:</strong>
+      OFFにすると該当カテゴリのメールは一切送信されません。
+      設定はすぐに反映されます。レコードが存在しない場合は送信する（ON）扱いになります。
+    </div>
+  </div>
+
+</div>
+{% endblock %}

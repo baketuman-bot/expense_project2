@@ -1163,7 +1163,7 @@ def expense_edit(request, pk):
                                     if next_approvers.exists():
                                         for a in next_approvers:
                                             to_addr = getattr(getattr(a.man_number, 'email', None), 'strip', lambda: None)()
-                                            send_notification(to_addr, subject, body)
+                                            send_notification(to_addr, subject, body, mail_category='approval')
                             except Exception:
                                 pass
                         elif exists_instance and not is_draft_only_instance:
@@ -1220,7 +1220,7 @@ def expense_edit(request, pk):
                                             if next_approvers_re.exists():
                                                 for a in next_approvers_re:
                                                     to_addr = getattr(getattr(a.man_number, 'email', None), 'strip', lambda: None)()
-                                                    send_notification(to_addr, subject, body)
+                                                    send_notification(to_addr, subject, body, mail_category='approval')
                             except Exception:
                                 pass
                     except Exception as e:
@@ -2064,7 +2064,7 @@ def expense_create(request, document_type_id=None):
                                 if next_approvers.exists():
                                     for a in next_approvers:
                                         to_addr = getattr(getattr(a.man_number, 'email', None), 'strip', lambda: None)()
-                                        send_notification(to_addr, subject, body)
+                                        send_notification(to_addr, subject, body, mail_category='approval')
                         except Exception:
                             pass
 
@@ -2732,10 +2732,10 @@ def approval_detail(request, pk):
                                         if next_approvers.exists():
                                             for a in next_approvers:
                                                 to_addr = getattr(getattr(a.man_number, 'email', None), 'strip', lambda: None)()
-                                                send_notification(to_addr, subject, body)
+                                                send_notification(to_addr, subject, body, mail_category='approval')
                                         else:
                                             to_addr = getattr(getattr(expense.man_number, 'email', None), 'strip', lambda: None)()
-                                            send_notification(to_addr, subject, body)
+                                            send_notification(to_addr, subject, body, mail_category='approval')
                                     except Exception:
                                         pass
                             else:
@@ -2831,7 +2831,8 @@ def approval_detail(request, pk):
                     send_notification(
                         expense.man_number.email,
                         "[経費精算] 申請結果",
-                        f"申請ID:{expense.document_id} の結果: {final_name}\nコメント: {comment or 'なし'}"
+                        f"申請ID:{expense.document_id} の結果: {final_name}\nコメント: {comment or 'なし'}",
+                        mail_category='result',
                     )
             except Exception:
                 pass
@@ -3600,7 +3601,7 @@ def settings_force_action(request, pk):
                         for a in next_approvers:
                             to_addr = getattr(a.man_number, 'email', None)
                             if to_addr:
-                                send_notification(to_addr.strip(), subject, body)
+                                send_notification(to_addr.strip(), subject, body, mail_category='approval')
                     else:
                         # 未登録の場合は candidates_for_step で実際の候補者を探す（keiri ステップ等）
                         candidates = candidates_for_step(expense.man_number, next_step)
@@ -3608,13 +3609,13 @@ def settings_force_action(request, pk):
                         for cand in candidates:
                             to_addr = getattr(cand, 'email', None)
                             if to_addr:
-                                send_notification(to_addr.strip(), subject, body)
+                                send_notification(to_addr.strip(), subject, body, mail_category='approval')
                                 sent = True
                         if not sent:
                             # 候補が見つからない場合のみ申請者へ
                             to_addr = getattr(expense.man_number, 'email', None)
                             if to_addr:
-                                send_notification(to_addr.strip(), subject, body)
+                                send_notification(to_addr.strip(), subject, body, mail_category='approval')
                 except Exception:
                     pass
             else:
@@ -3635,7 +3636,8 @@ def settings_force_action(request, pk):
                     send_notification(
                         expense.man_number.email,
                         "[経費精算] 申請結果（最終承認）",
-                        f"申請ID:{expense.document_id} が最終承認されました。\nコメント: {comment or 'なし'}"
+                        f"申請ID:{expense.document_id} が最終承認されました。\nコメント: {comment or 'なし'}",
+                        mail_category='result',
                     )
                 except Exception:
                     pass
@@ -3683,7 +3685,8 @@ def settings_force_action(request, pk):
             send_notification(
                 expense.man_number.email,
                 "[経費精算] 申請結果（却下）",
-                f"申請ID:{expense.document_id} が却下されました。\nコメント: {comment or 'なし'}"
+                f"申請ID:{expense.document_id} が却下されました。\nコメント: {comment or 'なし'}",
+                mail_category='result',
             )
         except Exception:
             pass
@@ -4284,6 +4287,47 @@ def settlement_toggle(request, pk):
 
 
 @login_required
+def settings_mail(request):
+    """メール設定: 3カテゴリの送信ON/OFFをトグル管理"""
+    MAIL_CATEGORIES = [
+        ('approval', '承認依頼・次ステップ通知',
+         '申請者が提出した際の第1ステップ承認者への通知、および中間承認後の次担当者への通知'),
+        ('result',   '申請結果通知',
+         '最終承認・却下・差戻し完了時に申請者へ送信する通知'),
+        ('feedback', 'フィードバック系通知',
+         '改善要望の新規登録時に管理者へ送る通知、および状況更新時に登録者へ送る通知'),
+    ]
+    if request.method == 'POST':
+        for key, _, _ in MAIL_CATEGORIES:
+            value = '1' if request.POST.get(f'mail_{key}') else '0'
+            M_Item.objects.update_or_create(
+                data_kbn='MAILCFG', key=key,
+                defaults={'content': value},
+            )
+        from django.contrib import messages as dj_messages
+        dj_messages.success(request, 'メール設定を保存しました。')
+        return redirect('expenses:settings_mail')
+
+    current = {
+        item.key: item.content
+        for item in M_Item.objects.filter(data_kbn='MAILCFG')
+    }
+    items = [
+        {
+            'key': key,
+            'label': label,
+            'desc': desc,
+            'enabled': current.get(key, '1') == '1',
+        }
+        for key, label, desc in MAIL_CATEGORIES
+    ]
+    return render(request, 'expenses/settings_mail.html', {
+        'items': items,
+        'current': 'settings_mail',
+    })
+
+
+@login_required
 def settings_master_home(request):
     """マスタ設定ホーム: M_Item(data_kbn='MST') からメニュー生成"""
     raw = M_Item.objects.filter(data_kbn='MST').order_by('key')
@@ -4474,7 +4518,7 @@ def _feedback_notify_superusers(fb, submitter):
         '回答・状況の更新はシステムからお願いします。'
     )
     for su in superusers:
-        send_notification(su.email, subject, message)
+        send_notification(su.email, subject, message, mail_category='feedback')
 
 
 def _feedback_notify_submitter(fb, updater):
@@ -4493,7 +4537,7 @@ def _feedback_notify_submitter(fb, updater):
         '更新者 : ' + str(getattr(updater, 'user_name', updater)) + '\n\n'
         '詳細はシステムからご確認ください。'
     )
-    send_notification(submitter.email, subject, message)
+    send_notification(submitter.email, subject, message, mail_category='feedback')
 
 
 @login_required

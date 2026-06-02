@@ -168,6 +168,17 @@
             <div class="precision-section-label">管理者設定</div>
             <ul class="precision-nav">
                 <li>
+                    <a class="precision-link {% if current == 'settings_mail' %}is-active{% endif %}" href="{% url 'expenses:settings_mail' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                        </span>
+                        <span>メール設定</span>
+                    </a>
+                </li>
+                <li>
                     <a class="precision-link {% if current == 'settings_master_home' or current == 'settings_master_list' or current == 'settings_master_create' or current == 'settings_master_edit' %}is-active{% endif %}" href="{% url 'expenses:settings_master_home' %}">
                         <span class="precision-ico" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

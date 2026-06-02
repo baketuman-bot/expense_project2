@@ -10,7 +10,19 @@ def _resolve_recipient(to_email: str | None):
         return forced
     return to_email
 
-def send_notification(to_email, subject, message):
+def is_mail_enabled(category: str) -> bool:
+    """M_Item(data_kbn='MAILCFG', key=category).content == '1' なら True。レコード欠損時は True（フェイルオープン）"""
+    try:
+        from .models import M_Item
+        item = M_Item.objects.filter(data_kbn='MAILCFG', key=category).first()
+        return item is None or item.content == '1'
+    except Exception:
+        return True
+
+
+def send_notification(to_email, subject, message, mail_category=None):
+    if mail_category and not is_mail_enabled(mail_category):
+        return
     final_to = _resolve_recipient(to_email)
     if not final_to:
         return
