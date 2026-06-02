@@ -207,8 +207,8 @@
                                     <th>支払先</th>
                                     <th style="width:70px">宿泊日数</th>
                                     <th class="text-end" style="width:100px">金額</th>
-                                    <th style="width:65px">内外税</th>
                                     <th class="text-end" style="width:90px">消費税額</th>
+                                    <th style="width:65px">内外税</th>
                                     <th class="text-center" style="width:60px">領収書</th>
                                 </tr>
                             </thead>
@@ -219,8 +219,8 @@
                                     <td>{{ detail.shiharaisaki|default:"-" }}</td>
                                     <td>{{ detail.content.nights|default:"-" }}</td>
                                     <td class="text-end fw-bold text-success">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
-                                    <td>{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</td>
                                     <td class="text-end">{% if detail.consumption_tax %}{{ detail.consumption_tax|floatformat:0 }}{% else %}-{% endif %}</td>
+                                    <td>{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</td>
                                     <td class="text-center">
                                         {% if detail.attachments.all %}
                                         <div class="d-flex flex-wrap gap-1 justify-content-center">
