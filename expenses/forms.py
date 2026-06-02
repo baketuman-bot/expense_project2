@@ -67,7 +67,7 @@ class ExpenseDetailForm(forms.ModelForm):
 
     CORPO_CARD_CHOICES = [
         ('', '選択してください'),
-        (1, 'その他'),
+        (1, '不使用'),
         (2, 'コーポレートカード支払い'),
     ]
     corpo_card = forms.TypedChoiceField(
@@ -96,12 +96,14 @@ class ExpenseDetailForm(forms.ModelForm):
         (0, '内税'),
         (1, '外税'),
     ]
+    # 内税をデフォルト選択
     consumption_kbn = forms.TypedChoiceField(
         label="内外税区分",
         required=False,
         choices=CONSUMPTION_KBN_CHOICES,
         coerce=lambda x: int(x) if x != '' else None,
         empty_value=None,
+        initial=0,
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
 
@@ -320,7 +322,7 @@ class TravelDetailForm(forms.ModelForm):
 
     CORPO_CARD_CHOICES = [
         ('', '選択してください'),
-        (1, 'その他'),
+        (1, '不使用'),
         (2, 'コーポレートカード支払い'),
     ]
     corpo_card = forms.TypedChoiceField(
@@ -348,12 +350,14 @@ class TravelDetailForm(forms.ModelForm):
         (0, '内税'),
         (1, '外税'),
     ]
+    # 内税をデフォルト選択
     consumption_kbn = forms.TypedChoiceField(
         label='内外税区分',
         required=False,
         choices=CONSUMPTION_KBN_CHOICES,
         coerce=lambda x: int(x) if x != '' else None,
         empty_value=None,
+        initial=0,
         widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
     )
 
@@ -514,7 +518,7 @@ class AccommodationForm(forms.ModelForm):
 
     CORPO_CARD_CHOICES = [
         ('', '選択してください'),
-        (1, 'その他'),
+        (1, '不使用'),
         (2, 'コーポレートカード支払い'),
     ]
     corpo_card = forms.TypedChoiceField(
@@ -542,12 +546,14 @@ class AccommodationForm(forms.ModelForm):
         (0, '内税'),
         (1, '外税'),
     ]
+    # 内税をデフォルト選択
     consumption_kbn = forms.TypedChoiceField(
         label='内外税区分',
         required=False,
         choices=CONSUMPTION_KBN_CHOICES,
         coerce=lambda x: int(x) if x != '' else None,
         empty_value=None,
+        initial=0,
         widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
     )
 

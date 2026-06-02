@@ -73,7 +73,7 @@
                         <input type="hidden" name="{{ detail_form.amount.html_name }}" value="0">
                         {% else %}
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-group">
                                     {{ detail_form.date.label_tag }}
                                     {% if detail_form.date.errors %}
@@ -86,7 +86,9 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3">
                                 <div class="form-group">
                                     {{ detail_form.amount.label_tag }}
                                     {% if detail_form.amount.errors %}
@@ -99,6 +101,20 @@
                                     {% endif %}
                                 </div>
                             </div>
+                            {% if not hide_receipt_fields %}
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    {{ detail_form.consumption_tax.label_tag }}
+                                    {{ detail_form.consumption_tax|add_class:"form-control"|attr:"inputmode:numeric"|attr:"type:text"|attr:"data-amount-input:1" }}
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    {{ detail_form.consumption_kbn.label_tag }}
+                                    {{ detail_form.consumption_kbn|add_class:"form-select" }}
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
                         {% endif %}
 
@@ -171,21 +187,6 @@
                                         {% endfor %}
                                     {% endif %}
                                     <div class="form-text">登録番号がない場合は、なしと記載。</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    {{ detail_form.consumption_kbn.label_tag }}
-                                    {{ detail_form.consumption_kbn|add_class:"form-select" }}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    {{ detail_form.consumption_tax.label_tag }}
-                                    {{ detail_form.consumption_tax|add_class:"form-control"|attr:"inputmode:numeric"|attr:"type:text"|attr:"data-amount-input:1" }}
                                 </div>
                             </div>
                         </div>
