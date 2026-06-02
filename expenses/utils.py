@@ -11,11 +11,11 @@ def _resolve_recipient(to_email: str | None):
     return to_email
 
 def is_mail_enabled(category: str) -> bool:
-    """M_Item(data_kbn='MAILCFG', key=category).content == '1' なら True。レコード欠損時は True（フェイルオープン）"""
+    """M_MailManage.enabled が False なら False。レコード欠損時は True（フェイルオープン）"""
     try:
-        from .models import M_Item
-        item = M_Item.objects.filter(data_kbn='MAILCFG', key=category).first()
-        return item is None or item.content == '1'
+        from .models import M_MailManage
+        item = M_MailManage.objects.filter(mail_category=category).first()
+        return item is None or item.enabled
     except Exception:
         return True
 

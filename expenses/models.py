@@ -125,6 +125,22 @@ class M_Item(models.Model):
         return f"{self.key} - {self.content}"
 
 
+# メール送信管理マスタ
+class M_MailManage(models.Model):
+    mail_category = models.CharField("メールカテゴリ", max_length=20, primary_key=True)
+    mail_label    = models.CharField("カテゴリ名",    max_length=100)
+    mail_desc     = models.CharField("説明",          max_length=255, blank=True)
+    enabled       = models.BooleanField("送信する", default=True)
+
+    class Meta:
+        db_table = 'm_mail_manage'
+        verbose_name = 'メール送信管理'
+        verbose_name_plural = 'メール送信管理'
+
+    def __str__(self):
+        return f"{self.mail_label}({'ON' if self.enabled else 'OFF'})"
+
+
 # ワークフローテンプレートマスタ
 class M_WorkflowTemplate(models.Model):
     workflow_template_id = models.AutoField("ワークフローテンプレートID", primary_key=True, db_column='workflow_template_id')

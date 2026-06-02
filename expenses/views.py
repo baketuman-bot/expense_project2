@@ -9,7 +9,7 @@ from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
-    T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup,
+    T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup, M_MailManage,
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -4288,38 +4288,23 @@ def settlement_toggle(request, pk):
 
 @login_required
 def settings_mail(request):
-    """メール設定: 3カテゴリの送信ON/OFFをトグル管理"""
-    MAIL_CATEGORIES = [
-        ('approval', '承認依頼・次ステップ通知',
-         '申請者が提出した際の第1ステップ承認者への通知、および中間承認後の次担当者への通知'),
-        ('result',   '申請結果通知',
-         '最終承認・却下・差戻し完了時に申請者へ送信する通知'),
-        ('feedback', 'フィードバック系通知',
-         '改善要望の新規登録時に管理者へ送る通知、および状況更新時に登録者へ送る通知'),
-    ]
+    """メール設定: m_mail_manage テーブルで3カテゴリの送信ON/OFFを管理"""
     if request.method == 'POST':
-        for key, _, _ in MAIL_CATEGORIES:
-            value = '1' if request.POST.get(f'mail_{key}') else '0'
-            M_Item.objects.update_or_create(
-                data_kbn='MAILCFG', key=key,
-                defaults={'content': value},
-            )
+        for item in M_MailManage.objects.all():
+            item.enabled = bool(request.POST.get(f'mail_{item.mail_category}'))
+            item.save(update_fields=['enabled'])
         from django.contrib import messages as dj_messages
         dj_messages.success(request, 'メール設定を保存しました。')
         return redirect('expenses:settings_mail')
 
-    current = {
-        item.key: item.content
-        for item in M_Item.objects.filter(data_kbn='MAILCFG')
-    }
     items = [
         {
-            'key': key,
-            'label': label,
-            'desc': desc,
-            'enabled': current.get(key, '1') == '1',
+            'key': item.mail_category,
+            'label': item.mail_label,
+            'desc': item.mail_desc,
+            'enabled': item.enabled,
         }
-        for key, label, desc in MAIL_CATEGORIES
+        for item in M_MailManage.objects.all()
     ]
     return render(request, 'expenses/settings_mail.html', {
         'items': items,
