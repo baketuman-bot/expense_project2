@@ -886,6 +886,51 @@ class T_Feedback(models.Model):
         ordering = ['-created_at', '-feedback_id']
 
 
+class T_Settle(models.Model):
+    """精算ログ: 明細ごとの精算処理履歴"""
+    settle_id = models.AutoField("精算ログID", primary_key=True)
+    document = models.ForeignKey(
+        T_Document,
+        verbose_name="文書",
+        on_delete=models.CASCADE,
+        db_column='document_id',
+        related_name='settle_logs',
+        db_constraint=False,
+    )
+    document_detail = models.ForeignKey(
+        T_DocumentContent,
+        verbose_name="明細",
+        on_delete=models.CASCADE,
+        db_column='document_detail_id',
+        related_name='settle_logs',
+        null=True, blank=True,
+        db_constraint=False,
+    )
+    man_number = models.ForeignKey(
+        M_User,
+        to_field='man_number',
+        db_column='man_number',
+        verbose_name="処理者",
+        on_delete=models.PROTECT,
+        related_name='settle_logs',
+        null=True, blank=True,
+        db_constraint=False,
+    )
+    status_cd = models.CharField("精算ステータス", max_length=20, null=True, blank=True)
+    settle_ymd = models.DateField("精算日", null=True, blank=True)
+    create_ymd = models.DateField("登録日", auto_now_add=True)
+    update_ymd = models.DateField("更新日", auto_now=True)
+
+    def __str__(self):
+        return f"settle#{self.settle_id} doc={self.document_id} {self.status_cd}"
+
+    class Meta:
+        db_table = 't_settle'
+        verbose_name = '精算ログ'
+        verbose_name_plural = '精算ログ'
+        ordering = ['-create_ymd', '-settle_id']
+
+
 class T_Assets(models.Model):
     """固定資産テーブル（Accessシステム連携 v_assets ビュー相当）"""
 
