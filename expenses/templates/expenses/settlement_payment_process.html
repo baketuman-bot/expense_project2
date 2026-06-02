@@ -164,6 +164,11 @@
     titleInp.name = 'print_title';
     titleInp.value = '{{ title }} 明細';
     f.appendChild(titleInp);
+    var settleYmdInp = document.createElement('input');
+    settleYmdInp.type = 'hidden';
+    settleYmdInp.name = 'settle_ymd';
+    settleYmdInp.value = document.getElementById('settle_ymd').value;
+    f.appendChild(settleYmdInp);
     ids.forEach(function (id) {
       var inp = document.createElement('input');
       inp.type = 'hidden';

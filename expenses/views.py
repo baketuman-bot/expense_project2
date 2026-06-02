@@ -4181,10 +4181,12 @@ def settlement_cash_print(request):
     if request.method == 'POST':
         selected_ids = request.POST.getlist('selected_ids')
         print_title = request.POST.get('print_title', '精算明細')
+        settle_ymd = request.POST.get('settle_ymd', '')
     else:
         ids_str = request.GET.get('ids', '')
         selected_ids = [i.strip() for i in ids_str.split(',') if i.strip()]
         print_title = request.GET.get('print_title', '精算明細')
+        settle_ymd = request.GET.get('settle_ymd', '')
 
     if not selected_ids:
         return redirect('expenses:settlement_cash')
@@ -4225,6 +4227,7 @@ def settlement_cash_print(request):
         'tsuka_map': tsuka_map,
         'print_date': tz.now(),
         'print_title': print_title,
+        'settle_ymd': settle_ymd,
     })
 
 

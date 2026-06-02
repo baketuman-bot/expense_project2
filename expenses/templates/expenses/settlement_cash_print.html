@@ -157,6 +157,7 @@
   <div class="page-header-left">
     <h1>{{ print_title }}</h1>
     <div class="sub">印刷日: {{ print_date|date:"Y年m月d日 H:i" }}　{{ doc_groups|length }} 件</div>
+    {% if settle_ymd %}<div class="sub">精算日: {{ settle_ymd }}</div>{% endif %}
     <div style="margin-top:6px; font-size:18px; font-weight:bold;">
       合計金額：<span id="grand-total">-</span> 円
     </div>
