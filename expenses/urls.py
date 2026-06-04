@@ -16,6 +16,7 @@ urlpatterns = [
     path("<int:pk>/copy/", views.expense_copy, name="expense_copy"),
     path("approvals/", views.approval_list, name="approval_list"),
     path("approvals/<int:pk>/", views.approval_detail, name="approval_detail"),
+    path("approvals/<int:pk>/edit/", views.keiri_approval_edit, name="keiri_approval_edit"),
     # CSV エクスポート
     path("csv/", views.expense_csv, name="expense_csv"),
     path("approvals/csv/", views.approval_csv, name="approval_csv"),

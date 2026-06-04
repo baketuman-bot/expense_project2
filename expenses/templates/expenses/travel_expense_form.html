@@ -6,9 +6,18 @@
 
 {% block content %}
 <div class="container">
-    <h2 class="mb-4">{{ current_doc_type_name|default:"出張旅費精算" }}{% if is_edit_mode %}<small class="text-muted fs-5"> 編集</small>{% endif %}</h2>
+    <h2 class="mb-4">
+        {{ current_doc_type_name|default:"出張旅費精算" }}
+        {% if is_keiri_edit %}<small class="text-muted fs-5"> 経理修正</small>{% elif is_edit_mode %}<small class="text-muted fs-5"> 編集</small>{% endif %}
+    </h2>
 
-    {% if is_edit_mode and latest_return_action %}
+    {% if is_keiri_edit %}
+    <div class="alert alert-warning border-start border-4 border-warning mb-3">
+        <i class="fas fa-edit me-2"></i><strong>経理修正モード</strong> — 修正内容はすべて修正履歴に記録されます。
+    </div>
+    {% endif %}
+
+    {% if is_edit_mode and latest_return_action and not is_keiri_edit %}
     <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %} border-start border-4">
         <strong>{{ latest_return_action.action_status.action_name|default:latest_return_action.action_status.status_name }}</strong>
         <small class="text-muted ms-2">（{{ latest_return_action.approver_man_number.user_name }} / {{ latest_return_action.actioned_at|date:"Y/m/d H:i" }}）</small>
@@ -48,8 +57,10 @@
 
         <!-- 申請情報 -->
         <div class="card">
+            <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-file-alt me-2" style="color:#fff !important;"></i>申請情報</h5>
+            </div>
             <div class="card-body">
-                <h3 class="card-title mb-4">申請情報</h3>
                 <div class="row">
                     <div class="col-md-8">
                         <div class="form-group">
@@ -151,13 +162,13 @@
 
         <!-- 移動経路明細 -->
         <div class="card mt-4">
+            <div class="card-header d-flex align-items-center justify-content-between" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-route me-2" style="color:#fff !important;"></i>移動経路明細</h5>
+                <button type="button" id="toggle-travel-details" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-chevron-down me-1"></i>明細を全て非表示
+                </button>
+            </div>
             <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
-                    <h5 class="card-title mb-0 me-3">移動経路明細</h5>
-                    <button type="button" id="toggle-travel-details" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-chevron-down me-1"></i>明細を全て非表示
-                    </button>
-                </div>
 
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-2" id="travel-table">
@@ -311,13 +322,13 @@
         <!-- 宿泊費 -->
         {% if accom_formset %}
         <div class="card mt-4">
+            <div class="card-header d-flex align-items-center justify-content-between" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-bed me-2" style="color:#fff !important;"></i>宿泊費</h5>
+                <button type="button" id="toggle-accom-details" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-chevron-down me-1"></i>明細を全て非表示
+                </button>
+            </div>
             <div class="card-body">
-                <div class="d-flex align-items-center mb-2">
-                    <h5 class="card-title mb-0 me-3">宿泊費</h5>
-                    <button type="button" id="toggle-accom-details" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-chevron-down me-1"></i>明細を全て非表示
-                    </button>
-                </div>
                 {{ accom_formset.management_form }}
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-2" id="accom-table">
@@ -443,8 +454,10 @@
         <!-- 日当 -->
         {% if allow_formset %}
         <div class="card mt-4">
+            <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-coins me-2" style="color:#fff !important;"></i>日当</h5>
+            </div>
             <div class="card-body">
-                <h5 class="card-title mb-2">日当</h5>
                 {{ allow_formset.management_form }}
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered align-middle mb-2" id="allow-table">
@@ -482,8 +495,10 @@
         <!-- 承認者選択 -->
         {% if workflow_steps and workflow_steps|length > 0 %}
         <div class="card mt-4">
+            <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-user-check me-2" style="color:#fff !important;"></i>承認者選択</h5>
+            </div>
             <div class="card-body">
-                <h3 class="card-title mb-4">承認者選択</h3>
                 {% for s in workflow_steps %}
                     <div class="mb-3">
                         <label class="form-label">
@@ -533,6 +548,13 @@
         {# action値はhidden inputで管理。ボタンのname/valueはdisabled時に消えるブラウザ対策 #}
         <input type="hidden" name="action" id="action-input" value="draft">
         <div class="text-center mt-4">
+            {% if is_keiri_edit %}
+            <a href="{% url 'expenses:approval_detail' expense.document_id %}" class="btn btn-secondary me-2">キャンセル</a>
+            <button type="submit" value="keiri_save" class="btn btn-primary" data-submit-lock
+                    onclick="document.getElementById('action-input').value='keiri_save'">
+                <i class="fas fa-save me-1"></i>修正を保存
+            </button>
+            {% else %}
             <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
             <button type="submit" value="draft" class="btn btn-outline-primary me-2" data-submit-lock
                     onclick="document.getElementById('action-input').value='draft'">下書き保存</button>
@@ -542,6 +564,7 @@
             <button type="button" class="btn btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">
                 <i class="fas fa-trash-alt me-1"></i>下書きを削除
             </button>
+            {% endif %}
             {% endif %}
         </div>
     </form>
@@ -705,7 +728,7 @@
     <td><input type="number" name="accom-__accom_prefix__-nights" id="id_accom-__accom_prefix__-nights" class="form-control form-control-sm" placeholder="1" min="1"></td>
     <td><input type="text" name="accom-__accom_prefix__-amount" id="id_accom-__accom_prefix__-amount" class="form-control form-control-sm" inputmode="numeric" placeholder="0" data-amount-input autocomplete="off"></td>
     <td><input type="text" name="accom-__accom_prefix__-consumption_tax" id="id_accom-__accom_prefix__-consumption_tax" class="form-control form-control-sm" inputmode="numeric" placeholder="0" data-amount-input autocomplete="off"></td>
-    <td><select name="accom-__accom_prefix__-consumption_kbn" id="id_accom-__accom_prefix__-consumption_kbn" class="form-select form-select-sm"><option value="">--</option><option value="0">内税</option><option value="1">外税</option></select></td>
+    <td><select name="accom-__accom_prefix__-consumption_kbn" id="id_accom-__accom_prefix__-consumption_kbn" class="form-select form-select-sm">{% for val, label in tax_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></td>
     <td class="text-center">
         <button type="button" class="btn btn-sm btn-outline-success px-2 py-0 accom-expense-detail-btn" title="経費明細を入力">明細</button>
         <button type="button" class="btn btn-sm btn-outline-danger px-2 py-0" data-remove-accom title="削除">×</button>
@@ -736,11 +759,7 @@
             <div class="row g-2 mt-1">
                 <div class="col-md-4">
                     <label class="form-label small mb-1">コーポレートカード支払い</label>
-                    <select name="accom-__accom_prefix__-corpo_card" class="form-select form-select-sm" data-corpo-card-select>
-                        <option value="">選択してください</option>
-                        <option value="1">不使用</option>
-                        <option value="2">コーポレートカード支払い</option>
-                    </select>
+                    <select name="accom-__accom_prefix__-corpo_card" class="form-select form-select-sm" data-corpo-card-select>{% for val, label in coc_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small mb-1">カード番号</label>

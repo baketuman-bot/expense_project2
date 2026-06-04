@@ -66,6 +66,10 @@ class M_User(AbstractUser):
     user_name = models.CharField("氏名", max_length=30)
     bumon_cd = models.ForeignKey(M_Bumon, verbose_name="部門", on_delete=models.PROTECT, null=True, blank=True)
     post_cd = models.ForeignKey(M_Post, verbose_name="役職", on_delete=models.PROTECT, null=True, blank=True)
+
+    groups = None
+    user_permissions = None
+
     def has_role(self, role_name):
         """M_UserRole に role_name が登録されているか判定する。"""
         return self.roles.filter(role=role_name).exists()

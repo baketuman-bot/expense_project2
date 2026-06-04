@@ -17,6 +17,11 @@
                     申請詳細
                 </h2>
                 <div class="page-actions">
+                    {% if can_keiri_edit %}
+                    <a href="{% url 'expenses:keiri_approval_edit' expense.document_id %}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-edit me-1"></i>データ修正
+                    </a>
+                    {% endif %}
                     <a href="{% url 'expenses:expense_copy' expense.pk %}" class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-copy"></i> コピーして新規申請
                     </a>
@@ -34,80 +39,60 @@
             </div>
             {% endif %}
 
-            <!-- 申請基本情報 -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">申請情報</h5>
+            <!-- 申請情報 -->
+            <div class="card mb-3">
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-file-alt me-2" style="color:#fff !important;"></i>申請情報</h5>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <dl class="row">
-                                <dt class="col-sm-4">申請ID:</dt>
-                                <dd class="col-sm-8">{{ expense.expense_main_id }}</dd>
-                                
-                                <dt class="col-sm-4">申請者:</dt>
-                                <dd class="col-sm-8">{{ expense.applicant.user_name }}</dd>
-                                
-                                <dt class="col-sm-4">申請日時:</dt>
-                                <dd class="col-sm-8">{{ expense.created_at|date:"Y年m月d日 H:i" }}</dd>
-                                
-                                <dt class="col-sm-4">負担部門:</dt>
-                                <dd class="col-sm-8">{{ expense.bumon_cd.bumon_name|default:"-" }}</dd>
-                                
-                                {# 精算方法は T_Document には存在しないため非表示 #}
-                                <dt class="col-sm-4">通貨:</dt>
-                                <dd class="col-sm-8">{% if expense.tsuka_cd %}{{ expense.tsuka_cd }}{% if currency_name %}（{{ currency_name }}）{% endif %}{% else %}-{% endif %}</dd>
-                                
-                                <dt class="col-sm-4">備考:</dt>
-                                <dd class="col-sm-8">{{ expense.memo|default:"-" }}</dd>
-                                <dt class="col-sm-4">稟議No:</dt>
-                                <dd class="col-sm-8">{{ expense.ringi_no|default:"-" }}</dd>
-                            </dl>
-                        </div>
-                        <div class="col-md-6">
-                            <dl class="row">
-                                <dt class="col-sm-4">ステータス:</dt>
-                                <dd class="col-sm-8">
-                                    <span class="{{ expense.status_cd.status_cd|status_badge_class }}">
-                                        {% status_label expense progress %}
-                                    </span>
-                                </dd>
-                                
-                                <dt class="col-sm-4">合計金額:</dt>
-                                <dd class="col-sm-8">
-                                    <strong class="text-primary">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</strong>
-                                </dd>
-                            </dl>
-                        </div>
-                    </div>
+                <div class="card-body p-0">
+                    <table class="info-table">
+                        <tbody>
+                            <tr><th>申請者</th><td colspan="3">{{ expense.applicant.user_name }}</td></tr>
+                            <tr><th>申請日時</th><td colspan="3">{{ expense.created_at|date:"Y年m月d日 H:i" }}</td></tr>
+                            <tr><th>負担部門</th><td colspan="3">{{ expense.bumon_cd.bumon_name|default:"-" }}</td></tr>
+                            <tr><th>通貨</th><td colspan="3">{% if expense.tsuka_cd %}{{ expense.tsuka_cd }}{% if currency_name %}（{{ currency_name }}）{% endif %}{% else %}-{% endif %}</td></tr>
+                            <tr><th>備考</th><td colspan="3">{{ expense.memo|default:"-" }}</td></tr>
+                            {% if expense.ringi_no %}<tr><th>稟議No</th><td colspan="3">{{ expense.ringi_no }}</td></tr>{% endif %}
+                            <tr>
+                                <th>ステータス</th>
+                                <td><span class="{{ expense.status_cd.status_cd|status_badge_class }}">{% status_label expense progress %}</span></td>
+                                <th>合計金額</th>
+                                <td class="fw-bold text-success fs-5">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             {% if dynamic_fields_display %}
-            <!-- 追加入力項目 -->
+            {% with first_row=dynamic_fields_display.0 %}
             <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">追加入力項目</h5>
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>{% if first_row.type == 'section' %}{{ first_row.header }}{% else %}追加入力項目{% endif %}</h5>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                    {% for f in dynamic_fields_display %}
-                        {% if f.row_break %}</div><div class="row mt-2">{% endif %}
-                        <div class="col-md-{{ f.col_width }} mb-3">
-                            <div class="fw-semibold text-muted small mb-1">{{ f.label }}</div>
-                            {% if f.is_label %}
-                                <div class="fw-bold text-primary" id="disp_dyn_{{ f.name }}"
-                                     {% if f.calc_formula %}data-calc-formula="{{ f.calc_formula }}"{% endif %}>-</div>
+                <div class="card-body p-0">
+                    <table class="info-table">
+                        <tbody>
+                        {% for row in dynamic_fields_display %}
+                            {% if forloop.first and row.type == 'section' %}
+                            {% elif row.type == 'section' %}
+                            <tr class="info-table-section"><th colspan="4">{{ row.header }}</th></tr>
                             {% else %}
-                                <div id="disp_dyn_{{ f.name }}">{{ f.value }}</div>
+                            <tr>
+                                {% for f in row.fields %}
+                                <th>{{ f.label }}</th>
+                                <td colspan="{{ f.td_colspan }}"{% if f.is_label %} class="fw-bold text-primary" id="disp_dyn_{{ f.name }}"{% else %} id="disp_dyn_{{ f.name }}"{% endif %}>
+                                    {{ f.value|default:"-" }}{% if f.field_help_text %}<div class="text-muted small">{{ f.field_help_text }}</div>{% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
                             {% endif %}
-                            {% if f.field_help_text %}<div class="text-muted small">{{ f.field_help_text }}</div>{% endif %}
-                        </div>
-                    {% endfor %}
-                    </div>
+                        {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
+            {% endwith %}
             {% endif %}
 
             <!-- 経費明細 -->
@@ -116,78 +101,17 @@
 
             <!-- 移動経路明細 -->
             <div class="card mb-3">
-                <div class="card-header bg-light">
-                    <h5 class="card-title mb-0"><i class="fas fa-route text-primary me-2"></i>移動経路明細</h5>
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-route me-2" style="color:#fff !important;"></i>移動経路明細</h5>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     {% if travel_route_details %}
-                    <div class="table-responsive">
-                        <table class="table mb-0" style="font-size:13px;">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width:90px">日付</th>
-                                    <th>経路（発地 → 着地）</th>
-                                    <th style="width:90px">交通手段</th>
-                                    <th style="width:75px">所要時間</th>
-                                    <th class="text-end" style="width:110px">運賃</th>
-                                    <th class="text-center" style="width:80px">領収書</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for detail in travel_route_details %}
-                                {# 1行目: 経路・交通手段・所要時間・運賃・領収書 #}
-                                <tr style="border-bottom:none;">
-                                    <td rowspan="2" class="align-middle" style="border-bottom:1px solid #e5e7eb;">
-                                        <small class="text-muted">{{ detail.date|date:"Y/m/d"|default:"-" }}</small>
-                                    </td>
-                                    <td style="border-bottom:none;">
-                                        <span>{{ detail.content.departure|default:"-" }}</span>
-                                        <span class="text-muted mx-1">→</span>
-                                        <span>{{ detail.content.arrival|default:"-" }}</span>
-                                    </td>
-                                    <td style="border-bottom:none;">{{ detail.content.transport|default:"-" }}</td>
-                                    <td style="border-bottom:none;">{{ detail.content.duration|default:"-" }}</td>
-                                    <td rowspan="2" class="text-end fw-bold text-success align-middle" style="border-bottom:1px solid #e5e7eb;" data-amount="{{ detail.amount|default:0 }}">
-                                        {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
-                                    </td>
-                                    <td rowspan="2" class="text-center align-middle" style="border-bottom:1px solid #e5e7eb;">
-                                        {% if detail.attachments.all %}
-                                        <div class="d-flex flex-wrap gap-1 justify-content-center">
-                                            {% for att in detail.attachments.all %}
-                                                {% if att.thumbnail %}
-                                                    <a href="{{ att.file.url }}" target="_blank"><img src="{{ att.thumbnail.url }}" alt="添付" class="img-thumbnail" style="width:44px;height:44px;object-fit:cover;"></a>
-                                                {% elif att.file.name|lower|slice:"-4:" == ".pdf" %}
-                                                    <a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary p-1"><i class="fas fa-file-pdf text-danger"></i></a>
-                                                {% else %}
-                                                    <a href="{{ att.file.url }}" target="_blank"><img src="{{ att.file.url }}" alt="添付" class="img-thumbnail" style="width:44px;height:44px;object-fit:cover;"></a>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                        {% else %}<span class="text-muted small">なし</span>{% endif %}
-                                    </td>
-                                </tr>
-                                {# 2行目: 目的・支払先・登録番号・コーポレートカード #}
-                                <tr>
-                                    <td colspan="3" style="border-bottom:1px solid #e5e7eb; padding-top:3px; padding-bottom:6px;">
-                                        {% if detail.purpose %}<span class="me-3"><span class="text-muted">目的:</span> {{ detail.purpose }}</span>{% endif %}
-                                        {% if detail.shiharaisaki %}<span class="me-3"><span class="text-muted">支払先:</span> {{ detail.shiharaisaki }}</span>{% endif %}
-                                        {% if detail.tekikaku_cd %}<span class="me-3"><span class="text-muted">登録番号:</span> {{ detail.tekikaku_cd }}</span>{% endif %}
-                                        {% if detail.corpo_card == 2 %}<span class="me-2"><span class="badge" style="background:#dbeafe;color:#1e3a8a;font-size:11px;">CC</span> {{ detail.corpo_card_no|default:"" }}</span>{% endif %}
-                                        {% if detail.consumption_kbn == 0 %}<span class="me-2"><span class="text-muted">消費税:</span> 内税{% if detail.consumption_tax %} {{ detail.consumption_tax|floatformat:0 }}円{% endif %}</span>{% elif detail.consumption_kbn == 1 %}<span class="me-2"><span class="text-muted">消費税:</span> 外税{% if detail.consumption_tax %} {{ detail.consumption_tax|floatformat:0 }}円{% endif %}</span>{% endif %}
-                                        {% if not detail.purpose and not detail.shiharaisaki and not detail.tekikaku_cd and detail.corpo_card != 2 and detail.consumption_kbn is None %}<span class="text-muted">-</span>{% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                            <tfoot class="table-light">
-                                <tr>
-                                    <th colspan="4" class="text-end">小計</th>
-                                    <th class="text-end fw-bold text-success">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</th>
-                                    <th></th>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                        {% for detail in travel_route_details %}
+                            {% include "expenses/_travel_detail_display.html" %}
+                        {% endfor %}
+                        <div class="text-end pe-2 pb-1 fw-bold" style="color:#047857;">
+                            小計: {{ expense.tsuka_cd|currency_display }} {{ travel_route_subtotal|amount_format:expense.tsuka_cd }}
+                        </div>
                     {% else %}<p class="text-muted p-3 mb-0">移動経路明細がありません。</p>{% endif %}
                 </div>
             </div>
@@ -195,49 +119,13 @@
             <!-- 宿泊費明細 -->
             {% if travel_accom_details %}
             <div class="card mb-3">
-                <div class="card-header bg-light">
-                    <h5 class="card-title mb-0"><i class="fas fa-bed text-primary me-2"></i>宿泊費明細</h5>
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-bed me-2" style="color:#fff !important;"></i>宿泊費明細</h5>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width:90px">日付</th>
-                                    <th>支払先</th>
-                                    <th style="width:70px">宿泊日数</th>
-                                    <th class="text-end" style="width:100px">金額</th>
-                                    <th class="text-end" style="width:90px">消費税額</th>
-                                    <th style="width:65px">内外税</th>
-                                    <th class="text-center" style="width:60px">領収書</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for detail in travel_accom_details %}
-                                <tr>
-                                    <td><small class="text-muted">{{ detail.date|date:"Y/m/d"|default:"-" }}</small></td>
-                                    <td>{{ detail.shiharaisaki|default:"-" }}</td>
-                                    <td>{{ detail.content.nights|default:"-" }}</td>
-                                    <td class="text-end fw-bold text-success">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
-                                    <td class="text-end">{% if detail.consumption_tax %}{{ detail.consumption_tax|floatformat:0 }}{% else %}-{% endif %}</td>
-                                    <td>{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</td>
-                                    <td class="text-center">
-                                        {% if detail.attachments.all %}
-                                        <div class="d-flex flex-wrap gap-1 justify-content-center">
-                                            {% for att in detail.attachments.all %}
-                                                {% if att.thumbnail %}<a href="{{ att.file.url }}" target="_blank"><img src="{{ att.thumbnail.url }}" alt="添付" class="img-thumbnail" style="width:48px;height:48px;object-fit:cover;"></a>
-                                                {% elif att.file.name|lower|slice:"-4:" == ".pdf" %}<a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary p-1"><i class="fas fa-file-pdf text-danger"></i></a>
-                                                {% else %}<a href="{{ att.file.url }}" target="_blank"><img src="{{ att.file.url }}" alt="添付" class="img-thumbnail" style="width:48px;height:48px;object-fit:cover;"></a>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                        {% else %}<span class="text-muted small">なし</span>{% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="card-body">
+                    {% for detail in travel_accom_details %}
+                        {% include "expenses/_accom_detail_display.html" %}
+                    {% endfor %}
                 </div>
             </div>
             {% endif %}
@@ -245,8 +133,8 @@
             <!-- 日当明細 -->
             {% if travel_allow_details %}
             <div class="card mb-3">
-                <div class="card-header bg-light">
-                    <h5 class="card-title mb-0"><i class="fas fa-coins text-primary me-2"></i>日当明細</h5>
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-coins me-2" style="color:#fff !important;"></i>日当明細</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -284,86 +172,17 @@
             {% else %}
             {# ── 通常の経費明細 ── #}
             <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">経費明細</h5>
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>経費明細</h5>
                 </div>
                 <div class="card-body">
                     {% if expense.details.all %}
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>日付</th>
-                                        <th>金額</th>
-                                        <th class="text-end">消費税額</th>
-                                        <th>内外税</th>
-                                        <th>目的</th>
-                                        <th>支払先</th>
-                                        <th>勘定科目</th>
-                                        <th>登録番号</th>
-                                        <th>コーポレートカード</th>
-                                        <th>領収書</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for detail in expense.details.all %}
-                                    <tr>
-                                        <td>{{ detail.date|date:"Y年m月d日" }}</td>
-                                        <td class="text-end" data-amount="{{ detail.amount|default:0 }}">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</td>
-                                        <td class="text-end">{% if detail.consumption_tax %}{{ detail.consumption_tax|floatformat:0 }}{% else %}-{% endif %}</td>
-                                        <td>{% if detail.consumption_kbn == 0 %}内税{% elif detail.consumption_kbn == 1 %}外税{% else %}-{% endif %}</td>
-                                        <td>{{ detail.purpose }}</td>
-                                        <td>{{ detail.shiharaisaki }}</td>
-                                        <td>{{ detail.account.account_name }}</td>
-                                        <td>{{ detail.tekikaku_cd|default:"なし" }}</td>
-                                        <td>
-                                            {% if detail.corpo_card == 2 %}
-                                                <span class="badge bg-primary">コーポレートカード支払い</span>
-                                                {% if detail.corpo_card_no %}<br><small>{{ detail.corpo_card_no }}</small>{% endif %}
-                                            {% else %}
-                                                その他
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if detail.attachments.all %}
-                                                <div class="d-flex flex-wrap gap-2">
-                                                    {% for att in detail.attachments.all %}
-                                                        {% with ext=att.file.name|lower %}
-                                                            {% if att.thumbnail %}
-                                                                <a href="{{ att.file.url }}" target="_blank">
-                                                                    <img src="{{ att.thumbnail.url }}" alt="添付" class="img-thumbnail" style="max-width: 110px;">
-                                                                </a>
-                                                            {% elif ext|slice:"-4:" == ".jpg" or ext|slice:"-5:" == ".jpeg" or ext|slice:"-4:" == ".png" or ext|slice:"-4:" == ".gif" or ext|slice:"-5:" == ".webp" %}
-                                                                <a href="{{ att.file.url }}" target="_blank">
-                                                                    <img src="{{ att.file.url }}" alt="添付" class="img-thumbnail" style="max-width: 110px;">
-                                                                </a>
-                                                            {% elif ext|slice:"-4:" == ".pdf" %}
-                                                                <a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                                                    <i class="fas fa-file-pdf"></i> PDF
-                                                                </a>
-                                                            {% else %}
-                                                                <a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                                                    <i class="fas fa-file"></i> 表示
-                                                                </a>
-                                                            {% endif %}
-                                                        {% endwith %}
-                                                    {% endfor %}
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">なし</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                                <tfoot>
-                                    <tr class="table-primary">
-                                        <th colspan="1">合計</th>
-                                        <th class="text-end">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</th>
-                                        <th colspan="6"></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                        {% for detail in expense.details.all %}
+                            {% include "expenses/_expense_detail_display.html" %}
+                        {% endfor %}
+                        <div class="detail-total-bar mt-3">
+                            <span class="fw-normal" style="color:#047857; font-size:14px;">合計金額</span>
+                            {{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}
                         </div>
                     {% else %}
                         <p class="text-muted">明細がありません。</p>
@@ -375,8 +194,8 @@
             <!-- 承認フロー（履歴 + 承認予定者を統合タイムライン表示） -->
             {% if workflow_actions or pending_approvers %}
             <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0"><i class="fas fa-stream me-2 text-primary"></i>承認フロー</h5>
+                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                    <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-stream me-2" style="color:#fff !important;"></i>承認フロー</h5>
                 </div>
                 <div class="card-body pb-0">
                     <div class="approval-timeline">

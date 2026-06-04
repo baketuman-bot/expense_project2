@@ -1,0 +1,103 @@
+{% load expense_extras %}
+<div class="card mb-3 expense-detail-item">
+    <div class="card-header d-flex justify-content-between align-items-center py-2" style="background:#f9fafb; border-bottom:1px solid #e5e7eb;">
+        <span class="fw-semibold small text-muted">明細 {{ forloop.counter }}</span>
+        <span class="fw-bold" style="font-size:17px; color:#047857;">
+            {{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="row g-0">
+
+            {# 左: 添付画像エリア #}
+            <div class="col-md-8" style="border-right:1px solid #e5e7eb;">
+                {% with atts=detail.attachments.all %}
+                {% if atts %}
+                    {% for att in atts %}
+                    <div {% if not forloop.last %}style="border-bottom:1px solid #e5e7eb;"{% endif %}>
+                        {% if att.thumbnail %}
+                            <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link d-block" title="クリックで原本を表示">
+                                <img src="{{ att.thumbnail.url }}" alt="添付" class="receipt-thumbnail">
+                            </a>
+                        {% elif att.file.name|lower|slice:"-4:" == ".jpg" or att.file.name|lower|slice:"-5:" == ".jpeg" or att.file.name|lower|slice:"-4:" == ".png" or att.file.name|lower|slice:"-4:" == ".gif" or att.file.name|lower|slice:"-5:" == ".webp" %}
+                            <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link d-block" title="クリックで拡大表示">
+                                <img src="{{ att.file.url }}" alt="添付" class="receipt-thumbnail">
+                            </a>
+                        {% elif att.file.name|lower|slice:"-4:" == ".pdf" %}
+                            <div class="receipt-image-link d-flex align-items-center justify-content-center">
+                                <a href="{{ att.file.url }}" target="_blank" class="btn btn-lg btn-outline-secondary py-4 px-5">
+                                    <i class="fas fa-file-pdf fa-3x text-danger mb-2 d-block"></i>
+                                    PDFを表示
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="receipt-image-link d-flex align-items-center justify-content-center">
+                                <a href="{{ att.file.url }}" target="_blank" class="btn btn-lg btn-outline-primary py-4 px-5">
+                                    <i class="fas fa-file fa-3x mb-2 d-block"></i>
+                                    ファイルを表示
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="receipt-image-link d-flex align-items-center justify-content-center flex-column">
+                        <i class="fas fa-paperclip fa-2x text-muted mb-2"></i>
+                        <span class="text-muted small">添付なし</span>
+                    </div>
+                {% endif %}
+                {% endwith %}
+            </div>
+
+            {# 右: 全項目リスト #}
+            <div class="col-md-4">
+                <div class="attachment-info-panel">
+                    <div class="info-row">
+                        <span class="info-label">取引日</span>
+                        <span class="info-value">{{ detail.date|date:"Y/m/d"|default:"-" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">金額</span>
+                        <span class="info-value info-amount">{{ expense.tsuka_cd|currency_display }} {{ detail.amount|amount_format:expense.tsuka_cd }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">消費税額</span>
+                        <span class="info-value">{% if detail.consumption_tax %}{{ detail.consumption_tax|floatformat:0 }} 円{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">内外税区分</span>
+                        <span class="info-value">{% if detail.consumption_kbn is not None %}{% with k=detail.consumption_kbn|stringformat:"s" %}{{ tax_label_map|get_item:k|default:k }}{% endwith %}{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">目的</span>
+                        <span class="info-value">{{ detail.purpose|default:"-" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">支払先</span>
+                        <span class="info-value">{{ detail.shiharaisaki|default:"-" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">勘定科目</span>
+                        <span class="info-value">{{ detail.account.account_name|default:"-" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">登録番号</span>
+                        <span class="info-value">{{ detail.tekikaku_cd|default:"-" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">コーポレートカード</span>
+                        <span class="info-value">
+                            {% if detail.corpo_card is not None %}
+                                {% with k=detail.corpo_card|stringformat:"s" %}
+                                {{ coc_label_map|get_item:k|default:k }}
+                                {% endwith %}
+                                {% if detail.corpo_card_no %}&nbsp;{{ detail.corpo_card_no }}{% endif %}
+                            {% else %}-{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

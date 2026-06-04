@@ -49,8 +49,10 @@
 
         <!-- 経費明細 / 固定資産明細 -->
         <div class="card">
+            <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>{{ detail_section_title|default:"経費明細" }}</h5>
+            </div>
             <div class="card-body">
-                <h3 class="card-title mb-4">{{ detail_section_title|default:"経費明細" }}</h3>
 
                 <div id="expense-details">
                     {% for detail_form in formset %}
@@ -303,8 +305,10 @@
         <!-- 承認者選択（ワークフロー定義に基づく） -->
         {% if workflow_steps and workflow_steps|length > 0 %}
         <div class="card mt-4">
+            <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-user-check me-2" style="color:#fff !important;"></i>承認者選択</h5>
+            </div>
             <div class="card-body">
-                <h3 class="card-title mb-4">承認者選択</h3>
                 {% for s in workflow_steps %}
                     <div class="mb-3">
                         <label class="form-label">

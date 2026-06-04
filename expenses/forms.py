@@ -1,6 +1,17 @@
 from django import forms
 from django.forms import modelformset_factory, BaseModelFormSet
-from .models import T_Document, T_DocumentContent, M_Account
+from .models import T_Document, T_DocumentContent, M_Account, M_Item
+
+
+def _get_item_choices(data_kbn, empty_label='選択してください', fallback=None):
+    """M_Itemからプルダウン選択肢を生成。データがなければfallbackを返す。
+    全角数字は半角に正規化（IntegerFieldへの保存に対応）。"""
+    import unicodedata
+    items = list(M_Item.objects.filter(data_kbn=data_kbn).order_by('key').values_list('key', 'content'))
+    if items:
+        normalized = [(unicodedata.normalize('NFKC', k), v) for k, v in items]
+        return [('', empty_label)] + normalized
+    return fallback or [('', empty_label)]
 
 
 class CommaDecimalField(forms.DecimalField):
@@ -153,6 +164,15 @@ class ExpenseDetailForm(forms.ModelForm):
                 'data-amount-input': '',
                 'autocomplete': 'off',
             }),
+        )
+        self.fields['corpo_card'].choices = _get_item_choices(
+            'COC',
+            fallback=[('', '選択してください'), ('1', '不使用'), ('2', 'コーポレートカード支払い')],
+        )
+        self.fields['consumption_kbn'].choices = _get_item_choices(
+            'TAX',
+            empty_label='--',
+            fallback=[('', '--'), ('0', '内税'), ('1', '外税')],
         )
 
     def clean_amount(self):
@@ -419,6 +439,15 @@ class TravelDetailForm(forms.ModelForm):
         self.fields['tekikaku_cd'].required = False
         self.fields['corpo_card'].required = False
         self.fields['corpo_card_no'].required = False
+        self.fields['corpo_card'].choices = _get_item_choices(
+            'COC',
+            fallback=[('', '選択してください'), ('1', '不使用'), ('2', 'コーポレートカード支払い')],
+        )
+        self.fields['consumption_kbn'].choices = _get_item_choices(
+            'TAX',
+            empty_label='--',
+            fallback=[('', '--'), ('0', '内税'), ('1', '外税')],
+        )
         # 既存インスタンスの content JSON から各フィールドの初期値を復元
         if self.instance and self.instance.pk and isinstance(self.instance.content, dict):
             c = self.instance.content
@@ -599,6 +628,15 @@ class AccommodationForm(forms.ModelForm):
         )
         self.fields['shiharaisaki'].required = False
         self.fields['tekikaku_cd'].required = False
+        self.fields['corpo_card'].choices = _get_item_choices(
+            'COC',
+            fallback=[('', '選択してください'), ('1', '不使用'), ('2', 'コーポレートカード支払い')],
+        )
+        self.fields['consumption_kbn'].choices = _get_item_choices(
+            'TAX',
+            empty_label='--',
+            fallback=[('', '--'), ('0', '内税'), ('1', '外税')],
+        )
         if self.instance and self.instance.pk and isinstance(self.instance.content, dict):
             c = self.instance.content
             self.initial['nights'] = c.get('nights', '')

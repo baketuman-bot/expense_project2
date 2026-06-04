@@ -10,7 +10,7 @@ from .models import (
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
     T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup, M_MailManage,
-    T_Settle,
+    T_Settle, T_DocumentEditHistory,
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -28,6 +28,9 @@ from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse, Http
 from django.core.paginator import Paginator
 from django.forms import modelform_factory
 import csv
+import re
+import ast
+import operator as _op
 
 logger = logging.getLogger(__name__)
 
@@ -125,11 +128,81 @@ def _apply_created_at_date_range(qs, date_from, date_to):
     return qs
 
 
-def _build_dynamic_fields_display(expense):
-    """T_Document の動的フィールドを表示用リストで返す。
-    戻り値: [{'label', 'value', 'col_width', 'row_break', 'is_label', 'calc_formula'}, ...] または []
+def _item_choices(data_kbn, empty_label='選択してください'):
+    """M_Item からプルダウン選択肢リストを返す。テンプレートの {% for val,label in xxx_choices %} 用。"""
+    import unicodedata
+    items = list(M_Item.objects.filter(data_kbn=data_kbn).order_by('key').values_list('key', 'content'))
+    normalized = [(unicodedata.normalize('NFKC', k), v) for k, v in items]
+    return [('', empty_label)] + normalized
+
+
+def _item_label_map(data_kbn):
+    """M_Item から {正規化key(str): content} の辞書を返す。表示ラベルの動的ルックアップに使用。"""
+    import unicodedata
+    result = {}
+    for key, content in M_Item.objects.filter(data_kbn=data_kbn).values_list('key', 'content'):
+        result[unicodedata.normalize('NFKC', key)] = content
+    return result
+
+
+def _eval_calc_formula(formula_raw, amount_total, dyn_values):
+    """calc_formula をサーバー側で評価して表示文字列を返す。失敗時は '-'。
+    書式: {field_name}*{field_name2}|単位  ※|以降はサフィックス(省略可)
+    特殊変数: {amount_total} = 明細金額の合計
     """
-    result = []
+    if not formula_raw:
+        return '-'
+    try:
+        parts = formula_raw.split('|', 1)
+        expr_str = parts[0].strip()
+        suffix = parts[1].strip() if len(parts) > 1 else ''
+
+        expr_str = expr_str.replace('{amount_total}', str(float(amount_total)))
+
+        def _repl_field(m):
+            name = m.group(1)
+            raw = str(dyn_values.get(name, '0')).replace(',', '').replace(' ', '')
+            num = re.match(r'^-?[\d.]+', raw)
+            return num.group(0) if num else '0'
+
+        expr_str = re.sub(r'\{(\w+)\}', _repl_field, expr_str)
+
+        _ops = {
+            ast.Add: _op.add, ast.Sub: _op.sub,
+            ast.Mult: _op.mul, ast.Div: _op.truediv,
+        }
+
+        def _eval_node(node):
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+                return node.value
+            if isinstance(node, ast.Num):
+                return node.n
+            if isinstance(node, ast.BinOp) and type(node.op) in _ops:
+                return _ops[type(node.op)](_eval_node(node.left), _eval_node(node.right))
+            if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+                return -_eval_node(node.operand)
+            raise ValueError('unsupported')
+
+        result = _eval_node(ast.parse(expr_str, mode='eval').body)
+        if not isinstance(result, (int, float)) or result != result:
+            return '-'
+        if isinstance(result, float) and result == int(result):
+            result = int(result)
+        formatted = f'{int(result):,}' if isinstance(result, int) else f'{result:,.2f}'
+        return formatted + (f' {suffix}' if suffix else '')
+    except Exception:
+        return '-'
+
+
+def _build_dynamic_fields_display(expense):
+    """T_Document の動的フィールドを表示用の行グループリストで返す。
+    戻り値: [
+        {'type': 'section', 'header': str},
+        {'type': 'data', 'fields': [field_dict, ...]},
+    ] または []
+    各 field_dict: {'label', 'value', 'is_label', 'field_help_text', 'name', 'td_colspan'}
+    """
+    flat = []
     try:
         doc_type = getattr(expense, 'document_type', None)
         field_doc_type = _resolve_dynamic_fields_doc_type(doc_type)
@@ -138,25 +211,29 @@ def _build_dynamic_fields_display(expense):
         first_detail = expense.contents.order_by('document_detail_id').first()
         stored = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
         defs = M_DocumentField.objects.filter(document_type=field_doc_type).order_by('field_order', 'field_name')
+
+        dyn_values = {
+            d.field_name: stored.get(d.field_name, '0') or '0'
+            for d in defs if (d.field_type or '').strip().lower() != 'label'
+        }
+        amount_total = float(expense.contents.aggregate(total=Sum('amount'))['total'] or 0)
+
         for d in defs:
             raw_type = (d.field_type or '').strip().lower()
             label = d.field_name_view or d.field_name
             is_label = (raw_type == 'label')
             if is_label:
-                # label型は保存値なし。計算式を持つ場合は calc_formula を渡す
-                result.append({
-                    'label':        label,
-                    'value':        '',
-                    'col_width':    d.col_width or 4,
-                    'row_break':    d.row_break,
-                    'is_label':     True,
-                    'calc_formula': d.calc_formula or '',
+                flat.append({
+                    'label':           label,
+                    'value':           _eval_calc_formula(d.calc_formula or '', amount_total, dyn_values),
+                    'row_break':       d.row_break,
+                    'section_header':  d.section_header or '',
+                    'is_label':        True,
                     'field_help_text': d.field_help_text or '',
-                    'name':         d.field_name,
+                    'name':            d.field_name,
                 })
                 continue
             raw_val = stored.get(d.field_name, '')
-            # select 型は key → content に変換
             if raw_type.startswith('select') and raw_val:
                 parts = raw_type.split(':', 1)
                 if len(parts) == 2:
@@ -166,19 +243,47 @@ def _build_dynamic_fields_display(expense):
                     display_val = raw_val
             else:
                 display_val = raw_val
-            result.append({
-                'label':        label,
-                'value':        display_val or '-',
-                'col_width':    d.col_width or 4,
-                'row_break':    d.row_break,
-                'is_label':     False,
-                'calc_formula': '',
+            flat.append({
+                'label':           label,
+                'value':           display_val or '-',
+                'row_break':       d.row_break,
+                'section_header':  d.section_header or '',
+                'is_label':        False,
                 'field_help_text': d.field_help_text or '',
-                'name':         d.field_name,
+                'name':            d.field_name,
             })
     except Exception:
-        result = []
-    return result
+        return []
+
+    # フラットリストを行グループに変換（section_header / row_break で区切る）
+    rows = []
+    current_row = []
+    for f in flat:
+        sec = f.get('section_header', '')
+        if sec:
+            if current_row:
+                rows.append({'type': 'data', 'fields': current_row})
+                current_row = []
+            rows.append({'type': 'section', 'header': sec})
+            f = dict(f)
+            f['section_header'] = ''
+            current_row = [f]
+        elif f.get('row_break') and current_row:
+            rows.append({'type': 'data', 'fields': current_row})
+            current_row = [f]
+        else:
+            current_row.append(f)
+    if current_row:
+        rows.append({'type': 'data', 'fields': current_row})
+
+    # 1フィールドのみの行は td_colspan=3（残3列をスパン）、複数は 1
+    for row in rows:
+        if row['type'] == 'data':
+            n = len(row['fields'])
+            for f in row['fields']:
+                f['td_colspan'] = 3 if n == 1 else 1
+
+    return rows
 
 
 def _build_approval_request_mail(expense, prefix=""):
@@ -547,11 +652,13 @@ def expense_detail(request, pk):
     travel_route_details = []
     travel_accom_details = []
     travel_allow_details = []
+    travel_route_subtotal = 0
     if is_travel:
         _all_details = list(expense.details.prefetch_related('attachments'))
         travel_route_details = [d for d in _all_details if isinstance(d.content, dict) and 'departure' in d.content]
         travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
         travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
+        travel_route_subtotal = sum((d.amount or 0) for d in travel_route_details)
 
     # 遷移元に応じて「一覧に戻る」先を切り替え
     from_page = request.GET.get('from', '')
@@ -575,7 +682,11 @@ def expense_detail(request, pk):
         "travel_route_details": travel_route_details,
         "travel_accom_details": travel_accom_details,
         "travel_allow_details": travel_allow_details,
+        "travel_route_subtotal": travel_route_subtotal,
         "back_url": back_url,
+        "can_keiri_edit": _can_do_keiri_edit(request.user, expense),
+        "tax_label_map": _item_label_map('TAX'),
+        "coc_label_map": _item_label_map('COC'),
     })
 
 @login_required
@@ -1383,9 +1494,350 @@ def expense_edit(request, pk):
         "current_doc_type_name": getattr(getattr(expense, 'document_type', None), 'document_type_name', None),
         "form_action": "",
         "submission_id": str(uuid.uuid4()),
+        "tax_choices": _item_choices('TAX', empty_label='--'),
+        "coc_choices": _item_choices('COC'),
         # カテゴリ別フィールド制御
         **_asset_form_context(getattr(expense, 'document_type', None)),
     })
+
+# ──────────────────────────────────────────────────────────────────
+# 経理承認者によるデータ修正（keiri_approval_edit）
+# ──────────────────────────────────────────────────────────────────
+
+_KEIRI_HEADER_FIELDS = {
+    'title': '件名',
+    'biko': '備考',
+    'bumon_cd': '負担部門',
+    'tsuka_cd': '通貨',
+    'pay_kbn': '精算方法',
+}
+_KEIRI_DETAIL_FIELDS = {
+    'date': '日付',
+    'amount': '金額',
+    'purpose': '目的',
+    'shiharaisaki': '支払先',
+    'tekikaku_cd': '登録番号',
+    'corpo_card': 'コーポレートカード',
+    'corpo_card_no': 'カード番号',
+    'consumption_tax': '消費税額',
+    'consumption_kbn': '内外税区分',
+    'account': '勘定科目',
+}
+
+
+def _is_keiri_approver(user, document):
+    """現在のステップが keiri スコープで、かつユーザーが keiri/approver ロールを持つ場合 True。"""
+    try:
+        inst = T_WorkflowInstance.objects.filter(document_id=document).order_by('-started_at').first()
+        if not inst or not inst.step:
+            return False
+        if inst.step.allowed_bumon_scope != 'keiri':
+            return False
+        return M_UserRole.objects.filter(
+            man_number=user,
+            role__in=['keiri', 'approver'],
+        ).exists()
+    except Exception:
+        return False
+
+
+def _can_do_keiri_edit(user, document):
+    """データ修正ボタンの表示・実行権限。
+    承認中 keiri ステップの場合に加え、最終承認済み(FNS)でも keiri/approver ロールがあれば可。
+    """
+    if _is_keiri_approver(user, document):
+        return True
+    try:
+        status_cd = getattr(getattr(document, 'status_cd', None), 'status_cd', None)
+        if status_cd == 'FNS':
+            return M_UserRole.objects.filter(
+                man_number=user,
+                role__in=['keiri', 'approver'],
+            ).exists()
+    except Exception:
+        pass
+    return False
+
+
+def _snapshot_expense(expense):
+    """現在のヘッダー・明細フィールド値をdictで返す。"""
+    header = {k: str(getattr(expense, k, '') or '') for k in _KEIRI_HEADER_FIELDS}
+    # FK系は表示文字列を保存
+    header['bumon_cd'] = str(expense.bumon_cd.bumon_cd if expense.bumon_cd else '')
+    header['tsuka_cd'] = str(expense.tsuka_cd if expense.tsuka_cd else '')
+    header['pay_kbn'] = str(expense.pay_kbn if expense.pay_kbn else '')
+    details = {}
+    for d in expense.contents.all():
+        row = {}
+        for k in _KEIRI_DETAIL_FIELDS:
+            if k == 'account':
+                row[k] = str(d.account.account_cd if d.account else '')
+            else:
+                val = getattr(d, k, None)
+                row[k] = str(val) if val is not None else ''
+        details[d.document_detail_id] = row
+    return header, details
+
+
+def _record_edit_history(user, expense, old_header, old_details, new_header, new_details):
+    """変更前後を比較して T_DocumentEditHistory レコードを生成する。"""
+    from .models import T_DocumentEditHistory, T_DocumentContent
+    histories = []
+    # ヘッダー差分
+    for k, label in _KEIRI_HEADER_FIELDS.items():
+        ov = old_header.get(k, '')
+        nv = new_header.get(k, '')
+        if ov != nv:
+            histories.append(T_DocumentEditHistory(
+                document=expense, detail=None, man_number=user,
+                field_name=k, field_label=label,
+                old_value=ov, new_value=nv,
+            ))
+    # 明細差分
+    for detail_id, old_row in old_details.items():
+        new_row = new_details.get(detail_id, {})
+        try:
+            detail_obj = T_DocumentContent.objects.get(pk=detail_id)
+        except T_DocumentContent.DoesNotExist:
+            detail_obj = None
+        for k, label in _KEIRI_DETAIL_FIELDS.items():
+            ov = old_row.get(k, '')
+            nv = new_row.get(k, '')
+            if ov != nv:
+                histories.append(T_DocumentEditHistory(
+                    document=expense, detail=detail_obj, man_number=user,
+                    field_name=k, field_label=label,
+                    old_value=ov, new_value=nv,
+                ))
+    if histories:
+        T_DocumentEditHistory.objects.bulk_create(histories)
+
+
+@login_required
+def keiri_approval_edit(request, pk):
+    """経理承認ステップのpending承認者がデータを修正するビュー。"""
+    expense = get_object_or_404(T_Document, pk=pk)
+
+    if not _can_do_keiri_edit(request.user, expense):
+        return redirect('expenses:approval_detail', pk=pk)
+
+    error_message = None
+    _edit_doc_type = getattr(expense, 'document_type', None)
+    _aq_edit = _get_account_queryset(_edit_doc_type)
+
+    # 動的フィールド (REC グループ等)
+    dynamic_fields = []
+    try:
+        _dyn_dt = _resolve_dynamic_fields_doc_type(_edit_doc_type)
+        if _dyn_dt:
+            try:
+                first_detail = expense.contents.order_by('document_detail_id').first()
+                existing_dyn = first_detail.content if (first_detail and isinstance(first_detail.content, dict)) else {}
+            except Exception:
+                existing_dyn = {}
+            defs = M_DocumentField.objects.filter(document_type=_dyn_dt).order_by('field_order', 'field_name')
+            for d in defs:
+                raw_type = (d.field_type or '').strip().lower()
+                html_type = 'text'
+                options = []
+                if raw_type.startswith('select'):
+                    html_type = 'select'
+                    parts = raw_type.split(':', 1)
+                    if len(parts) == 2 and parts[1]:
+                        kbn = parts[1].strip()
+                        options = list(M_Item.objects.filter(data_kbn__iexact=kbn).order_by('key').values('key', 'content'))
+                elif raw_type in ('text', 'number', 'date', 'num'):
+                    html_type = 'number' if raw_type == 'num' else raw_type
+                elif raw_type == 'label':
+                    html_type = 'label'
+                val = ''
+                if request.method == 'POST':
+                    val = (request.POST.get(f"dyn_{d.field_name}") or '').strip()
+                if not val:
+                    val = existing_dyn.get(d.field_name, '')
+                dynamic_fields.append({
+                    'name': d.field_name, 'label': (d.field_name_view or d.field_name),
+                    'type': html_type, 'options': options, 'value': val,
+                    'col_width': d.col_width or 4, 'row_break': d.row_break,
+                    'required': d.required, 'placeholder': d.placeholder or '',
+                    'field_help_text': d.field_help_text or '',
+                    'calc_formula': d.calc_formula or '', 'section_header': d.section_header or '',
+                })
+    except Exception:
+        dynamic_fields = []
+
+    if request.method == 'POST':
+        # 修正前スナップショット
+        old_header, old_details = _snapshot_expense(expense)
+
+        delete_detail_ids = [int(x) for x in request.POST.getlist('delete_details') if x.isdigit()]
+        accom_formset = None
+        allow_formset = None
+        tra_items_edit = M_Item.objects.filter(data_kbn='TRA').order_by('key')
+        _post_fs = request.POST
+
+        if _is_travel_doc_type(_edit_doc_type):
+            _travel_qs = expense.contents.filter(content__has_key='departure')
+            if delete_detail_ids:
+                _travel_qs = _travel_qs.exclude(document_detail_id__in=delete_detail_ids)
+                _post_fs = request.POST.copy()
+                _post_fs['travel-INITIAL_FORMS'] = str(_travel_qs.count())
+                _post_fs['accom-INITIAL_FORMS'] = str(
+                    expense.contents.filter(content__row_type='accommodation').exclude(document_detail_id__in=delete_detail_ids).count()
+                )
+                _post_fs['allow-INITIAL_FORMS'] = str(
+                    expense.contents.filter(content__row_type='allowance').exclude(document_detail_id__in=delete_detail_ids).count()
+                )
+            formset = TravelDetailEditFormSet(_post_fs, request.FILES, queryset=_travel_qs, prefix='travel', is_draft=False)
+            _accom_qs = expense.contents.filter(content__row_type='accommodation')
+            if delete_detail_ids:
+                _accom_qs = _accom_qs.exclude(document_detail_id__in=delete_detail_ids)
+            accom_formset = AccommodationEditFormSet(_post_fs, request.FILES, queryset=_accom_qs, prefix='accom', is_draft=False)
+            _allow_qs = expense.contents.filter(content__row_type='allowance')
+            if delete_detail_ids:
+                _allow_qs = _allow_qs.exclude(document_detail_id__in=delete_detail_ids)
+            allow_formset = AllowanceEditFormSet(_post_fs, request.FILES, queryset=_allow_qs, prefix='allow', tra_items=tra_items_edit)
+        else:
+            _contents_qs = expense.contents.all()
+            if delete_detail_ids:
+                _contents_qs = _contents_qs.exclude(document_detail_id__in=delete_detail_ids)
+                _post_fs = request.POST.copy()
+                _post_fs['form-INITIAL_FORMS'] = str(_contents_qs.count())
+            formset = ExpenseDetailEditFormSet(_post_fs, request.FILES, queryset=_contents_qs, account_queryset=_aq_edit, is_draft=False)
+
+        valid = formset.is_valid()
+        if accom_formset:
+            valid = accom_formset.is_valid() and valid
+        if allow_formset:
+            valid = allow_formset.is_valid() and valid
+
+        if valid:
+            try:
+                with transaction.atomic():
+                    # ヘッダー更新
+                    tsuka_cd = (request.POST.get('tsuka_cd') or '').strip() or None
+                    bumon_cd_val = request.POST.get('bumon_cd') or None
+                    expense.title = (request.POST.get('trip_title') or request.POST.get('title') or expense.title or '').strip()
+                    expense.biko = (request.POST.get('biko') or '').strip()
+                    if bumon_cd_val:
+                        try:
+                            expense.bumon_cd = M_Bumon.objects.get(bumon_cd=bumon_cd_val)
+                        except M_Bumon.DoesNotExist:
+                            pass
+                    if tsuka_cd:
+                        expense.tsuka_cd = tsuka_cd
+                    pay_kbn_val = (request.POST.get('pay_kbn') or '').strip()
+                    if pay_kbn_val:
+                        expense.pay_kbn = pay_kbn_val
+                    expense.save()
+
+                    # 明細削除
+                    if delete_detail_ids:
+                        from .models import T_DocumentAttachment
+                        T_DocumentAttachment.objects.filter(detail_id__in=delete_detail_ids).delete()
+                        T_DocumentContent.objects.filter(document_detail_id__in=delete_detail_ids, document=expense).delete()
+
+                    # 明細保存
+                    _is_travel_save = _is_travel_doc_type(_edit_doc_type)
+                    _account_670 = None
+                    if _is_travel_save:
+                        try:
+                            _account_670 = M_Account.objects.get(account_cd='670')
+                        except M_Account.DoesNotExist:
+                            pass
+                    all_formsets = [formset]
+                    if accom_formset:
+                        all_formsets.append(accom_formset)
+                    if allow_formset:
+                        all_formsets.append(allow_formset)
+                    for fs in all_formsets:
+                        for form in fs.forms:
+                            if not (form.is_valid() and form.cleaned_data):
+                                continue
+                            detail = form.save(commit=False)
+                            detail.document = expense
+                            if _is_travel_save and _account_670:
+                                detail.account = _account_670
+                                detail.purpose = '出張旅費'
+                            detail.save()
+
+                    # 修正後スナップショット → 履歴記録
+                    new_header, new_details = _snapshot_expense(expense)
+                    _record_edit_history(request.user, expense, old_header, old_details, new_header, new_details)
+
+                return redirect('expenses:approval_detail', pk=pk)
+            except Exception as e:
+                logger.error("keiri_approval_edit error: %s", e, exc_info=True)
+                error_message = f"保存中にエラーが発生しました: {str(e)}"
+        else:
+            error_message = "入力内容にエラーがあります。各明細のエラーメッセージを確認してください。"
+
+    else:
+        # GET: expense_edit の GET と同じコンテキスト構築
+        tra_items_edit = M_Item.objects.filter(data_kbn='TRA').order_by('key')
+        accom_formset = None
+        allow_formset = None
+        if _is_travel_doc_type(_edit_doc_type):
+            _travel_qs = expense.contents.filter(content__has_key='departure')
+            if not _travel_qs.exists():
+                from django.forms import modelformset_factory as _mff
+                from .forms import TravelDetailForm as _TDF
+                _TempFS = _mff(T_DocumentContent, form=_TDF, extra=1, can_delete=False, max_num=20)
+                formset = _TempFS(queryset=T_DocumentContent.objects.none(), prefix='travel')
+            else:
+                formset = TravelDetailEditFormSet(queryset=_travel_qs, prefix='travel')
+            accom_formset = AccommodationEditFormSet(
+                queryset=expense.contents.filter(content__row_type='accommodation'), prefix='accom'
+            )
+            allow_formset = AllowanceEditFormSet(
+                queryset=expense.contents.filter(content__row_type='allowance'), prefix='allow', tra_items=tra_items_edit
+            )
+        else:
+            _qs = expense.contents.all()
+            if not _qs.exists():
+                from django.forms import modelformset_factory as _mff
+                from .forms import ExpenseDetailForm as _EDF, BaseExpenseDetailFormSet as _BEFS
+                _TempFS = _mff(T_DocumentContent, form=_EDF, formset=_BEFS, extra=1, can_delete=False, min_num=0, max_num=10)
+                formset = _TempFS(queryset=T_DocumentContent.objects.none(), account_queryset=_aq_edit)
+            else:
+                formset = ExpenseDetailEditFormSet(queryset=_qs, account_queryset=_aq_edit)
+        error_message = None
+
+    bumons = _get_bumons_for_user(request.user, _edit_doc_type)
+    pay_items = M_Item.objects.filter(data_kbn='pay').order_by('key')
+    currencies = M_Item.objects.filter(data_kbn='CUR').order_by('key')
+
+    _edit_template = (
+        "expenses/travel_expense_form.html"
+        if _is_travel_doc_type(_edit_doc_type)
+        else "expenses/expense_edit.html"
+    )
+    return render(request, _edit_template, {
+        "formset": formset,
+        "expense_formset": None,
+        "accom_formset": accom_formset,
+        "allow_formset": allow_formset,
+        "tra_items": tra_items_edit if _is_travel_doc_type(_edit_doc_type) else [],
+        "expense": expense,
+        "is_edit_mode": True,
+        "is_keiri_edit": True,
+        "error_message": error_message,
+        "groups": M_Group.objects.all().order_by('group_cd'),
+        "bumons": bumons,
+        "pay_items": pay_items,
+        "currencies": currencies,
+        "workflow_steps": [],
+        "dynamic_fields": dynamic_fields,
+        "current_bumon_cd": expense.bumon_cd.bumon_cd if expense.bumon_cd else "",
+        "latest_return_action": None,
+        "current_doc_type_name": getattr(_edit_doc_type, 'document_type_name', None),
+        "form_action": f"/approvals/{pk}/edit/",
+        "submission_id": str(uuid.uuid4()),
+        "tax_choices": _item_choices('TAX', empty_label='--'),
+        "coc_choices": _item_choices('COC'),
+        **_asset_form_context(_edit_doc_type),
+    })
+
 
 @login_required
 def expense_delete(request, pk):
@@ -2185,6 +2637,8 @@ def expense_create(request, document_type_id=None):
         "copy_from_memo": "",
         "copy_from_ringi_no": "",
         "form_action": "",
+        "tax_choices": _item_choices('TAX', empty_label='--'),
+        "coc_choices": _item_choices('COC'),
         # カテゴリ別フィールド制御
         **_asset_form_context(doc_type or resolved_doc_type),
     })
@@ -2389,6 +2843,8 @@ def expense_copy(request, pk):
             "copy_from_ringi_no": source.ringi_no or "",
             "form_action": form_action,
             "current_doc_type_name": getattr(doc_type, 'document_type_name', '出張旅費精算') + "（コピー）",
+            "tax_choices": _item_choices('TAX', empty_label='--'),
+            "coc_choices": _item_choices('COC'),
             **_asset_form_context(doc_type),
         })
 
@@ -2410,6 +2866,8 @@ def expense_copy(request, pk):
         "form_action": form_action,
         "current_doc_type_name": getattr(doc_type, 'document_type_name', '経費申請') + "（コピー）",
         "doc1_wf_id": None,
+        "tax_choices": _item_choices('TAX', empty_label='--'),
+        "coc_choices": _item_choices('COC'),
         # カテゴリ別フィールド制御
         **_asset_form_context(doc_type),
     })
@@ -2872,11 +3330,23 @@ def approval_detail(request, pk):
     travel_route_details = []
     travel_accom_details = []
     travel_allow_details = []
+    travel_route_subtotal = 0
     if is_travel:
         _all_details = list(expense.details.prefetch_related('attachments'))
         travel_route_details = [d for d in _all_details if isinstance(d.content, dict) and 'departure' in d.content]
         travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
         travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
+        travel_route_subtotal = sum((d.amount or 0) for d in travel_route_details)
+
+    can_keiri_edit = _is_keiri_approver(request.user, expense)
+
+    # 修正履歴を取得（最新20件）
+    edit_histories = (
+        T_DocumentEditHistory.objects
+        .filter(document=expense)
+        .select_related('man_number', 'detail')
+        .order_by('-edited_at')[:20]
+    )
 
     return render(request, "expenses/approval_detail.html", {
         "expense": expense,
@@ -2889,6 +3359,11 @@ def approval_detail(request, pk):
         "travel_route_details": travel_route_details,
         "travel_accom_details": travel_accom_details,
         "travel_allow_details": travel_allow_details,
+        "travel_route_subtotal": travel_route_subtotal,
+        "can_keiri_edit": can_keiri_edit,
+        "edit_histories": edit_histories,
+        "tax_label_map": _item_label_map('TAX'),
+        "coc_label_map": _item_label_map('COC'),
     })
 
 
@@ -3510,6 +3985,18 @@ def settings_approval_detail(request, pk):
     dynamic_fields_display = _build_dynamic_fields_display(expense)
     progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
 
+    is_travel = _is_travel_doc_type(expense.document_type)
+    travel_route_details = []
+    travel_accom_details = []
+    travel_allow_details = []
+    travel_route_subtotal = 0
+    if is_travel:
+        _all_details = list(expense.details.prefetch_related('attachments'))
+        travel_route_details = [d for d in _all_details if isinstance(d.content, dict) and 'departure' in d.content]
+        travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
+        travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
+        travel_route_subtotal = sum((d.amount or 0) for d in travel_route_details)
+
     return render(request, 'expenses/settings_approval_detail.html', {
         'expense': expense,
         'workflow_actions': workflow_actions,
@@ -3517,6 +4004,13 @@ def settings_approval_detail(request, pk):
         'dynamic_fields_display': dynamic_fields_display,
         'progress': progress,
         'return_qs': request.GET.get('return_qs', ''),
+        'is_travel': is_travel,
+        'travel_route_details': travel_route_details,
+        'travel_accom_details': travel_accom_details,
+        'travel_allow_details': travel_allow_details,
+        'travel_route_subtotal': travel_route_subtotal,
+        'tax_label_map': _item_label_map('TAX'),
+        'coc_label_map': _item_label_map('COC'),
     })
 
 
@@ -3801,7 +4295,43 @@ MASTER_REGISTRY = {
         'form_fields': ['man_number', 'role'],
         'pk_attr': 'pk',
     },
+    'm_mail_manage': {
+        'model': M_MailManage,
+        'list_fields': [('mail_category', 'カテゴリコード'), ('mail_label', 'カテゴリ名'), ('mail_desc', '説明'), ('enabled', '送信する')],
+        'form_fields': ['mail_category', 'mail_label', 'mail_desc', 'enabled'],
+        'pk_attr': 'mail_category',
+    },
 }
+
+# マスタをカテゴリ別に表示するための定義
+MASTER_CATEGORIES = [
+    ('組織・ユーザー', [
+        ('m_user',       'fas fa-user'),
+        ('m_user_role',  'fas fa-user-tag'),
+        ('m_bumon',      'fas fa-building'),
+        ('m_group',      'fas fa-sitemap'),
+        ('m_belong_to',  'fas fa-user-friends'),
+        ('m_post',       'fas fa-id-badge'),
+    ]),
+    ('申請書設定', [
+        ('m_document_group', 'fas fa-layer-group'),
+        ('m_document_type',  'fas fa-file-alt'),
+        ('m_document_field', 'fas fa-list-ul'),
+        ('m_account_document', 'fas fa-link'),
+    ]),
+    ('ワークフロー', [
+        ('m_workflow_template', 'fas fa-project-diagram'),
+        ('m_workflow_step',     'fas fa-tasks'),
+    ]),
+    ('会計・科目', [
+        ('m_account', 'fas fa-coins'),
+    ]),
+    ('システム設定', [
+        ('m_status',      'fas fa-toggle-on'),
+        ('m_item',        'fas fa-database'),
+        ('m_mail_manage', 'fas fa-envelope'),
+    ]),
+]
 
 
 def _master_get_form_class(cfg, is_create):
@@ -4419,13 +4949,28 @@ def settings_mail(request):
 
 @login_required
 def settings_master_home(request):
-    """マスタ設定ホーム: M_Item(data_kbn='MST') からメニュー生成"""
+    """マスタ設定ホーム: MASTER_CATEGORIES でカテゴリ別グループ表示"""
     raw = M_Item.objects.filter(data_kbn='MST').order_by('key')
-    masters = [
-        {'key': m.content, 'display_name': m.content2, 'in_registry': m.content in MASTER_REGISTRY}
-        for m in raw
+    db_map = {m.content: m.content2 for m in raw}
+
+    groups = []
+    categorized_keys = set()
+    for cat_name, entries in MASTER_CATEGORIES:
+        items = []
+        for key, icon in entries:
+            categorized_keys.add(key)
+            display_name = db_map.get(key, key)
+            items.append({'key': key, 'display_name': display_name, 'in_registry': key in MASTER_REGISTRY, 'icon': icon})
+        groups.append({'name': cat_name, 'items': items})
+
+    others = [
+        {'key': k, 'display_name': v, 'in_registry': k in MASTER_REGISTRY, 'icon': 'fas fa-database'}
+        for k, v in db_map.items() if k not in categorized_keys
     ]
-    return render(request, 'expenses/settings_master_home.html', {'masters': masters})
+    if others:
+        groups.append({'name': 'その他', 'items': others})
+
+    return render(request, 'expenses/settings_master_home.html', {'groups': groups})
 
 
 @login_required

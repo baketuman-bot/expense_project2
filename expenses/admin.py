@@ -62,7 +62,7 @@ class CustomUserAdmin(UserAdmin):
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('個人情報', {'fields': ('man_number', 'user_name', 'email', 'bumon_cd', 'post_cd')}),
-        ('権限', {'fields': ('is_active', 'is_staff', 'is_superuser', 'user_permissions')}),
+        ('権限', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
     )
     add_fieldsets = (
         (None, {
@@ -72,7 +72,7 @@ class CustomUserAdmin(UserAdmin):
     )
     search_fields = ('username', 'man_number', 'user_name', 'email')
     ordering = ('username',)
-    filter_horizontal = ('user_permissions',)
+    filter_horizontal = ()
     inlines = [UserRoleInline]
 
 class DocumentContentInline(admin.TabularInline):
