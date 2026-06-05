@@ -10,6 +10,7 @@ from .models import (
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
     V_Group, M_BelongTo, T_WorkflowInstance, T_WorkflowAction, T_DocumentApprover,
     T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup, M_MailManage,
+    M_AccountSub,
     T_Settle, T_DocumentEditHistory,
 )
 from .forms import (
@@ -3025,7 +3026,7 @@ def approval_detail(request, pk):
             if _inst:
                 _is_designated = _TDA.objects.filter(
                     document_id=expense,
-                    step_id=_inst.step,
+                    step_id=_inst.step_id,
                     status='pending',
                     man_number=request.user,
                 ).exists()
@@ -3078,7 +3079,7 @@ def approval_detail(request, pk):
                             current_order = instance.step_order or (instance.step.step_order if instance.step else None)
                             approver_qs = T_DocumentApprover.objects.filter(
                                 document_id=expense,
-                                step_id=instance.step,
+                                step_id=instance.step_id,
                                 step_order=current_order,
                             )
                             target = approver_qs.filter(man_number=request.user).first() or approver_qs.first()
@@ -3126,7 +3127,7 @@ def approval_detail(request, pk):
                                     while True:
                                         _auto_qs = T_DocumentApprover.objects.filter(
                                             document_id=expense,
-                                            step_id=instance.step,
+                                            step_id=instance.step_id,
                                             step_order=instance.step_order,
                                             man_number=request.user,
                                             status='pending',
@@ -3149,7 +3150,7 @@ def approval_detail(request, pk):
                                         # OR承認クリーンアップ（同ステップの残り pending 削除）
                                         T_DocumentApprover.objects.filter(
                                             document_id=expense,
-                                            step_id=instance.step,
+                                            step_id=instance.step_id,
                                             step_order=instance.step_order,
                                             status='pending',
                                         ).delete()
@@ -3186,7 +3187,7 @@ def approval_detail(request, pk):
                                     try:
                                         next_approvers = T_DocumentApprover.objects.filter(
                                             document_id=expense,
-                                            step_id=instance.step,
+                                            step_id=instance.step_id,
                                             step_order=instance.step_order,
                                         )
                                         subject, body = _build_approval_request_mail(
@@ -3221,7 +3222,7 @@ def approval_detail(request, pk):
                             current_order = instance.step_order or (instance.step.step_order if instance.step else None)
                             approver_qs = T_DocumentApprover.objects.filter(
                                 document_id=expense,
-                                step_id=instance.step,
+                                step_id=instance.step_id,
                                 step_order=current_order,
                             )
                             target = approver_qs.filter(man_number=request.user).first() or approver_qs.first()
@@ -3253,7 +3254,7 @@ def approval_detail(request, pk):
                             current_order = instance.step_order or (instance.step.step_order if instance.step else None)
                             approver_qs = T_DocumentApprover.objects.filter(
                                 document_id=expense,
-                                step_id=instance.step,
+                                step_id=instance.step_id,
                                 step_order=current_order,
                             )
                             target = approver_qs.filter(man_number=request.user).first() or approver_qs.first()
@@ -4053,7 +4054,7 @@ def settings_force_action(request, pk):
             # ② 現ステップの pending T_DocumentApprover を APPROVED に
             T_DocumentApprover.objects.filter(
                 document_id=expense,
-                step_id=instance.step,
+                step_id=instance.step_id,
                 step_order=current_order,
                 status__in=['pending', 'draft'],
             ).update(status='APPROVED', approved_at=now)
@@ -4170,7 +4171,7 @@ def settings_force_action(request, pk):
             # ③ 現ステップの T_DocumentApprover を REJECTED に更新
             T_DocumentApprover.objects.filter(
                 document_id=expense,
-                step_id=instance.step,
+                step_id=instance.step_id,
                 status__in=['pending', 'draft'],
             ).update(status='REJECTED', approved_at=now)
 
@@ -4207,8 +4208,8 @@ def settings_force_action(request, pk):
 MASTER_REGISTRY = {
     'm_bumon': {
         'model': M_Bumon,
-        'list_fields': [('bumon_cd', '部門コード'), ('bumon_name', '部門名')],
-        'form_fields': ['bumon_cd', 'bumon_name'],
+        'list_fields': [('bumon_cd', '部門コード'), ('bumon_name', '部門名'), ('cs_kbn', 'CS区分'), ('consumption_tax_kbn', '消費税区分')],
+        'form_fields': ['bumon_cd', 'bumon_name', 'cs_kbn', 'consumption_tax_kbn'],
         'pk_attr': 'bumon_cd',
     },
     'm_post': {
@@ -4231,8 +4232,8 @@ MASTER_REGISTRY = {
     },
     'm_item': {
         'model': M_Item,
-        'list_fields': [('data_kbn', '区分'), ('key', 'キー'), ('content', '内容'), ('content2', '内容2')],
-        'form_fields': ['data_kbn', 'key', 'content', 'content2'],
+        'list_fields': [('data_kbn', '区分'), ('key', 'キー'), ('content', '内容'), ('content2', '内容2'), ('content3', '内容3'), ('order_by', '表示順')],
+        'form_fields': ['data_kbn', 'key', 'content', 'content2', 'content3', 'order_by'],
         'pk_attr': 'pk',
     },
     'm_group': {
@@ -4301,6 +4302,12 @@ MASTER_REGISTRY = {
         'form_fields': ['mail_category', 'mail_label', 'mail_desc', 'enabled'],
         'pk_attr': 'mail_category',
     },
+    'm_account_sub': {
+        'model': M_AccountSub,
+        'list_fields': [('account_cd', '勘定科目コード'), ('sub_account_cd', '補助科目コード'), ('sub_account_name', '補助科目名')],
+        'form_fields': ['account_cd', 'sub_account_cd', 'sub_account_name'],
+        'pk_attr': 'pk',
+    },
 }
 
 # マスタをカテゴリ別に表示するための定義
@@ -4324,7 +4331,8 @@ MASTER_CATEGORIES = [
         ('m_workflow_step',     'fas fa-tasks'),
     ]),
     ('会計・科目', [
-        ('m_account', 'fas fa-coins'),
+        ('m_account',     'fas fa-coins'),
+        ('m_account_sub', 'fas fa-indent'),
     ]),
     ('システム設定', [
         ('m_status',      'fas fa-toggle-on'),
@@ -5096,6 +5104,58 @@ def settings_master_delete(request, master_key, pk):
         except Exception:
             pass
     return redirect('expenses:settings_master_list', master_key=master_key)
+
+
+@login_required
+def settings_master_csv(request, master_key):
+    """マスタ一覧 CSV ダウンロード（検索条件引き継ぎ、全件出力）"""
+    import csv as _csv
+    from django.db.models import CharField, TextField
+    from django.http import StreamingHttpResponse
+
+    cfg = MASTER_REGISTRY.get(master_key)
+    if not cfg:
+        raise Http404
+
+    qs = cfg['model'].objects.all()
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        char_fields = {
+            f.name for f in cfg['model']._meta.get_fields()
+            if isinstance(f, (CharField, TextField))
+        }
+        q_conditions = [
+            Q(**{f'{fn}__icontains': q})
+            for fn, _ in cfg['list_fields']
+            if fn in char_fields
+        ]
+        if q_conditions:
+            combined = q_conditions[0]
+            for cond in q_conditions[1:]:
+                combined |= cond
+            qs = qs.filter(combined)
+
+    list_fields = cfg['list_fields']
+    headers = [label for _, label in list_fields]
+
+    class EchoBuffer:
+        def write(self, value):
+            return value
+
+    writer = _csv.writer(EchoBuffer())
+
+    def rows():
+        yield writer.writerow(headers)
+        for obj in qs.iterator():
+            yield writer.writerow([str(getattr(obj, fn, '') or '') for fn, _ in list_fields])
+
+    item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
+    display_name = item.content2 if item else master_key
+    fname = f"{master_key}.csv"
+    response = StreamingHttpResponse(rows(), content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="{fname}"'
+    return response
 
 
 # ─── 改善要望 ────────────────────────────────────────────────────────────────

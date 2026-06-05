@@ -1,4 +1,4 @@
-{% load static %}
+{% load static expense_extras %}
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -167,6 +167,7 @@
         <div class="precision-section">
             <div class="precision-section-label">管理者設定</div>
             <ul class="precision-nav">
+                {% if request.user|has_role:'admin' %}
                 <li>
                     <a class="precision-link {% if current == 'settings_mail' %}is-active{% endif %}" href="{% url 'expenses:settings_mail' %}">
                         <span class="precision-ico" aria-hidden="true">
@@ -202,6 +203,7 @@
                         <span>データ出力</span>
                     </a>
                 </li>
+                {% endif %}
                 <li>
                     <a class="precision-link {% if current == 'settings_approval_admin' %}is-active{% endif %}" href="{% url 'expenses:settings_approval_admin' %}">
                         <span class="precision-ico" aria-hidden="true">
@@ -212,6 +214,7 @@
                         <span>承認管理</span>
                     </a>
                 </li>
+                {% if request.user|has_role:'admin' %}
                 <li>
                     <a class="precision-link {% if current == 'settings_data_view_home' or current == 'settings_data_view_browse' %}is-active{% endif %}" href="{% url 'expenses:settings_data_view_home' %}">
                         <span class="precision-ico" aria-hidden="true">
@@ -223,6 +226,8 @@
                         <span>データ参照</span>
                     </a>
                 </li>
+                {% endif %}
+                {% if request.user|has_role:'admin' or request.user|has_role:'keiri' or request.user|has_role:'approver' %}
                 <li>
                     <a class="precision-link {% if current == 'settlement_menu' or current == 'settlement_classify' or current == 'settlement_cash' or current == 'settlement_transfer' or current == 'settlement_corp_card' or current == 'settlement_payroll' or current == 'settlement_auto_debit' or current == 'settlement_list' %}is-active{% endif %}" href="{% url 'expenses:settlement_menu' %}">
                         <span class="precision-ico" aria-hidden="true">
@@ -234,6 +239,7 @@
                         {% if settlement_pending_count %}<span class="sidebar-badge">{{ settlement_pending_count }}</span>{% endif %}
                     </a>
                 </li>
+                {% endif %}
             </ul>
         </div>
 

@@ -14,9 +14,15 @@
                 <p class="text-muted small mb-0">{{ master_key }}</p>
             </div>
         </div>
-        <a href="{% url 'expenses:settings_master_create' master_key %}" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus me-1"></i>新規追加
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'expenses:settings_master_csv' master_key %}{% if q %}?q={{ q }}{% endif %}"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-download me-1"></i>データ出力
+            </a>
+            <a href="{% url 'expenses:settings_master_create' master_key %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>新規追加
+            </a>
+        </div>
     </div>
 
     <!-- 検索フォーム -->

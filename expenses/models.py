@@ -22,6 +22,7 @@ class M_Bumon(models.Model):
     bumon_cd = models.CharField("部門コード", max_length=15, primary_key=True, default='DEFAULT')
     bumon_name = models.CharField("部門名", max_length=100)
     cs_kbn = models.SmallIntegerField("CS区分", null=True, blank=True)
+    consumption_tax_kbn = models.SmallIntegerField("消費税区分", null=True, blank=True)
 
     def __str__(self):
         return self.bumon_name
@@ -111,12 +112,31 @@ class M_Account(models.Model):
         db_table = 'm_account'
 
 
+# 補助科目マスタ
+class M_AccountSub(models.Model):
+    account_cd = models.CharField("勘定科目コード", max_length=20)
+    sub_account_cd = models.CharField("補助科目コード", max_length=5)
+    sub_account_name = models.CharField("補助科目名", max_length=50)
+
+    def __str__(self):
+        return f"{self.account_cd} / {self.sub_account_cd} {self.sub_account_name}"
+
+    class Meta:
+        db_table = 'm_account_sub'
+        unique_together = [('account_cd', 'sub_account_cd')]
+        ordering = ['account_cd', 'sub_account_cd']
+        verbose_name = '補助科目マスタ'
+        verbose_name_plural = '補助科目マスタ'
+
+
 # 汎用項目マスタ
 class M_Item(models.Model):
     data_kbn = models.CharField("データ区分", max_length=10, blank=True)
     key = models.CharField("キー", max_length=20, blank=True)
     content = models.CharField("内容", max_length=50, blank=True)
     content2 = models.CharField("内容2", max_length=50)
+    content3 = models.CharField("内容3", max_length=30, blank=True)
+    order_by = models.IntegerField("表示順", null=True, blank=True)
 
     class Meta:
         db_table = 'm_item'

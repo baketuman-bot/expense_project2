@@ -176,6 +176,8 @@ SELECT
   dc.corpo_card_no,
   d.pay_kbn,
   dc.settle_kbn,
+  dc.consumption_tax,
+  dc.consumption_kbn,
   d.status_cd_id
 FROM t_documentcontents dc
 LEFT JOIN t_documents      d  ON d.document_id       = dc.document_id

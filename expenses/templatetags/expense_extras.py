@@ -4,6 +4,13 @@ from django.template.defaultfilters import stringfilter
 register = template.Library()
 
 @register.filter
+def has_role(user, role_name):
+    """ユーザーが指定ロールを持つか判定: {% if request.user|has_role:'admin' %}"""
+    if not user or not user.is_authenticated:
+        return False
+    return user.has_role(role_name)
+
+@register.filter
 def get_item(dictionary, key):
     """辞書のキー参照フィルター: {{ my_dict|get_item:variable_key }}"""
     if dictionary is None:
