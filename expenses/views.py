@@ -1473,7 +1473,7 @@ def expense_edit(request, pk):
     _edit_template = (
         "expenses/travel_expense_form.html"
         if _is_travel_doc_type(getattr(expense, 'document_type', None))
-        else "expenses/expense_edit.html"
+        else "expenses/expense_form.html"
     )
     return render(request, _edit_template, {
         "formset": formset,
@@ -1497,6 +1497,11 @@ def expense_edit(request, pk):
         "submission_id": str(uuid.uuid4()),
         "tax_choices": _item_choices('TAX', empty_label='--'),
         "coc_choices": _item_choices('COC'),
+        # copy_from_* は新規作成・コピー時のみ使用するが、共通テンプレートのために空文字で渡す
+        "copy_from_bumon_cd": "",
+        "copy_from_tsuka_cd": "",
+        "copy_from_memo": "",
+        "copy_from_ringi_no": "",
         # カテゴリ別フィールド制御
         **_asset_form_context(getattr(expense, 'document_type', None)),
     })
@@ -1811,7 +1816,7 @@ def keiri_approval_edit(request, pk):
     _edit_template = (
         "expenses/travel_expense_form.html"
         if _is_travel_doc_type(_edit_doc_type)
-        else "expenses/expense_edit.html"
+        else "expenses/expense_form.html"
     )
     return render(request, _edit_template, {
         "formset": formset,
@@ -1836,6 +1841,10 @@ def keiri_approval_edit(request, pk):
         "submission_id": str(uuid.uuid4()),
         "tax_choices": _item_choices('TAX', empty_label='--'),
         "coc_choices": _item_choices('COC'),
+        "copy_from_bumon_cd": "",
+        "copy_from_tsuka_cd": "",
+        "copy_from_memo": "",
+        "copy_from_ringi_no": "",
         **_asset_form_context(_edit_doc_type),
     })
 
@@ -3651,61 +3660,64 @@ def settings_export(request):
         ).distinct()
 
     if 'csv' in request.GET:
-        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-        response['Content-Disposition'] = 'attachment; filename="admin_export.csv"'
-        writer = csv.writer(response)
-        writer.writerow([
-            '申請ID', '申請種別コード', '申請種別',
-            '申請者', '社員番号',
-            '部門コード', '部門',
-            '申請日時', '合計金額', '通貨',
-            'ステータスコード', 'ステータス', '備考',
-            '明細ID', '明細日付',
-            '勘定科目コード', '勘定科目',
-            '支払先', '目的', '明細金額',
-            '登録番号', 'コーポレートカード', 'カード下4桁',
-        ])
-        for exp in qs:
-            doc_fields = [
-                exp.document_id,
-                exp.document_type.document_type_id if exp.document_type else '',
-                exp.document_type.document_type_name if exp.document_type else '',
-                exp.man_number.user_name if exp.man_number else '',
-                exp.man_number.man_number if exp.man_number else '',
-                exp.bumon_cd.bumon_cd if exp.bumon_cd else '',
-                exp.bumon_cd.bumon_name if exp.bumon_cd else '',
-                timezone.localtime(exp.created_at).strftime('%Y/%m/%d %H:%M'),
-                exp.total_amount,
-                exp.tsuka_cd or '',
-                exp.status_cd.status_cd if exp.status_cd else '',
-                exp.status_cd.status_name if exp.status_cd else '',
-                exp.memo or '',
-            ]
-            contents = list(exp.contents.select_related('account').order_by('document_detail_id'))
-            if contents:
-                for c in contents:
-                    corpo = {None: '', 0: '', 1: '使用'}.get(c.corpo_card, '')
-                    # 登録番号: 先頭が't'なら大文字化、'T'以外なら付与
-                    tekikaku = str(c.tekikaku_cd or '').strip()
-                    if tekikaku:
-                        if tekikaku.startswith('t'):
-                            tekikaku = 'T' + tekikaku[1:]
-                        elif not tekikaku.startswith('T'):
-                            tekikaku = 'T' + tekikaku
-                    writer.writerow(doc_fields + [
-                        c.document_detail_id,
-                        c.date.strftime('%Y/%m/%d') if c.date else '',
-                        c.account.account_cd if c.account else '',
-                        c.account.account_name if c.account else '',
-                        c.shiharaisaki or '',
-                        c.purpose or '',
-                        c.amount if c.amount is not None else '',
-                        tekikaku,
-                        corpo,
-                        c.corpo_card_no or '',
-                    ])
-            else:
-                writer.writerow(doc_fields + ['', '', '', '', '', '', '', '', '', ''])
+        from django.db import connection as _conn
+        from django.http import StreamingHttpResponse
+        import csv as _csv
+
+        ilike_op = 'ILIKE' if _conn.vendor == 'postgresql' else 'LIKE'
+        sql_conditions, sql_params = [], []
+
+        if date_from:
+            sql_conditions.append("document_created_at >= %s")
+            sql_params.append(date_from + " 00:00:00")
+        if date_to:
+            sql_conditions.append("document_created_at <= %s")
+            sql_params.append(date_to + " 23:59:59")
+        if doc_type_filter:
+            sql_conditions.append("document_type_id = %s")
+            sql_params.append(doc_type_filter)
+        if status_filter:
+            st_cds = list(M_Status.objects.filter(status_name=status_filter).values_list('status_cd', flat=True))
+            if st_cds:
+                placeholders = ','.join(['%s'] * len(st_cds))
+                sql_conditions.append(f"status_cd_id IN ({placeholders})")
+                sql_params.extend(st_cds)
+        if bumon_filter:
+            sql_conditions.append("bumon_cd = %s")
+            sql_params.append(bumon_filter)
+        if keyword:
+            sql_conditions.append(
+                f"(document_title {ilike_op} %s OR applicant_name {ilike_op} %s"
+                f" OR purpose {ilike_op} %s OR shiharaisaki {ilike_op} %s OR memo {ilike_op} %s)"
+            )
+            sql_params.extend([f'%{keyword}%'] * 5)
+
+        where_sql = (" WHERE " + " AND ".join(sql_conditions)) if sql_conditions else ""
+        order_sql = " ORDER BY document_created_at DESC, document_id DESC, document_detail_id"
+
+        class EchoBuffer:
+            def write(self, value):
+                return value
+
+        _writer = _csv.writer(EchoBuffer())
+
+        def streaming_rows():
+            with _conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT * FROM v_documentcontents{where_sql}{order_sql}",
+                    sql_params,
+                )
+                cols = [d[0] for d in cur.description]
+                yield _writer.writerow(cols)
+                while True:
+                    chunk = cur.fetchmany(500)
+                    if not chunk:
+                        break
+                    for row in chunk:
+                        yield _writer.writerow(['' if v is None else str(v) for v in row])
+
+        response = StreamingHttpResponse(streaming_rows(), content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = 'attachment; filename="v_documentcontents.csv"'
         return response
 
     paginator = Paginator(qs, 30)
@@ -4598,6 +4610,9 @@ def settlement_classify(request):
     """未精算データ分類: settle_kbn IS NULL の明細に精算方法を割り当てる"""
     PAY_KBN_TO_STATUS_CD = {'01': 'SAL_PRE', '02': 'CAS_PRE', '03': 'LON_PRE'}
 
+    pay_kbn_filter  = request.GET.get('pay_kbn', '')
+    doc_type_filter = request.GET.get('doc_type', '')
+
     if request.method == 'POST':
         selected_ids = request.POST.getlist('selected_ids')
         for detail_id in selected_ids:
@@ -4606,7 +4621,12 @@ def settlement_classify(request):
                 T_DocumentContent.objects.filter(
                     document_detail_id=detail_id
                 ).update(settle_kbn=settle_kbn_val)
-        return redirect('expenses:settlement_classify')
+        # GETパラメータ（検索条件）を維持してリダイレクト
+        qs = request.GET.urlencode()
+        redirect_url = reverse('expenses:settlement_classify')
+        if qs:
+            redirect_url += '?' + qs
+        return redirect(redirect_url)
 
     contents = (
         T_DocumentContent.objects
@@ -4615,7 +4635,14 @@ def settlement_classify(request):
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
 
+    if pay_kbn_filter:
+        contents = contents.filter(document__pay_kbn=pay_kbn_filter)
+    if doc_type_filter:
+        contents = contents.filter(document__document_type_id=doc_type_filter)
+
     stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
+    pay_items    = list(M_Item.objects.filter(data_kbn='PAY').order_by('key'))
+    doc_types    = list(M_DocumentType.objects.all().order_by('document_type_id'))
 
     rows = []
     for content in contents:
@@ -4631,6 +4658,10 @@ def settlement_classify(request):
     return render(request, 'expenses/settlement_classify.html', {
         'rows': rows,
         'stl_statuses': stl_statuses,
+        'pay_items': pay_items,
+        'doc_types': doc_types,
+        'pay_kbn_filter': pay_kbn_filter,
+        'doc_type_filter': doc_type_filter,
         'current': 'settlement_classify',
     })
 

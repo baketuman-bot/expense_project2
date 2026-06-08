@@ -15,8 +15,42 @@
     </div>
   </div>
 
+  <!-- 検索フォーム -->
+  <form method="get" class="card card-body py-3 mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small mb-1">精算方法</label>
+        <select name="pay_kbn" class="form-select form-select-sm">
+          <option value="">すべて</option>
+          {% for item in pay_items %}
+          <option value="{{ item.key }}" {% if pay_kbn_filter == item.key %}selected{% endif %}>{{ item.content }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1">申請種別</label>
+        <select name="doc_type" class="form-select form-select-sm">
+          <option value="">すべて</option>
+          {% for dt in doc_types %}
+          <option value="{{ dt.document_type_id }}" {% if doc_type_filter == dt.document_type_id|stringformat:"s" %}selected{% endif %}>{{ dt.document_type_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary">
+          <i class="fas fa-search me-1"></i>絞り込む
+        </button>
+        {% if pay_kbn_filter or doc_type_filter %}
+        <a href="{% url 'expenses:settlement_classify' %}" class="btn btn-sm btn-outline-secondary ms-1">
+          <i class="fas fa-times me-1"></i>クリア
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+
   {% if rows %}
-  <form method="post">
+  <form method="post" action="?{{ request.GET.urlencode }}">
     {% csrf_token %}
 
     <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">

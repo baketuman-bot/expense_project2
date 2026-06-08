@@ -6,9 +6,49 @@
 
 {% block content %}
 <div class="container">
+    {% if is_edit_mode %}
+    {% if is_keiri_edit %}
+    <nav class="precision-breadcrumb mb-1" aria-label="パンくずリスト">
+        <a href="{% url 'expenses:approval_detail' expense.document_id %}">承認画面</a>
+        <span class="precision-breadcrumb-sep">›</span>
+        <span class="precision-breadcrumb-current">#{{ expense.document_id }} 経理修正</span>
+    </nav>
+    <div class="alert alert-warning border-start border-4 border-warning mb-3">
+        <i class="fas fa-edit me-2"></i><strong>経理修正モード</strong> — 修正内容はすべて修正履歴に記録されます。
+    </div>
+    {% else %}
+    <nav class="precision-breadcrumb mb-1" aria-label="パンくずリスト">
+        <a href="{% url 'expenses:expense_list' %}">経費申請一覧</a>
+        <span class="precision-breadcrumb-sep">›</span>
+        <span class="precision-breadcrumb-current">#{{ expense.expense_main_id }} 編集</span>
+    </nav>
+    {% endif %}
+    <div class="page-head mb-4">
+        <h2 class="page-title">
+            <span class="pt-ico"><i class="fas fa-edit"></i></span>
+            {% if is_keiri_edit %}経費データ修正（経理）{% else %}経費申請編集{% endif %}
+        </h2>
+    </div>
+    {% else %}
     <h2 class="mb-4">{{ current_doc_type_name|default:"経費申請" }}</h2>
+    {% endif %}
 
-    <form method="post" enctype="multipart/form-data" novalidate{% if form_action %} action="{{ form_action }}"{% endif %}>
+    {% if latest_return_action %}
+    <div class="alert alert-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %} border-start border-4 border-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}danger{% else %}info{% endif %}">
+        <div class="d-flex align-items-center mb-1">
+            <i class="fas fa-{% if latest_return_action.action_status.status_cd == 'REJECTED' %}times-circle{% else %}undo{% endif %} me-2"></i>
+            <strong>{{ latest_return_action.action_status.action_name|default:latest_return_action.action_status.status_name }}</strong>
+            <small class="text-muted ms-2">（{{ latest_return_action.approver_man_number.user_name }} / {{ latest_return_action.actioned_at|date:"Y/m/d H:i" }}）</small>
+        </div>
+        {% if latest_return_action.comment %}
+        <div>{{ latest_return_action.comment }}</div>
+        {% else %}
+        <div class="text-muted small">コメントなし</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <form id="expense-main-form" method="post" enctype="multipart/form-data" novalidate{% if form_action %} action="{{ form_action }}"{% endif %}>
         {% csrf_token %}
         <input type="hidden" name="submission_id" value="{{ submission_id }}" />
         {{ formset.management_form }}
@@ -246,6 +286,38 @@
                                             <div class="invalid-feedback d-block">{{ error }}</div>
                                         {% endfor %}
                                     {% endif %}
+                                    {# 既存の添付一覧（編集時のみ） #}
+                                    {% if is_edit_mode and detail_form.instance.pk %}
+                                        {% with atts=detail_form.instance.attachments.all %}
+                                        {% if atts %}
+                                        <div class="mt-3">
+                                            <div class="small text-muted mb-2">登録済みの添付（{{ atts|length }}件）</div>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                {% for a in atts %}
+                                                <div class="text-center">
+                                                    <a href="{{ a.file.url }}" target="_blank" class="d-block">
+                                                        {% if a.thumbnail %}
+                                                            <img src="{{ a.thumbnail.url }}" class="img-thumbnail" style="width:80px;height:80px;object-fit:cover;" alt="添付">
+                                                        {% elif a.file.name|lower|slice:"-4:" == ".pdf" %}
+                                                            <div class="border rounded d-flex flex-column align-items-center justify-content-center bg-light" style="width:80px;height:80px;">
+                                                                <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                                                                <span class="small mt-1">PDF</span>
+                                                            </div>
+                                                        {% else %}
+                                                            <img src="{{ a.file.url }}" class="img-thumbnail" style="width:80px;height:80px;object-fit:cover;" alt="添付">
+                                                        {% endif %}
+                                                    </a>
+                                                    <label class="small d-block mt-1">
+                                                        <input type="checkbox" name="delete_attachments" value="{{ a.attachment_id }}"> 削除
+                                                    </label>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="form-text mt-1">チェックを付けた添付のみ削除されます。</div>
+                                        </div>
+                                        {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -356,18 +428,64 @@
         </div>
         {% endif %}
 
-        {# 旧式の手動承認者選択UIはワークフローベースに置き換えたため削除 #}
-
-        {# action値はhidden inputで管理。ボタンのname/valueはdisabled時に消えるブラウザ対策 #}
-        <input type="hidden" name="action" id="action-input" value="draft">
+        <input type="hidden" name="action" id="action-input" value="{% if is_edit_mode %}save{% else %}draft{% endif %}">
         <div class="text-center mt-4">
+            {% if is_edit_mode %}
+                {% if is_keiri_edit %}
+                <a href="{% url 'expenses:approval_detail' expense.document_id %}" class="btn btn-secondary me-2">キャンセル</a>
+                <button type="submit" class="btn btn-primary" data-submit-lock
+                        onclick="document.getElementById('action-input').value='keiri_save'">
+                    <i class="fas fa-save me-1"></i>修正を保存
+                </button>
+                {% else %}
+                <a href="{% url 'expenses:expense_detail' expense.expense_main_id %}" class="btn btn-secondary me-2">キャンセル</a>
+                <button type="submit" class="btn btn-outline-primary me-2" data-submit-lock
+                        onclick="document.getElementById('action-input').value='save'">下書きを保存</button>
+                <button type="submit" class="btn btn-primary" id="submit-btn" data-submit-lock
+                        onclick="document.getElementById('action-input').value='submit'">申請する</button>
+                {% if expense.status_cd.status_cd == 'DRAFT' %}
+                <button type="button" class="btn btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">
+                    <i class="fas fa-trash-alt me-1"></i>下書きを削除
+                </button>
+                {% endif %}
+                {% endif %}
+            {% else %}
             <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary">キャンセル</a>
-            <button type="submit" value="draft" class="btn btn-outline-primary me-2" data-submit-lock
+            <button type="submit" class="btn btn-outline-primary me-2" data-submit-lock
                     onclick="document.getElementById('action-input').value='draft'">下書き保存</button>
-            <button type="submit" value="submit" class="btn btn-primary" id="submit-btn" data-submit-lock
+            <button type="submit" class="btn btn-primary" id="submit-btn" data-submit-lock
                     onclick="document.getElementById('action-input').value='submit'">申請する</button>
+            {% endif %}
         </div>
     </form>
+
+    {% if is_edit_mode and not is_keiri_edit and expense.status_cd.status_cd == 'DRAFT' %}
+    <!-- 下書き削除確認モーダル -->
+    <div class="modal fade" id="deleteDraftModal" tabindex="-1" aria-labelledby="deleteDraftModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteDraftModalLabel">
+                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>下書きを削除
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>この下書きを削除します。削除したデータは復元できません。よろしいですか？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form method="post" action="{% url 'expenses:expense_delete' expense.expense_main_id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-1"></i>削除する
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- 携帯アップロード QR モーダル -->
@@ -482,7 +600,6 @@
 
 {% block extra_js %}
 <script>
-// 旧式の承認者ドロップダウンは削除済み
 // ドロップゾーンのバインド
 function bindDropZones(context) {
     const root = context || document;
@@ -561,6 +678,7 @@ function bindDropZones(context) {
         render();
     });
 }
+
 // 'others' 用: 部署選択に応じて承認者候補を取得
 function bindOthersApproverSelectors() {
     const groupSelects = document.querySelectorAll('.approver-group-select');
@@ -593,7 +711,6 @@ function bindOthersApproverSelectors() {
                     userSelect.innerHTML = '<option value="">取得に失敗しました</option>';
                 });
         });
-        // 初期化（既に値があれば自動取得）
         if (sel.value) sel.dispatchEvent(new Event('change'));
     });
 }
@@ -602,140 +719,87 @@ function bindOthersApproverSelectors() {
 let formCount = 1;
 
 function addExpenseDetail() {
-    console.log('addExpenseDetail function called');
-    
     const detailsContainer = document.getElementById('expense-details');
     const totalForms = document.getElementById('id_form-TOTAL_FORMS');
-    
-    if (!detailsContainer) {
-        console.error('detailsContainer not found');
-        return;
-    }
-    
-    if (!totalForms) {
-        console.error('totalForms not found');
-        return;
-    }
-    
-    // 既存のフォームを複製
+    if (!detailsContainer || !totalForms) return;
+
     const existingForm = detailsContainer.querySelector('.expense-detail-form');
-    if (!existingForm) {
-        console.error('既存のフォームが見つかりません');
-        return;
-    }
-    
+    if (!existingForm) return;
+
     const newForm = existingForm.cloneNode(true);
-    
-    // フォームのインデックスを更新
+
     const updateFormIndex = (element, newIndex) => {
-        if (element.id) {
-            element.id = element.id.replace(/form-\d+-/, `form-${newIndex}-`);
-        }
-        if (element.name) {
-            element.name = element.name.replace(/form-\d+-/, `form-${newIndex}-`);
-        }
-        if (element.htmlFor) {
-            element.htmlFor = element.htmlFor.replace(/form-\d+-/, `form-${newIndex}-`);
-        }
+        if (element.id) element.id = element.id.replace(/form-\d+-/, `form-${newIndex}-`);
+        if (element.name) element.name = element.name.replace(/form-\d+-/, `form-${newIndex}-`);
+        if (element.htmlFor) element.htmlFor = element.htmlFor.replace(/form-\d+-/, `form-${newIndex}-`);
     };
-    
-    // 入力フィールドを更新
+
     const inputs = newForm.querySelectorAll('input, select, textarea, label');
     inputs.forEach(element => {
         updateFormIndex(element, formCount);
         if (element.type !== 'hidden' && element.type !== 'submit' && element.type !== 'button') {
             element.value = '';
         }
-        // 新規フォームなので、隠しPK（document_detail_id）は空にする
         if (element.type === 'hidden' && /-document_detail_id$/.test(element.name)) {
             element.value = '';
         }
     });
-    
-    // セレクトボックスの選択をリセット
-    const selects = newForm.querySelectorAll('select');
-    selects.forEach(select => {
-        select.selectedIndex = 0;
-    });
 
-    // corpo_card_no の disabled をリセット（コーポレートカードは未選択のため無効化）
+    const selects = newForm.querySelectorAll('select');
+    selects.forEach(select => { select.selectedIndex = 0; });
+
     newForm.querySelectorAll('[data-corpo-card-no]').forEach(function(inp) {
         inp.disabled = true;
         inp.value = '';
     });
-    (function ensureDeleteButton(formEl){
-        if (!formEl.querySelector('[data-remove-detail]')) {
-            const header = document.createElement('div');
-            header.className = 'd-flex justify-content-end mb-2';
-            header.innerHTML = '<button type="button" class="btn btn-sm btn-outline-danger" data-remove-detail><i class="fas fa-trash-alt"></i> 明細を削除</button>';
-            formEl.insertBefore(header, formEl.firstElementChild);
-        }
-    })(newForm);
+
+    // 既存添付ファイル表示エリアを除去（新規行にはない）
+    const attDiv = newForm.querySelector('.mt-3 .d-flex.flex-wrap.gap-2');
+    if (attDiv) {
+        const attContainer = attDiv.closest('.mt-3');
+        if (attContainer) attContainer.remove();
+    }
 
     detailsContainer.appendChild(newForm);
     formCount++;
     totalForms.value = formCount;
-    // 追加したフォームにもドロップゾーンを適用
     bindDropZones(newForm);
-    // 追加したフォームにも削除ボタンを適用
-    bindRemoveButtons(newForm);
-    // 金額フィールド初期化
     if (window.initAmountFields) window.initAmountFields(newForm);
-
-    console.log('Added form, new count:', formCount);
 }
 
-// 即座に実行されるテスト
 // 複数のタイミングで実行を試行
 function tryInitialize() {
-    
     const addButton = document.getElementById('add-detail');
     const detailsContainer = document.getElementById('expense-details');
     const totalForms = document.getElementById('id_form-TOTAL_FORMS');
-    
+
     if (addButton && detailsContainer && totalForms) {
-        
-        // 初期フォーム数を取得
         formCount = parseInt(totalForms.value) || 1;
-        
-        // イベントリスナーを追加
         addButton.onclick = function(e) {
             e.preventDefault();
             addExpenseDetail();
         };
-        
         return true;
     }
     return false;
 }
 
-// 即座に試行
 if (!tryInitialize()) {
-    
-    // DOMContentLoadedで試行
     document.addEventListener('DOMContentLoaded', function() {
         if (!tryInitialize()) {
-            
-            // window loadで試行
             window.addEventListener('load', function() {
                 tryInitialize();
                 bindOthersApproverSelectors();
                 bindDropZones();
-                bindRemoveButtons();
             });
         }
     });
 }
-// tryInitializeの成否に関わらず、DOM構築後に必ず二段階セレクトをバインド
 document.addEventListener('DOMContentLoaded', function(){
     try { bindOthersApproverSelectors(); } catch(e) { /* no-op */ }
     try { bindDropZones(); } catch(e) { /* no-op */ }
-    try { bindRemoveButtons(); } catch(e) { /* no-op */ }
-    // 画面全体のデフォルトドロップを抑止（ブラウザがファイルを開くのを防ぐ）
     ['dragover','drop'].forEach(type => {
-        window.addEventListener(type, function(e){
-            e.preventDefault();
-        });
+        window.addEventListener(type, function(e){ e.preventDefault(); });
     });
 });
 
@@ -822,7 +886,6 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     qrModalEl.addEventListener('hidden.bs.modal', function(){ stopPolling(); });
 
-    // QRボタンクリック
     document.addEventListener('click', function(e){
         const btn = e.target.closest('.mobile-qr-btn');
         if (!btn) return;
@@ -858,7 +921,6 @@ document.addEventListener('DOMContentLoaded', function(){
             });
     });
 
-    // 確認ボタン（手動）
     document.addEventListener('click', function(e){
         const btn = e.target.closest('.mobile-check-btn');
         if (!btn) return;
@@ -898,46 +960,59 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 // ======= モバイルQRアップロード エンド =======
 
-// 明細削除ボタンのバインドと再インデックス処理
-function bindRemoveButtons(context) {
-    const root = context || document;
-    const buttons = root.querySelectorAll('[data-remove-detail]');
-    const detailsContainer = document.getElementById('expense-details');
-    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
-    if (!detailsContainer || !totalForms) return;
-
-    const reindex = () => {
+// ======= 明細削除（イベント委譲・新規／編集共通） =======
+(function(){
+    if (window._expenseRemoveBound) return;
+    window._expenseRemoveBound = true;
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-remove-detail]');
+        if (!btn) return;
+        const detailsContainer = document.getElementById('expense-details');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        const initialForms = document.getElementById('id_form-INITIAL_FORMS');
+        if (!detailsContainer || !totalForms) return;
+        e.preventDefault();
         const forms = detailsContainer.querySelectorAll('.expense-detail-form');
-        forms.forEach((formEl, idx) => {
-            const nodes = formEl.querySelectorAll('input, select, textarea, label');
+        if (forms.length <= 1) {
+            window.alert('少なくとも1件の明細が必要です。');
+            return;
+        }
+        const wrapper = btn.closest('.expense-detail-form');
+        if (!wrapper) return;
+        if (!window.confirm('この明細を削除します。よろしいですか？')) return;
+
+        const formEl = detailsContainer.closest('form') || document.querySelector('form');
+        const idInput = wrapper.querySelector('input[type="hidden"][name$="-document_detail_id"]');
+        const isExisting = !!(idInput && idInput.value);
+
+        if (isExisting && formEl) {
+            const del = document.createElement('input');
+            del.type = 'hidden';
+            del.name = 'delete_details';
+            del.value = idInput.value;
+            formEl.appendChild(del);
+            if (initialForms) {
+                const cur = parseInt(initialForms.value || '0', 10) || 0;
+                initialForms.value = String(Math.max(0, cur - 1));
+            }
+        }
+
+        wrapper.remove();
+
+        const remaining = detailsContainer.querySelectorAll('.expense-detail-form');
+        remaining.forEach((fe, idx) => {
+            const nodes = fe.querySelectorAll('input, select, textarea, label');
             nodes.forEach(node => {
                 if (node.id) node.id = node.id.replace(/form-\d+-/, `form-${idx}-`);
                 if (node.name) node.name = node.name.replace(/form-\d+-/, `form-${idx}-`);
                 if (node.htmlFor) node.htmlFor = node.htmlFor.replace(/form-\d+-/, `form-${idx}-`);
             });
         });
-        formCount = forms.length;
+        formCount = remaining.length;
         totalForms.value = String(formCount);
-    };
-
-    buttons.forEach(btn => {
-        if (btn._boundRemove) return; // 二重バインド防止
-        btn._boundRemove = true;
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const forms = detailsContainer.querySelectorAll('.expense-detail-form');
-            if (forms.length <= 1) {
-                window.alert('少なくとも1件の明細が必要です。');
-                return;
-            }
-            const wrapper = this.closest('.expense-detail-form');
-            if (wrapper) {
-                wrapper.remove();
-                reindex();
-            }
-        });
     });
-}
+})();
+// ======= 明細削除 エンド =======
 
 // ======= コーポレートカード番号トグル =======
 (function() {
@@ -952,11 +1027,9 @@ function bindRemoveButtons(context) {
             noInput.value = '';
         }
     }
-    // 初期状態をページ読み込み時に設定
     document.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
         toggleCorpoCardNo(sel);
     });
-    // change イベント委任（動的フォーム含む）
     document.addEventListener('change', function(e) {
         if (e.target && e.target.hasAttribute('data-corpo-card-select')) {
             toggleCorpoCardNo(e.target);
@@ -966,98 +1039,100 @@ function bindRemoveButtons(context) {
 // ======= コーポレートカード番号トグル エンド =======
 
 // ======= 入力バリデーション（負担部門・承認者） =======
-document.getElementById('submit-btn').addEventListener('click', function(e) {
-    let hasError = false;
+(function(){
+    var submitBtn = document.getElementById('submit-btn');
+    if (!submitBtn) return;
+    submitBtn.addEventListener('click', function(e) {
+        let hasError = false;
 
-    // 負担部門チェック
-    const bumonSel = document.getElementById('bumon_cd');
-    const bumonErr = document.getElementById('bumon_cd_error');
-    if (!bumonSel.value) {
-        hasError = true;
-        bumonSel.classList.add('is-invalid');
-        bumonErr.classList.add('d-block');
-    } else {
-        bumonSel.classList.remove('is-invalid');
-        bumonErr.classList.remove('d-block');
-    }
-
-    // 承認者チェック（keiri 以外で未選択）
-    document.querySelectorAll('[data-approver-required]').forEach(function(sel) {
-        const container = sel.closest('.mb-3');
-        const errDiv = container ? container.querySelector('.approver-step-error') : null;
-        if (!sel.value) {
+        const bumonSel = document.getElementById('bumon_cd');
+        const bumonErr = document.getElementById('bumon_cd_error');
+        if (bumonSel && !bumonSel.value) {
             hasError = true;
-            sel.classList.add('is-invalid');
-            if (errDiv) errDiv.classList.remove('d-none');
-        } else {
-            sel.classList.remove('is-invalid');
+            bumonSel.classList.add('is-invalid');
+            if (bumonErr) bumonErr.classList.add('d-block');
+        } else if (bumonSel) {
+            bumonSel.classList.remove('is-invalid');
+            if (bumonErr) bumonErr.classList.remove('d-block');
+        }
+
+        document.querySelectorAll('[data-approver-required]').forEach(function(sel) {
+            const container = sel.closest('.mb-3');
+            const errDiv = container ? container.querySelector('.approver-step-error') : null;
+            if (!sel.value) {
+                hasError = true;
+                sel.classList.add('is-invalid');
+                if (errDiv) errDiv.classList.remove('d-none');
+            } else {
+                sel.classList.remove('is-invalid');
+                if (errDiv) errDiv.classList.add('d-none');
+            }
+        });
+
+        document.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
+            var noId = sel.id.replace(/-corpo_card$/, '-corpo_card_no');
+            var noInput = document.getElementById(noId);
+            if (!noInput) return;
+            var parent = noInput.closest('.form-group') || noInput.parentElement;
+            var errEl = parent ? parent.querySelector('.corpo-card-no-js-error') : null;
+            if (String(sel.value) === '2' && !noInput.value.trim()) {
+                hasError = true;
+                noInput.classList.add('is-invalid');
+                if (!errEl && parent) {
+                    var div = document.createElement('div');
+                    div.className = 'invalid-feedback d-block corpo-card-no-js-error';
+                    div.textContent = 'コーポレートカード支払いを選択した場合、カード番号を入力してください。';
+                    parent.appendChild(div);
+                }
+            } else {
+                noInput.classList.remove('is-invalid');
+                if (errEl) errEl.remove();
+            }
+        });
+
+        if (hasError) {
+            e.preventDefault();
+            const firstErr = document.querySelector(
+                '#bumon_cd.is-invalid, [data-approver-required].is-invalid, [data-corpo-card-no].is-invalid'
+            );
+            if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+
+    var bumonSel = document.getElementById('bumon_cd');
+    if (bumonSel) {
+        bumonSel.addEventListener('change', function() {
+            if (this.value) {
+                this.classList.remove('is-invalid');
+                var err = document.getElementById('bumon_cd_error');
+                if (err) err.classList.remove('d-block');
+            }
+        });
+    }
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.hasAttribute('data-approver-required') && e.target.value) {
+            e.target.classList.remove('is-invalid');
+            const container = e.target.closest('.mb-3');
+            const errDiv = container ? container.querySelector('.approver-step-error') : null;
             if (errDiv) errDiv.classList.add('d-none');
         }
     });
-
-    // コーポレートカード番号チェック（コーポレートカード支払い選択時は必須）
-    document.querySelectorAll('[data-corpo-card-select]').forEach(function(sel) {
-        var noId = sel.id.replace(/-corpo_card$/, '-corpo_card_no');
-        var noInput = document.getElementById(noId);
-        if (!noInput) return;
-        var parent = noInput.closest('.form-group') || noInput.parentElement;
-        var errEl = parent ? parent.querySelector('.corpo-card-no-js-error') : null;
-        if (String(sel.value) === '2' && !noInput.value.trim()) {
-            hasError = true;
-            noInput.classList.add('is-invalid');
-            if (!errEl && parent) {
-                var div = document.createElement('div');
-                div.className = 'invalid-feedback d-block corpo-card-no-js-error';
-                div.textContent = 'コーポレートカード支払いを選択した場合、カード番号を入力してください。';
-                parent.appendChild(div);
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.hasAttribute('data-corpo-card-no') && e.target.value.trim()) {
+            e.target.classList.remove('is-invalid');
+            var parent = e.target.closest('.form-group') || e.target.parentElement;
+            if (parent) {
+                var errEl = parent.querySelector('.corpo-card-no-js-error');
+                if (errEl) errEl.remove();
             }
-        } else {
-            noInput.classList.remove('is-invalid');
-            if (errEl) errEl.remove();
         }
     });
-
-    if (hasError) {
-        e.preventDefault();
-        const firstErr = document.querySelector(
-            '#bumon_cd.is-invalid, [data-approver-required].is-invalid, [data-corpo-card-no].is-invalid'
-        );
-        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-});
-document.getElementById('bumon_cd').addEventListener('change', function() {
-    if (this.value) {
-        this.classList.remove('is-invalid');
-        document.getElementById('bumon_cd_error').classList.remove('d-block');
-    }
-});
-document.addEventListener('change', function(e) {
-    if (e.target && e.target.hasAttribute('data-approver-required') && e.target.value) {
-        e.target.classList.remove('is-invalid');
-        const container = e.target.closest('.mb-3');
-        const errDiv = container ? container.querySelector('.approver-step-error') : null;
-        if (errDiv) errDiv.classList.add('d-none');
-    }
-});
-// コーポレートカード番号入力時のリアルタイムエラークリア
-document.addEventListener('input', function(e) {
-    if (e.target && e.target.hasAttribute('data-corpo-card-no') && e.target.value.trim()) {
-        e.target.classList.remove('is-invalid');
-        var parent = e.target.closest('.form-group') || e.target.parentElement;
-        if (parent) {
-            var errEl = parent.querySelector('.corpo-card-no-js-error');
-            if (errEl) errEl.remove();
-        }
-    }
-});
+})();
 // ======= 入力バリデーション エンド =======
 
 // ======= label型 calc_formula 汎用計算エンジン =======
-// 書式: {field_name}+{field_name}|単位  ※|以降は表示サフィックス(省略可)
-// 特殊変数: {amount_total} = 明細金額の合計
 (function() {
     function evalCalcFormulas() {
-        // 明細金額を合計
         var amountTotal = 0;
         document.querySelectorAll('input[name$="-amount"]').forEach(function(inp) {
             var v = parseFloat(inp.value.replace(/,/g, ''));
@@ -1067,31 +1142,21 @@ document.addEventListener('input', function(e) {
         document.querySelectorAll('[data-calc-formula]').forEach(function(el) {
             var raw = el.getAttribute('data-calc-formula');
             if (!raw) return;
-
-            // サフィックス分離: "式|単位"
             var parts   = raw.split('|');
             var formula = parts[0].trim();
             var suffix  = parts.length > 1 ? parts[1].trim() : '';
-
-            // {amount_total} を置換
             var expr = formula.replace(/\{amount_total\}/g, amountTotal);
-
-            // {field_name} を対応要素の値に置換
-            // input/select → .value  /  label div → .textContent から数値を抽出
             expr = expr.replace(/\{(\w+)\}/g, function(_, name) {
                 var el = document.getElementById('id_dyn_' + name);
                 if (!el) return '0';
                 var raw = (el.tagName === 'INPUT' || el.tagName === 'SELECT')
                     ? el.value
                     : (el.textContent || '');
-                // "5 人" "2,500.00 円/人" などから数値部分だけ取り出す
                 var numStr = raw.replace(/[,\s]/g, '').match(/^-?[\d.]+/);
                 var v = numStr ? parseFloat(numStr[0]) : NaN;
                 return isNaN(v) ? '0' : String(v);
             });
-
             try {
-                // eslint-disable-next-line no-new-func
                 var result = Function('"use strict"; return (' + expr + ')')();
                 if (isFinite(result) && !isNaN(result)) {
                     var formatted = Number.isInteger(result)
@@ -1108,17 +1173,13 @@ document.addEventListener('input', function(e) {
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // calc_formula を持つ label 要素が存在しない場合はスキップ
         if (!document.querySelector('[data-calc-formula]')) return;
-
-        // 動的フィールドの入力変化を監視
         var dynArea = document.querySelector('.dynamic-fields-area') || document.body;
         dynArea.addEventListener('input', function(e) {
             if (e.target && e.target.id && e.target.id.startsWith('id_dyn_')) {
                 evalCalcFormulas();
             }
         });
-        // 明細の金額変化にも反応
         var detailsEl = document.getElementById('expense-details');
         if (detailsEl) {
             detailsEl.addEventListener('input', function(e) {
@@ -1134,14 +1195,15 @@ document.addEventListener('input', function(e) {
 
 // ======= 下書き自動保存（localStorage） =======
 (function(){
+    {% if is_edit_mode %}
+    var STORAGE_KEY = 'expense_edit_draft_{{ expense.expense_main_id }}';
+    {% else %}
     var STORAGE_KEY = 'expense_new_draft_{{ submission_id }}';
-    // DocType 固定キー（ページ再訪時の復元に使用）
     var DRAFT_KEY   = 'expense_draft_type_{{ current_doc_type.document_type_id }}';
+    {% endif %}
     var SAVE_INTERVAL = 30000;
-    var form = document.querySelector('form[enctype]');
+    var form = document.getElementById('expense-main-form');
     if (!form) return;
-
-    var EXPIRE_MS = 24 * 60 * 60 * 1000; // 24時間
 
     function serializeForm() {
         var data = {};
@@ -1156,7 +1218,9 @@ document.addEventListener('input', function(e) {
         try {
             var json = serializeForm();
             localStorage.setItem(STORAGE_KEY, json);
+            {% if not is_edit_mode %}
             localStorage.setItem(DRAFT_KEY, json);
+            {% endif %}
             var bar = document.getElementById('autosave-bar');
             if (bar) {
                 bar.textContent = '下書きを自動保存しました（' + new Date().toLocaleTimeString('ja-JP') + '）';
@@ -1168,24 +1232,24 @@ document.addEventListener('input', function(e) {
 
     setInterval(saveToStorage, SAVE_INTERVAL);
 
-    // フォーム送信時はキャッシュを削除
     form.addEventListener('submit', function(){
         try {
             localStorage.removeItem(STORAGE_KEY);
+            {% if not is_edit_mode %}
             localStorage.removeItem(DRAFT_KEY);
+            {% endif %}
         } catch(e) {}
     });
 
-    // ======= 復元処理 =======
+    {% if not is_edit_mode %}
+    // ======= 復元処理（新規作成時のみ） =======
     document.addEventListener('DOMContentLoaded', function(){
         var saved = null;
         try { saved = localStorage.getItem(DRAFT_KEY); } catch(e) {}
         if (!saved) return;
-
         var data;
         try { data = JSON.parse(saved); } catch(e) { return; }
-
-        // 24時間以上前のデータは自動破棄
+        var EXPIRE_MS = 24 * 60 * 60 * 1000;
         if (data['_saved_at']) {
             var age = new Date() - new Date(data['_saved_at']);
             if (age > EXPIRE_MS) {
@@ -1193,8 +1257,6 @@ document.addEventListener('input', function(e) {
                 return;
             }
         }
-
-        // 確認ダイアログに件名と保存日時を表示
         var titleVal   = data['title'] || '（件名なし）';
         var savedAtStr = data['_saved_at']
             ? new Date(data['_saved_at']).toLocaleString('ja-JP')
@@ -1203,13 +1265,10 @@ document.addEventListener('input', function(e) {
             + '\n件名: ' + titleVal
             + (savedAtStr ? '\n保存日時: ' + savedAtStr : '')
             + '\n\n（「キャンセル」を選ぶと保存データは削除されます）';
-
         if (!confirm(msg)) {
             try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
             return;
         }
-
-        // 保存時の明細行数に合わせて行を追加
         var savedTotal = parseInt(data['form-TOTAL_FORMS'] || '1');
         var totalFormsEl = document.getElementById('id_form-TOTAL_FORMS');
         var currentTotal = totalFormsEl ? (parseInt(totalFormsEl.value) || 1) : 1;
@@ -1218,8 +1277,6 @@ document.addEventListener('input', function(e) {
         for (var i = 0; i < toAdd; i++) {
             if (addBtn) addBtn.click();
         }
-
-        // 行追加後に値をセット（click による DOM 更新を待つ）
         setTimeout(function(){
             Object.keys(data).forEach(function(name){
                 if (name === '_saved_at') return;
@@ -1231,6 +1288,7 @@ document.addEventListener('input', function(e) {
         }, 100);
     });
     // ======= 復元処理 エンド =======
+    {% endif %}
 })();
 // ======= 下書き自動保存 エンド =======
 
@@ -1244,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ページ離脱警告 + 二重送信防止 + blur バリデーション
 document.addEventListener('DOMContentLoaded', function() {
-    var form = document.querySelector('form[enctype]');
+    var form = document.getElementById('expense-main-form');
     if (form) {
         window.bindFormDirtyGuard(form);
         window.bindFormSubmitLock(form);
