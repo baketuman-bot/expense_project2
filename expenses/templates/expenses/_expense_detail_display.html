@@ -15,21 +15,27 @@
                 {% if atts %}
                     {% for att in atts %}
                     <div {% if not forloop.last %}style="border-bottom:1px solid #e5e7eb;"{% endif %}>
-                        {% if att.thumbnail %}
-                            <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link d-block" title="クリックで原本を表示">
-                                <img src="{{ att.thumbnail.url }}" alt="添付" class="receipt-thumbnail">
+                        {% with fname=att.file.name|lower %}
+                        {% if fname|slice:"-4:" == ".pdf" %}
+                            {# PDF: サムネイル or アイコン表示、クリックで新しいタブ #}
+                            <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link d-block" title="クリックでPDFを新しいタブで表示" style="cursor:pointer; text-align:center;">
+                                {% if att.thumbnail %}
+                                    <div class="position-relative d-inline-block" style="max-width:400px;">
+                                        <img src="{{ att.thumbnail.url }}" alt="PDF" class="receipt-thumbnail" style="max-width:400px;">
+                                        <span class="position-absolute bottom-0 end-0 badge bg-danger m-1" style="font-size:10px;"><i class="fas fa-external-link-alt"></i> PDF</span>
+                                    </div>
+                                {% else %}
+                                    <div class="d-flex align-items-center justify-content-center flex-column" style="min-height:80px;">
+                                        <i class="fas fa-file-pdf fa-3x text-danger mb-2"></i>
+                                        <span class="small text-muted">PDFを表示</span>
+                                    </div>
+                                {% endif %}
                             </a>
-                        {% elif att.file.name|lower|slice:"-4:" == ".jpg" or att.file.name|lower|slice:"-5:" == ".jpeg" or att.file.name|lower|slice:"-4:" == ".png" or att.file.name|lower|slice:"-4:" == ".gif" or att.file.name|lower|slice:"-5:" == ".webp" %}
-                            <a href="{{ att.file.url }}" target="_blank" class="receipt-image-link d-block" title="クリックで拡大表示">
-                                <img src="{{ att.file.url }}" alt="添付" class="receipt-thumbnail">
+                        {% elif att.thumbnail or fname|slice:"-4:" == ".jpg" or fname|slice:"-5:" == ".jpeg" or fname|slice:"-4:" == ".png" or fname|slice:"-4:" == ".gif" or fname|slice:"-5:" == ".webp" %}
+                            {# 画像: 元データを直接表示、クリックでさらにズーム #}
+                            <a href="{{ att.file.url }}" class="receipt-image-link d-block lightbox-trigger" title="クリックでさらに拡大" style="cursor:zoom-in;">
+                                <img src="{{ att.file.url }}" alt="添付" class="receipt-thumbnail" loading="lazy">
                             </a>
-                        {% elif att.file.name|lower|slice:"-4:" == ".pdf" %}
-                            <div class="receipt-image-link d-flex align-items-center justify-content-center">
-                                <a href="{{ att.file.url }}" target="_blank" class="btn btn-lg btn-outline-secondary py-4 px-5">
-                                    <i class="fas fa-file-pdf fa-3x text-danger mb-2 d-block"></i>
-                                    PDFを表示
-                                </a>
-                            </div>
                         {% else %}
                             <div class="receipt-image-link d-flex align-items-center justify-content-center">
                                 <a href="{{ att.file.url }}" target="_blank" class="btn btn-lg btn-outline-primary py-4 px-5">
@@ -38,6 +44,7 @@
                                 </a>
                             </div>
                         {% endif %}
+                        {% endwith %}
                     </div>
                     {% endfor %}
                 {% else %}

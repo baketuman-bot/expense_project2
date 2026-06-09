@@ -20,6 +20,15 @@
     <div class="row g-2 align-items-end">
       <div class="col-md-3">
         <label class="form-label small mb-1">精算方法</label>
+        <select name="stl_filter" class="form-select form-select-sm">
+          <option value="">すべて</option>
+          {% for s in stl_statuses %}
+          <option value="{{ s.status_cd }}" {% if stl_filter == s.status_cd %}selected{% endif %}>{{ s.status_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1">精算申請</label>
         <select name="pay_kbn" class="form-select form-select-sm">
           <option value="">すべて</option>
           {% for item in pay_items %}
@@ -27,20 +36,11 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3">
-        <label class="form-label small mb-1">申請種別</label>
-        <select name="doc_type" class="form-select form-select-sm">
-          <option value="">すべて</option>
-          {% for dt in doc_types %}
-          <option value="{{ dt.document_type_id }}" {% if doc_type_filter == dt.document_type_id|stringformat:"s" %}selected{% endif %}>{{ dt.document_type_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
       <div class="col-auto">
         <button type="submit" class="btn btn-sm btn-primary">
           <i class="fas fa-search me-1"></i>絞り込む
         </button>
-        {% if pay_kbn_filter or doc_type_filter %}
+        {% if stl_filter or pay_kbn_filter %}
         <a href="{% url 'expenses:settlement_classify' %}" class="btn btn-sm btn-outline-secondary ms-1">
           <i class="fas fa-times me-1"></i>クリア
         </a>
@@ -57,15 +57,6 @@
       <span class="text-muted small">{{ rows|length }} 件</span>
       <a href="#" id="select-all" class="small">全選択</a>
       <a href="#" id="deselect-all" class="small">全解除</a>
-
-      <span class="vr mx-1"></span>
-      <span class="text-muted small text-nowrap">精算方法別選択:</span>
-      {% for s in stl_statuses %}
-      <button type="button" class="btn btn-outline-secondary btn-sm select-by-kbn"
-              data-kbn="{{ s.status_cd }}">
-        {{ s.status_name }}
-      </button>
-      {% endfor %}
 
       <button type="submit" class="btn btn-primary btn-sm ms-auto">
         <i class="fas fa-check me-1"></i>チェック済を精算開始
@@ -173,19 +164,7 @@
     });
   }
 
-  // 精算方法別一括チェック
-  document.querySelectorAll('.select-by-kbn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var kbn = this.dataset.kbn;
-      document.querySelectorAll('.classify-row').forEach(function (row) {
-        var sel = row.querySelector('.settle-kbn-select');
-        var chk = row.querySelector('.classify-check');
-        if (sel && chk && sel.value === kbn) {
-          chk.checked = true;
-        }
-      });
-    });
-  });
+
 })();
 </script>
 {% endblock %}

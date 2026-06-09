@@ -474,5 +474,61 @@
 })();
 </script>
     {% block extra_js %}{% endblock %}
+
+<!-- ライトボックスモーダル (共通) -->
+<div class="modal fade" id="imgLightboxModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="width:90vw; max-width:90vw;">
+    <div class="modal-content" style="background:#111; border:none;">
+      <div class="modal-header border-0 p-2 d-flex align-items-center justify-content-between" style="background:#111;">
+        <a id="imgLightboxNewTab" href="#" target="_blank" class="btn btn-sm btn-outline-light ms-2" style="font-size:12px;">
+          <i class="fas fa-external-link-alt me-1"></i>新しいタブで開く
+        </a>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body p-2 text-center" style="background:#111; overflow:auto;">
+        <img id="imgLightboxImg" src="" alt="添付画像" style="max-width:100%; max-height:82vh; cursor:zoom-in; display:block; margin:0 auto;">
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var modalEl = document.getElementById('imgLightboxModal');
+  var lightboxImg = document.getElementById('imgLightboxImg');
+  var lightboxNewTab = document.getElementById('imgLightboxNewTab');
+
+  document.addEventListener('click', function(e){
+    var trigger = e.target.closest('a.lightbox-trigger');
+    if(!trigger) return;
+    e.preventDefault();
+    var src = trigger.href;
+    if(!src) return;
+    lightboxNewTab.href = src;
+    lightboxImg.style.maxHeight = '82vh';
+    lightboxImg.style.maxWidth = '100%';
+    lightboxImg.style.cursor = 'zoom-in';
+    lightboxImg.src = src;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  });
+
+  lightboxImg.addEventListener('click', function(){
+    if(this.style.maxHeight === 'none'){
+      this.style.maxHeight = '82vh';
+      this.style.maxWidth = '100%';
+      this.style.cursor = 'zoom-in';
+    } else {
+      this.style.maxHeight = 'none';
+      this.style.maxWidth = 'none';
+      this.style.cursor = 'zoom-out';
+    }
+  });
+
+  modalEl.addEventListener('hidden.bs.modal', function(){
+    lightboxImg.src = '';
+    lightboxImg.style.maxHeight = '82vh';
+    lightboxImg.style.maxWidth = '100%';
+  });
+})();
+</script>
 </body>
 </html>

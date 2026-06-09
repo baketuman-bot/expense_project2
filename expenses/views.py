@@ -4627,8 +4627,8 @@ def settlement_classify(request):
         for item in M_Item.objects.filter(data_kbn='PAY').exclude(content2='')
     }
 
+    stl_filter      = request.GET.get('stl_filter', '')
     pay_kbn_filter  = request.GET.get('pay_kbn', '')
-    doc_type_filter = request.GET.get('doc_type', '')
 
     if request.method == 'POST':
         selected_ids = request.POST.getlist('selected_ids')
@@ -4652,14 +4652,18 @@ def settlement_classify(request):
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
 
+    if stl_filter == 'COC_PRE':
+        contents = contents.exclude(corpo_card_no__isnull=True).exclude(corpo_card_no='')
+    elif stl_filter:
+        matching_pay_kbns = [k for k, v in PAY_KBN_TO_STATUS_CD.items() if v == stl_filter]
+        contents = contents.filter(
+            document__pay_kbn__in=matching_pay_kbns
+        ).filter(Q(corpo_card_no__isnull=True) | Q(corpo_card_no=''))
     if pay_kbn_filter:
         contents = contents.filter(document__pay_kbn=pay_kbn_filter)
-    if doc_type_filter:
-        contents = contents.filter(document__document_type_id=doc_type_filter)
 
     stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
     pay_items    = list(M_Item.objects.filter(data_kbn='PAY').order_by('key'))
-    doc_types    = list(M_DocumentType.objects.filter(menu_group__category='expense').order_by('document_type_id'))
 
     rows = []
     for content in contents:
@@ -4676,9 +4680,8 @@ def settlement_classify(request):
         'rows': rows,
         'stl_statuses': stl_statuses,
         'pay_items': pay_items,
-        'doc_types': doc_types,
+        'stl_filter': stl_filter,
         'pay_kbn_filter': pay_kbn_filter,
-        'doc_type_filter': doc_type_filter,
         'current': 'settlement_classify',
     })
 

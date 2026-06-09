@@ -1071,25 +1071,21 @@ body.no-sidebar .precision-main{
 
 /* ── 領収書大画像表示 ── */
 .receipt-thumbnail {
-  transition: transform 0.2s ease-in-out;
   max-width: 100%;
   height: auto;
-  max-height: 75vh;
   border: none;
   object-fit: contain;
   background-color: #f8f9fa;
+  display: block;
 }
 .receipt-image-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 260px;
-  overflow: hidden;
+  display: block;
   background-color: #f8f9fa;
   text-align: center;
+  padding: 4px;
 }
 .receipt-image-link:hover .receipt-thumbnail {
-  transform: scale(1.02);
+  opacity: 0.92;
 }
 
 /* ── 添付情報パネル（右側） ── */

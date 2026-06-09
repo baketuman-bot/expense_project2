@@ -774,18 +774,7 @@ class T_DocumentAttachment(models.Model):
                         self.thumbnail.save(target_path, ContentFile(img_bytes), save=False)
                 except Exception:
                     pass
-        elif Image:
-            try:
-                img = Image.open(self.file)
-                img.thumbnail((400, 400))
-                thumb_io = io.BytesIO()
-                img.save(thumb_io, format='JPEG', quality=85)
-                orig = os.path.basename(self.file.name)
-                name, _ = os.path.splitext(orig)
-                target_path = attachment_thumbnail_upload_path(self, f"{name}_thumb.jpg")
-                self.thumbnail.save(target_path, ContentFile(thumb_io.getvalue()), save=False)
-            except Exception:
-                pass
+        # 画像ファイルは元データを詳細画面で直接表示するためサムネイル不要
 
     def save(self, *args, **kwargs):
         if self.file and not self.thumbnail:
