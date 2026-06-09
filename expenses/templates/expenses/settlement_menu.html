@@ -30,16 +30,33 @@
     </div>
 
     <div class="col-md-4">
-      <a href="{% url 'expenses:settlement_cash' %}" class="text-decoration-none">
+      <a href="{% url 'expenses:settlement_cash_hq' %}" class="text-decoration-none">
         <div class="card h-100 card-hover-primary">
           <div class="card-body d-flex align-items-center gap-3 py-4">
             <span class="pt-ico flex-shrink-0"><i class="fas fa-money-bill-wave"></i></span>
             <div class="flex-grow-1">
-              <div class="fw-bold">現金精算処理</div>
-              <div class="text-muted small">現金で精算する申請を処理</div>
+              <div class="fw-bold">本社現金精算処理</div>
+              <div class="text-muted small">本社現金で精算する申請を処理</div>
             </div>
-            {% if counts.cash %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.cash }}</span>
+            {% if counts.cash_hq %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.cash_hq }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-4">
+      <a href="{% url 'expenses:settlement_cash_osaka' %}" class="text-decoration-none">
+        <div class="card h-100 card-hover-primary">
+          <div class="card-body d-flex align-items-center gap-3 py-4">
+            <span class="pt-ico flex-shrink-0"><i class="fas fa-money-bill-wave"></i></span>
+            <div class="flex-grow-1">
+              <div class="fw-bold">大阪現金精算処理</div>
+              <div class="text-muted small">大阪現金で精算する申請を処理</div>
+            </div>
+            {% if counts.cash_osaka %}
+            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.cash_osaka }}</span>
             {% endif %}
           </div>
         </div>

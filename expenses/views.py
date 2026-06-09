@@ -664,11 +664,12 @@ def expense_detail(request, pk):
     # 遷移元に応じて「一覧に戻る」先を切り替え
     from_page = request.GET.get('from', '')
     back_url_map = {
-        'settlement':             reverse('expenses:settlement_list'),
-        'settlement_classify':    reverse('expenses:settlement_classify'),
-        'settlement_cash':        reverse('expenses:settlement_cash'),
-        'settlement_corp_card':   reverse('expenses:settlement_corp_card'),
-        'settlement_payroll':     reverse('expenses:settlement_payroll'),
+        'settlement':              reverse('expenses:settlement_list'),
+        'settlement_classify':     reverse('expenses:settlement_classify'),
+        'settlement_cash_hq':      reverse('expenses:settlement_cash_hq'),
+        'settlement_cash_osaka':   reverse('expenses:settlement_cash_osaka'),
+        'settlement_corp_card':    reverse('expenses:settlement_corp_card'),
+        'settlement_payroll':      reverse('expenses:settlement_payroll'),
     }
     back_url = back_url_map.get(from_page, reverse('expenses:expense_list'))
 
@@ -4591,13 +4592,14 @@ def settlement_menu(request):
     base_qs = T_DocumentContent.objects.filter(document__status_cd_id='FNS')
     journal_kbns = ['CAS_INPRO', 'SAL_INPRO', 'COC_INPRO', 'LON_INPRO']
     counts = {
-        'classify':   base_qs.filter(settle_kbn__isnull=True).count(),
-        'cash':       base_qs.filter(settle_kbn='CAS_PRE').count(),
-        'transfer':   base_qs.filter(settle_kbn='LON_PRE').count(),
-        'corp_card':  base_qs.filter(settle_kbn='COC_PRE').count(),
-        'payroll':    base_qs.filter(settle_kbn='SAL_PRE').count(),
-        'auto_debit': base_qs.filter(settle_kbn='AUT_PRE').count(),
-        'journal':    base_qs.filter(settle_kbn__in=journal_kbns).count(),
+        'classify':    base_qs.filter(settle_kbn__isnull=True).count(),
+        'cash_hq':     base_qs.filter(settle_kbn='CAS_PRE', document__pay_kbn='03').count(),
+        'cash_osaka':  base_qs.filter(settle_kbn='CAS_PRE', document__pay_kbn='02').count(),
+        'transfer':    base_qs.filter(settle_kbn='LON_PRE').count(),
+        'corp_card':   base_qs.filter(settle_kbn='COC_PRE').count(),
+        'payroll':     base_qs.filter(settle_kbn='SAL_PRE').count(),
+        'auto_debit':  base_qs.filter(settle_kbn='AUT_PRE').count(),
+        'journal':     base_qs.filter(settle_kbn__in=journal_kbns).count(),
     }
     return render(request, 'expenses/settlement_menu.html', {
         'current': 'settlement_menu',
@@ -4667,7 +4669,7 @@ def settlement_classify(request):
 
 
 def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
-                              current_name, process_label, from_param):
+                              current_name, process_label, from_param, pay_kbn=None):
     """精算処理共通ビュー: pre_kbn → inpro_kbn への確定処理を共通化"""
     import datetime
     from django.utils.timezone import localdate
@@ -4726,6 +4728,8 @@ def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
         .filter(settle_kbn=pre_kbn, document__status_cd_id='FNS')
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
+    if pay_kbn:
+        contents = contents.filter(document__pay_kbn=pay_kbn)
     rows = [{'content': c} for c in contents]
     print_url = reverse('expenses:settlement_cash_print')
 
@@ -4742,14 +4746,26 @@ def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
 
 
 @login_required
-def settlement_cash(request):
-    """現金精算処理"""
+def settlement_cash_hq(request):
+    """本社現金精算処理 (pay_kbn='03')"""
     return _settlement_payment_view(
         request,
         pre_kbn='CAS_PRE', inpro_kbn='CAS_INPRO',
-        page_title='現金精算処理', icon='fa-money-bill-wave',
-        current_name='settlement_cash', process_label='現金精算',
-        from_param='settlement_cash',
+        page_title='本社現金精算処理', icon='fa-money-bill-wave',
+        current_name='settlement_cash_hq', process_label='現金精算(本社)',
+        from_param='settlement_cash_hq', pay_kbn='03',
+    )
+
+
+@login_required
+def settlement_cash_osaka(request):
+    """大阪現金精算処理 (pay_kbn='02')"""
+    return _settlement_payment_view(
+        request,
+        pre_kbn='CAS_PRE', inpro_kbn='CAS_INPRO',
+        page_title='大阪現金精算処理', icon='fa-money-bill-wave',
+        current_name='settlement_cash_osaka', process_label='現金精算(大阪)',
+        from_param='settlement_cash_osaka', pay_kbn='02',
     )
 
 
@@ -4767,7 +4783,7 @@ def settlement_cash_print(request):
         settle_ymd = request.GET.get('settle_ymd', '')
 
     if not selected_ids:
-        return redirect('expenses:settlement_cash')
+        return redirect('expenses:settlement_menu')
 
     from collections import OrderedDict
     from django.utils import timezone as tz
