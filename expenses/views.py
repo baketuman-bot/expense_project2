@@ -4659,7 +4659,7 @@ def settlement_classify(request):
 
     stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
     pay_items    = list(M_Item.objects.filter(data_kbn='PAY').order_by('key'))
-    doc_types    = list(M_DocumentType.objects.all().order_by('document_type_id'))
+    doc_types    = list(M_DocumentType.objects.filter(menu_group__category='expense').order_by('document_type_id'))
 
     rows = []
     for content in contents:
