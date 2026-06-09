@@ -4622,7 +4622,10 @@ def settlement_menu(request):
 @login_required
 def settlement_classify(request):
     """未精算データ分類: settle_kbn IS NULL の明細に精算方法を割り当てる"""
-    PAY_KBN_TO_STATUS_CD = {'01': 'SAL_PRE', '02': 'CAS_PRE', '03': 'LON_PRE'}
+    PAY_KBN_TO_STATUS_CD = {
+        item.key: item.content2
+        for item in M_Item.objects.filter(data_kbn='PAY').exclude(content2='')
+    }
 
     pay_kbn_filter  = request.GET.get('pay_kbn', '')
     doc_type_filter = request.GET.get('doc_type', '')
