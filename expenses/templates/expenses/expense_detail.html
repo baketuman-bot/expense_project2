@@ -18,7 +18,7 @@
                 </h2>
                 <div class="page-actions">
                     {% if can_keiri_edit %}
-                    <a href="{% url 'expenses:keiri_approval_edit' expense.document_id %}" class="btn btn-warning btn-sm">
+                    <a href="{% url 'expenses:keiri_approval_edit' expense.document_id %}{% if from_page %}?from={{ from_page }}{% endif %}" class="btn btn-warning btn-sm">
                         <i class="fas fa-edit me-1"></i>データ修正
                     </a>
                     {% endif %}

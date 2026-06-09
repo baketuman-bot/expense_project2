@@ -686,6 +686,7 @@ def expense_detail(request, pk):
         "travel_allow_details": travel_allow_details,
         "travel_route_subtotal": travel_route_subtotal,
         "back_url": back_url,
+        "from_page": from_page,
         "can_keiri_edit": _can_do_keiri_edit(request.user, expense),
         "tax_label_map": _item_label_map('TAX'),
         "coc_label_map": _item_label_map('COC'),
@@ -1628,6 +1629,15 @@ def keiri_approval_edit(request, pk):
     if not _can_do_keiri_edit(request.user, expense):
         return redirect('expenses:approval_detail', pk=pk)
 
+    # 遷移元を GET/POST から引き継ぎ、保存後・キャンセル時の戻り先を決定する
+    from_page = request.GET.get('from', '') or request.POST.get('from', '')
+    _kae_back_map = {
+        'settlement_classify': reverse('expenses:settlement_classify'),
+        'settlement_cash_hq':  reverse('expenses:settlement_cash_hq'),
+        'settlement_cash_osaka': reverse('expenses:settlement_cash_osaka'),
+    }
+    back_url = _kae_back_map.get(from_page, reverse('expenses:approval_detail', kwargs={'pk': pk}))
+
     error_message = None
     _edit_doc_type = getattr(expense, 'document_type', None)
     _aq_edit = _get_account_queryset(_edit_doc_type)
@@ -1772,7 +1782,7 @@ def keiri_approval_edit(request, pk):
                     new_header, new_details = _snapshot_expense(expense)
                     _record_edit_history(request.user, expense, old_header, old_details, new_header, new_details)
 
-                return redirect('expenses:approval_detail', pk=pk)
+                return redirect(back_url)
             except Exception as e:
                 logger.error("keiri_approval_edit error: %s", e, exc_info=True)
                 error_message = f"保存中にエラーが発生しました: {str(e)}"
@@ -1839,6 +1849,8 @@ def keiri_approval_edit(request, pk):
         "latest_return_action": None,
         "current_doc_type_name": getattr(_edit_doc_type, 'document_type_name', None),
         "form_action": f"/approvals/{pk}/edit/",
+        "from_page": from_page,
+        "back_url": back_url,
         "submission_id": str(uuid.uuid4()),
         "tax_choices": _item_choices('TAX', empty_label='--'),
         "coc_choices": _item_choices('COC'),

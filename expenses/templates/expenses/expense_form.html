@@ -9,7 +9,7 @@
     {% if is_edit_mode %}
     {% if is_keiri_edit %}
     <nav class="precision-breadcrumb mb-1" aria-label="パンくずリスト">
-        <a href="{% url 'expenses:approval_detail' expense.document_id %}">承認画面</a>
+        <a href="{{ back_url }}">{% if from_page == 'settlement_classify' %}未精算データ分類{% elif from_page == 'settlement_cash_hq' %}本社現金精算処理{% elif from_page == 'settlement_cash_osaka' %}大阪現金精算処理{% else %}承認画面{% endif %}</a>
         <span class="precision-breadcrumb-sep">›</span>
         <span class="precision-breadcrumb-current">#{{ expense.document_id }} 経理修正</span>
     </nav>
@@ -429,10 +429,11 @@
         {% endif %}
 
         <input type="hidden" name="action" id="action-input" value="{% if is_edit_mode %}save{% else %}draft{% endif %}">
+        {% if from_page %}<input type="hidden" name="from" value="{{ from_page }}">{% endif %}
         <div class="text-center mt-4">
             {% if is_edit_mode %}
                 {% if is_keiri_edit %}
-                <a href="{% url 'expenses:approval_detail' expense.document_id %}" class="btn btn-secondary me-2">キャンセル</a>
+                <a href="{{ back_url }}" class="btn btn-secondary me-2">キャンセル</a>
                 <button type="submit" class="btn btn-primary" data-submit-lock
                         onclick="document.getElementById('action-input').value='keiri_save'">
                     <i class="fas fa-save me-1"></i>修正を保存
