@@ -417,34 +417,14 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" id="approvalActionForm">
                         {% csrf_token %}
+                        <input type="hidden" name="status" id="id_status_hidden">
 
-                        <!-- 上段: 処理選択 + 実行ボタン（横並び・選択肢下辺揃え） -->
-                        <div class="d-flex align-items-end gap-3 mb-3">
-                            <div>
-                                <label for="{{ form.status.id_for_label }}" class="form-label fw-bold" style="font-size:15px;">
-                                    処理選択
-                                </label>
-                                {{ form.status }}
-                                {% if form.status.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {{ form.status.errors.0 }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <button type="submit" class="btn btn-success" data-submit-lock style="font-size:15px; padding:10px 20px; white-space:nowrap;">
-                                    <i class="fas fa-check me-1"></i>
-                                    処理を実行
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- 下段: コメント欄 -->
-                        <div>
+                        <!-- コメント欄 -->
+                        <div class="mb-4">
                             <label for="{{ form.comment.id_for_label }}" class="form-label fw-bold" style="font-size:15px;">
-                                コメント <span class="text-muted fw-normal" style="font-size:13px;">（任意）</span>
+                                コメント <span class="text-muted fw-normal" style="font-size:13px;">（却下・差戻し時は理由を入力してください）</span>
                             </label>
                             {{ form.comment }}
                             {% if form.comment.errors %}
@@ -452,6 +432,25 @@
                                     {{ form.comment.errors.0 }}
                                 </div>
                             {% endif %}
+                        </div>
+
+                        <!-- 処理ボタン -->
+                        <div class="d-flex gap-3 flex-wrap">
+                            <button type="button" class="btn btn-success" data-submit-lock
+                                    data-action="APPROVED"
+                                    style="font-size:15px; padding:10px 24px;">
+                                <i class="fas fa-check me-1"></i>承認する
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" data-submit-lock
+                                    data-action="RETURNED"
+                                    style="font-size:15px; padding:10px 24px;">
+                                <i class="fas fa-undo me-1"></i>差戻し
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" data-submit-lock
+                                    data-action="REJECTED"
+                                    style="font-size:15px; padding:10px 24px;">
+                                <i class="fas fa-times me-1"></i>却下
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -613,7 +612,7 @@
 
 <script>
 (function() {
-    var approvalForm = document.querySelector('form[method="post"]');
+    var approvalForm = document.getElementById('approvalActionForm');
     var modal = document.getElementById('approvalConfirmModal');
     var bsModal = new bootstrap.Modal(modal);
 
@@ -628,7 +627,7 @@
         },
         'REJECTED': {
             title:    '✕ 却下の確認',
-            message:  'この申請を却下します。この操作は取り消せません。',
+            message:  'この申請を却下します。この操作は取り消せません。却下・差戻し時はコメントに理由を入力してください。',
             headerBg: '#fef2f2',
             headerColor: '#991b1b',
             btnClass: 'btn-danger',
@@ -636,7 +635,7 @@
         },
         'RETURNED': {
             title:    '↩ 差戻しの確認',
-            message:  'この申請を差し戻します。申請者に再編集を依頼します。',
+            message:  'この申請を差し戻します。申請者に再編集を依頼します。却下・差戻し時はコメントに理由を入力してください。',
             headerBg: '#fffbeb',
             headerColor: '#92400e',
             btnClass: 'btn-warning',
@@ -644,37 +643,40 @@
         }
     };
 
-    // 送信ボタン押下時: モーダル表示
-    approvalForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        var status  = approvalForm.querySelector('select[name="status"]').value;
-        var comment = approvalForm.querySelector('textarea[name="comment"]').value.trim();
-        var cfg = CONFIG[status];
-        if (!cfg) { approvalForm.submit(); return; }
+    // 各アクションボタン押下時: hidden inputに値をセットしてモーダル表示
+    approvalForm.querySelectorAll('[data-action]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var action  = btn.getAttribute('data-action');
+            var comment = approvalForm.querySelector('textarea[name="comment"]').value.trim();
+            var cfg = CONFIG[action];
+            if (!cfg) return;
 
-        var header     = document.getElementById('approvalModalHeader');
-        var title      = document.getElementById('approvalModalTitle');
-        var message    = document.getElementById('approvalModalMessage');
-        var preview    = document.getElementById('approvalModalCommentPreview');
-        var confirmBtn = document.getElementById('approvalModalConfirm');
+            approvalForm.querySelector('#id_status_hidden').value = action;
 
-        header.style.background = cfg.headerBg;
-        title.style.color  = cfg.headerColor;
-        title.textContent  = cfg.title;
-        message.textContent = cfg.message;
+            var header     = document.getElementById('approvalModalHeader');
+            var title      = document.getElementById('approvalModalTitle');
+            var message    = document.getElementById('approvalModalMessage');
+            var preview    = document.getElementById('approvalModalCommentPreview');
+            var confirmBtn = document.getElementById('approvalModalConfirm');
 
-        if (comment) {
-            preview.textContent = '「' + comment + '」';
-            preview.style.display = 'block';
-            preview.className = 'p-2 rounded small border-start border-3 bg-light ' + cfg.borderClass;
-        } else {
-            preview.style.display = 'none';
-        }
+            header.style.background = cfg.headerBg;
+            title.style.color  = cfg.headerColor;
+            title.textContent  = cfg.title;
+            message.textContent = cfg.message;
 
-        confirmBtn.className = 'btn btn-sm ' + cfg.btnClass;
-        confirmBtn.textContent = '実行';
+            if (comment) {
+                preview.textContent = '「' + comment + '」';
+                preview.style.display = 'block';
+                preview.className = 'p-2 rounded small border-start border-3 bg-light ' + cfg.borderClass;
+            } else {
+                preview.style.display = 'none';
+            }
 
-        bsModal.show();
+            confirmBtn.className = 'btn btn-sm ' + cfg.btnClass;
+            confirmBtn.textContent = '実行';
+
+            bsModal.show();
+        });
     });
 
     // モーダルの「実行」ボタン: 実際に送信

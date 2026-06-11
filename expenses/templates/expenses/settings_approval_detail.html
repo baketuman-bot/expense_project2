@@ -374,44 +374,53 @@
                     <div class="row g-3">
                         <!-- 強制承認 -->
                         <div class="col-md-5">
-                            <form method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
+                            <form id="forceApproveForm" method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="approve">
                                 <input type="hidden" name="return_qs" value="{{ return_qs }}">
                                 <label class="form-label fw-bold text-success"><i class="fas fa-check-circle me-1"></i>強制承認</label>
                                 <p class="text-muted small mb-2">残ステップをスキップして最終承認済みにします。</p>
                                 <textarea name="comment" class="form-control form-control-sm mb-2" rows="2" placeholder="コメント（省略可）"></textarea>
-                                <button type="submit" class="btn btn-success px-4"
-                                        onclick="return confirm('この申請を強制承認しますか？')">
+                                <button type="button" class="btn btn-success px-4"
+                                        data-confirm-form="forceApproveForm"
+                                        data-confirm-title="強制承認の確認"
+                                        data-confirm-message="残ステップをスキップして最終承認済みにします。よろしいですか？"
+                                        data-confirm-btn-class="btn-success">
                                     <i class="fas fa-check me-1"></i>強制承認する
                                 </button>
                             </form>
                         </div>
                         <!-- 却下 -->
                         <div class="col-md-5">
-                            <form method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
+                            <form id="forceRejectForm" method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="reject">
                                 <input type="hidden" name="return_qs" value="{{ return_qs }}">
                                 <label class="form-label fw-bold text-warning"><i class="fas fa-ban me-1"></i>却下</label>
                                 <p class="text-muted small mb-2">この申請を却下します。</p>
                                 <textarea name="comment" class="form-control form-control-sm mb-2" rows="2" placeholder="コメント（省略可）"></textarea>
-                                <button type="submit" class="btn btn-warning px-4"
-                                        onclick="return confirm('この申請を却下しますか？')">
+                                <button type="button" class="btn btn-warning px-4"
+                                        data-confirm-form="forceRejectForm"
+                                        data-confirm-title="却下の確認"
+                                        data-confirm-message="この申請を却下します。この操作は取り消せません。"
+                                        data-confirm-btn-class="btn-warning">
                                     <i class="fas fa-times me-1"></i>却下する
                                 </button>
                             </form>
                         </div>
                         <!-- 削除 -->
                         <div class="col-md-2 d-flex flex-column justify-content-end">
-                            <form method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
+                            <form id="forceDeleteForm" method="post" action="{% url 'expenses:settings_force_action' expense.document_id %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="return_qs" value="{{ return_qs }}">
                                 <label class="form-label fw-bold text-danger"><i class="fas fa-trash-alt me-1"></i>削除</label>
                                 <p class="text-muted small mb-2">申請・履歴をすべて削除します。取り消し不可。</p>
-                                <button type="submit" class="btn btn-outline-danger"
-                                        onclick="return confirm('削除すると元に戻せません。本当に削除しますか？')">
+                                <button type="button" class="btn btn-outline-danger"
+                                        data-confirm-form="forceDeleteForm"
+                                        data-confirm-title="削除の確認"
+                                        data-confirm-message="削除すると元に戻せません。申請・履歴をすべて削除しますか？"
+                                        data-confirm-btn-class="btn-danger">
                                     <i class="fas fa-trash-alt me-1"></i>削除する
                                 </button>
                             </form>
@@ -430,4 +439,50 @@
         </div>
     </div>
 </div>
+
+<!-- 強制操作確認モーダル -->
+<div class="modal fade" id="forceActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="forceActionModalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">
+                <p id="forceActionModalMessage" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-sm" id="forceActionModalConfirm" style="min-width:80px;">実行</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var modal = document.getElementById('forceActionModal');
+    var bsModal = new bootstrap.Modal(modal);
+    var targetForm = null;
+
+    document.querySelectorAll('[data-confirm-form]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            targetForm = document.getElementById(btn.getAttribute('data-confirm-form'));
+            document.getElementById('forceActionModalTitle').textContent = btn.getAttribute('data-confirm-title');
+            document.getElementById('forceActionModalMessage').textContent = btn.getAttribute('data-confirm-message');
+            var confirmBtn = document.getElementById('forceActionModalConfirm');
+            confirmBtn.className = 'btn btn-sm ' + btn.getAttribute('data-confirm-btn-class');
+            confirmBtn.textContent = '実行';
+            bsModal.show();
+        });
+    });
+
+    document.getElementById('forceActionModalConfirm').addEventListener('click', function() {
+        bsModal.hide();
+        if (targetForm) {
+            targetForm.submit();
+        }
+    });
+})();
+</script>
 {% endblock %}
