@@ -1239,6 +1239,30 @@ body.no-sidebar .precision-main{
   white-space: normal;
 }
 
+/* ===== Bootstrap sandstone → plain Bootstrap 補正 ===== */
+/* sandstone が上書きしていたフォントサイズ基準を維持 */
+:root { font-size: 15px; }
+body.precision { font-size: 14px; }
+/* form-action-bar 内のボタン（.precision-main 外）に primary 色を適用 */
+.form-action-bar .btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.form-action-bar .btn-primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: #fff;
+}
+.form-action-bar .btn-outline-primary {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.form-action-bar .btn-outline-primary:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
 /* ===== カードホバー（リンクカード用） ===== */
 .card-hover-primary {
   transition: box-shadow .15s ease, border-color .15s ease;
