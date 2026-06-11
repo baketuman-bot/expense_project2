@@ -7,7 +7,7 @@
 {% block extra_head %}{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container form-has-action-bar">
     <h2 class="mb-4">
         {{ current_doc_type_name|default:"出張旅費精算" }}
         {% if is_keiri_edit %}<small class="text-muted fs-5"> 経理修正</small>{% elif is_edit_mode %}<small class="text-muted fs-5"> 編集</small>{% endif %}
@@ -818,6 +818,55 @@
 </tr>
 </script>
 {% endif %}
+
+<!-- 固定アクションバー -->
+<div class="form-action-bar" id="formActionBar">
+    <div class="form-action-bar-total">
+        明細合計: <span class="bar-total-amount" id="barTotalAmount">¥0</span>
+    </div>
+    <div class="form-action-bar-buttons">
+        {% if is_keiri_edit %}
+        <a href="{% url 'expenses:approval_detail' expense.document_id %}" class="btn btn-secondary btn-sm">キャンセル</a>
+        <button type="submit" form="travel-expense-form" class="btn btn-primary btn-sm" data-submit-lock
+                onclick="document.getElementById('action-input').value='keiri_save'">
+            <i class="fas fa-save me-1"></i>修正を保存
+        </button>
+        {% else %}
+        <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary btn-sm">キャンセル</a>
+        <button type="submit" form="travel-expense-form" class="btn btn-outline-primary btn-sm" data-submit-lock
+                onclick="document.getElementById('action-input').value='draft'">下書き保存</button>
+        <button type="submit" form="travel-expense-form" class="btn btn-primary btn-sm" id="bar-submit-btn" data-submit-lock
+                onclick="document.getElementById('action-input').value='submit'">申請する</button>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function() {
+    function calcBarTotal() {
+        var total = 0;
+        document.querySelectorAll('[data-amount-input]').forEach(function(el) {
+            var v = parseFloat((el.value || '').replace(/,/g, ''));
+            if (!isNaN(v)) total += v;
+        });
+        var formatted = '¥' + Math.round(total).toLocaleString('ja-JP');
+        document.getElementById('barTotalAmount').textContent = formatted;
+    }
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.hasAttribute('data-amount-input')) {
+            calcBarTotal();
+        }
+    });
+    document.addEventListener('click', function(e) {
+        // 明細行の追加・削除後に再計算
+        if (e.target && (e.target.classList.contains('add-detail-btn') ||
+                         e.target.classList.contains('remove-row-btn'))) {
+            setTimeout(calcBarTotal, 100);
+        }
+    });
+    calcBarTotal();
+})();
+</script>
 
 <div id="autosave-bar">下書きを自動保存しました</div>
 {% endblock %}

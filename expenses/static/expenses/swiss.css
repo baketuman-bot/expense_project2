@@ -1238,3 +1238,70 @@ body.no-sidebar .precision-main{
   border-top: 2px solid #b8cae6;
   white-space: normal;
 }
+
+/* ===== 固定アクションバー（申請フォーム） ===== */
+.form-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: var(--precision-sidebar-width);
+  right: 0;
+  z-index: 1040;
+  background: #fff;
+  border-top: 2px solid var(--primary);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 -2px 8px rgba(0,0,0,.08);
+}
+body:not(.has-sidebar) .form-action-bar {
+  left: 0;
+}
+@media (max-width: 768px) {
+  .form-action-bar {
+    left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 16px;
+  }
+}
+.form-action-bar-total {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+.form-action-bar-total .bar-total-amount {
+  font-size: 18px;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.form-action-bar-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+/* バー分の下余白 */
+.form-has-action-bar {
+  padding-bottom: 72px;
+}
+
+/* ===== 必須ラベル赤アスタリスク ===== */
+label.required::after {
+  content: ' *';
+  color: #dc3545;
+  font-weight: 700;
+  font-size: 0.85em;
+  margin-left: 2px;
+}
+
+/* ===== カードヘッダー ネイビー共通クラス ===== */
+.card-header-navy {
+  background: var(--primary) !important;
+  border-radius: 8px 8px 0 0;
+}
+.card-header-navy * {
+  color: #fff !important;
+}

@@ -472,6 +472,25 @@
     });
   };
 })();
+
+// ======= 必須ラベルに required クラスを自動付与 =======
+(function(){
+  document.addEventListener('DOMContentLoaded', function() {
+    var selectors = [
+      'input[required]', 'select[required]', 'textarea[required]',
+      '[data-required]', '[data-approver-required]'
+    ].join(',');
+    document.querySelectorAll(selectors).forEach(function(field) {
+      var id = field.id;
+      var label = id ? document.querySelector('label[for="' + id + '"]') : null;
+      if (!label) {
+        var container = field.closest('.mb-3, .col-md-3, .col-md-4, .col-md-6, .form-group');
+        if (container) label = container.querySelector('label');
+      }
+      if (label) label.classList.add('required');
+    });
+  });
+})();
 </script>
     {% block extra_js %}{% endblock %}
 
