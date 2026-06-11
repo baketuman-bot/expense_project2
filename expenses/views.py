@@ -2690,6 +2690,8 @@ def expense_create(request, document_type_id=None):
         "doc1_workflow_template_id": doc1_wf_id,
         "doc1_document_type_name": doc1_name,
         "show_doc1_alert": request.method == "GET",
+        # 新規作成では空文字（編集ビューは expense.bumon_cd から設定）
+        "current_bumon_cd": "",
         # コピー申請用（通常の新規申請では空文字）
         "copy_from_expense": None,
         "copy_from_bumon_cd": "",
@@ -2896,6 +2898,7 @@ def expense_copy(request, pk):
             "workflow_steps": workflow_steps,
             "submission_id": str(uuid.uuid4()),
             "error_message": None,
+            "current_bumon_cd": "",
             "copy_from_expense": source,
             "copy_from_bumon_cd": source.bumon_cd.bumon_cd if source.bumon_cd else "",
             "copy_from_tsuka_cd": source.tsuka_cd or "00",
@@ -2918,6 +2921,7 @@ def expense_copy(request, pk):
         "dynamic_fields": dynamic_fields_for_copy,
         "submission_id": str(uuid.uuid4()),
         "error_message": None,
+        "current_bumon_cd": "",
         "copy_from_expense": source,
         "copy_from_bumon_cd": source.bumon_cd.bumon_cd if source.bumon_cd else "",
         "copy_from_tsuka_cd": source.tsuka_cd or "00",
