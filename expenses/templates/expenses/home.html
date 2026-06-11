@@ -16,6 +16,51 @@
     </div>
 </div>
 
+    <!-- KPIサマリーカード -->
+    <div class="row g-3 mb-4">
+        {% if user|has_role:'approver' or user|has_role:'accountant' or user|has_role:'final_approver' %}
+        <div class="col-md-4">
+            <a href="{% url 'expenses:approval_list' %}" class="text-decoration-none">
+                <div class="card card-hover-primary h-100">
+                    <div class="card-body d-flex align-items-center gap-3 py-3">
+                        <span class="pt-ico flex-shrink-0" style="width:40px;height:40px;background:#fef3c7;"><i class="fas fa-clock" style="color:#b45309;"></i></span>
+                        <div>
+                            <div class="text-muted small">承認待ち</div>
+                            <div class="fw-bold" style="font-size:22px;">{{ pending_count }}<span class="text-muted fw-normal ms-1" style="font-size:14px;">件</span></div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+        <div class="col-md-4">
+            <a href="{% url 'expenses:expense_list' %}" class="text-decoration-none">
+                <div class="card card-hover-primary h-100">
+                    <div class="card-body d-flex align-items-center gap-3 py-3">
+                        <span class="pt-ico flex-shrink-0" style="width:40px;height:40px;"><i class="fas fa-paper-plane"></i></span>
+                        <div>
+                            <div class="text-muted small">申請中</div>
+                            <div class="fw-bold" style="font-size:22px;">{{ in_progress_count }}<span class="text-muted fw-normal ms-1" style="font-size:14px;">件</span></div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'expenses:expense_list' %}" class="text-decoration-none">
+                <div class="card card-hover-primary h-100">
+                    <div class="card-body d-flex align-items-center gap-3 py-3">
+                        <span class="pt-ico flex-shrink-0" style="width:40px;height:40px;background:var(--panel);"><i class="fas fa-edit" style="color:var(--sub);"></i></span>
+                        <div>
+                            <div class="text-muted small">下書き</div>
+                            <div class="fw-bold" style="font-size:22px;">{{ draft_count }}<span class="text-muted fw-normal ms-1" style="font-size:14px;">件</span></div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
     <!-- 承認待ち（承認者・経理・最終承認者のみ表示） -->
     {% if user|has_role:'approver' or user|has_role:'accountant' or user|has_role:'final_approver' %}
     <div class="row mb-4">
@@ -41,7 +86,7 @@
                             </thead>
                             <tbody>
                                 {% for exp in pending_approvals %}
-                                <tr>
+                                <tr class="table-row-link" data-href="{% url 'expenses:approval_detail' exp.pk %}" tabindex="0">
                                     <td>{{ exp.document_id }}</td>
                                     <td>{{ exp.man_number.user_name }}</td>
                                     <td>{{ exp.created_at|date:"Y/m/d" }}</td>
@@ -89,7 +134,7 @@
                             </thead>
                             <tbody>
                                 {% for exp in in_progress_expenses %}
-                                <tr>
+                                <tr class="table-row-link" data-href="{% url 'expenses:expense_detail' exp.pk %}" tabindex="0">
                                     <td>{{ exp.document_id }}</td>
                                     <td>{{ exp.created_at|date:"Y/m/d" }}</td>
                                     <td>{{ exp.contents.first.purpose|default:"-"|truncatechars:30 }}</td>
@@ -140,12 +185,12 @@
                             </thead>
                             <tbody>
                                 {% for exp in draft_expenses %}
-                                <tr>
+                                <tr class="table-row-link" data-href="{% url 'expenses:expense_edit' exp.pk %}" tabindex="0">
                                     <td>{{ exp.document_id }}</td>
                                     <td>{{ exp.created_at|date:"Y/m/d" }}</td>
                                     <td>{{ exp.contents.first.purpose|default:"-"|truncatechars:30 }}</td>
                                     <td class="text-end">{{ exp.tsuka_cd|currency_display }} {{ exp.total_amount|amount_format:exp.tsuka_cd }}</td>
-                                    <td><span class="badge bg-secondary">{{ exp.status_cd.status_name }}</span></td>
+                                    <td><span class="{{ exp.status_cd.status_cd|status_badge_class }}">{{ exp.status_cd.status_name }}</span></td>
                                     <td><a href="{% url 'expenses:expense_edit' exp.pk %}" class="btn btn-sm btn-outline-secondary">編集</a></td>
                                 </tr>
                                 {% endfor %}

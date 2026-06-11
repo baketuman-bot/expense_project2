@@ -457,6 +457,23 @@ def home(request):
         status_cd__status_cd='DRAFT',
     ).order_by('-created_at')[:5]
 
+    # KPI件数（スライス前のQSでcount取得）
+    pending_count = T_Document.objects.filter(
+        document_id__in=approver_doc_ids,
+        status_cd__status_cd='INPRO',
+    ).count()
+    in_progress_count = T_Document.objects.filter(
+        man_number=request.user,
+        document_type__menu_group__category='expense',
+    ).exclude(
+        status_cd__status_cd__in=['DRAFT', 'CANCEL', 'FNS', 'REJECTED']
+    ).count()
+    draft_count = T_Document.objects.filter(
+        man_number=request.user,
+        document_type__menu_group__category='expense',
+        status_cd__status_cd='DRAFT',
+    ).count()
+
     # 承認進行マップ（pending_approvals + in_progress_expenses 両方）
     home_doc_ids = (
         [d.document_id for d in pending_approvals] +
@@ -470,6 +487,9 @@ def home(request):
         'in_progress_expenses': in_progress_expenses,
         'draft_expenses': draft_expenses,
         'progress_by_doc': progress_by_doc,
+        'pending_count': pending_count,
+        'in_progress_count': in_progress_count,
+        'draft_count': draft_count,
     }
     return render(request, "expenses/home.html", context)
 

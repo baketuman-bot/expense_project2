@@ -473,6 +473,26 @@
   };
 })();
 
+// ======= table-row-link: テーブル行クリックで遷移 =======
+(function(){
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('tr.table-row-link').forEach(function(tr) {
+      tr.style.cursor = 'pointer';
+      tr.addEventListener('click', function(e) {
+        if (e.target.closest('a, button, input, select, textarea')) return;
+        var href = tr.getAttribute('data-href');
+        if (href) window.location.href = href;
+      });
+      tr.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          var href = tr.getAttribute('data-href');
+          if (href) window.location.href = href;
+        }
+      });
+    });
+  });
+})();
+
 // ======= 必須ラベルに required クラスを自動付与 =======
 (function(){
   document.addEventListener('DOMContentLoaded', function() {
