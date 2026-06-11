@@ -17,7 +17,7 @@
 </div>
 
     <!-- 承認待ち（承認者・経理・最終承認者のみ表示） -->
-    {% if user.role in 'approver,accountant,final_approver' %}
+    {% if user|has_role:'approver' or user|has_role:'accountant' or user|has_role:'final_approver' %}
     <div class="row mb-4">
         <div class="col-12">
             <div class="card accent-warning">
