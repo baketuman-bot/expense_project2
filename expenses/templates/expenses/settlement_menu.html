@@ -24,7 +24,7 @@
               <div class="text-muted small">精算方法を割り当てる</div>
             </div>
             {% if counts.classify %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.classify }}</span>
+            <span class="badge rounded-pill fs-6 px-3 py-2 badge-count-danger">{{ counts.classify }}</span>
             {% endif %}
           </div>
         </div>
@@ -41,7 +41,7 @@
               <div class="text-muted small">本社現金で精算する申請を処理</div>
             </div>
             {% if counts.cash_hq %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.cash_hq }}</span>
+            <span class="badge rounded-pill fs-6 px-3 py-2 badge-count-danger">{{ counts.cash_hq }}</span>
             {% endif %}
           </div>
         </div>
@@ -58,7 +58,7 @@
               <div class="text-muted small">大阪現金で精算する申請を処理</div>
             </div>
             {% if counts.cash_osaka %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.cash_osaka }}</span>
+            <span class="badge rounded-pill fs-6 px-3 py-2 badge-count-danger">{{ counts.cash_osaka }}</span>
             {% endif %}
           </div>
         </div>
@@ -75,7 +75,7 @@
               <div class="text-muted small">銀行振込で精算する申請を処理</div>
             </div>
             {% if counts.transfer %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.transfer }}</span>
+            <span class="badge rounded-pill fs-6 px-3 py-2 badge-count-danger">{{ counts.transfer }}</span>
             {% endif %}
           </div>
         </div>
@@ -92,7 +92,7 @@
               <div class="text-muted small">法人カード支払を計上する</div>
             </div>
             {% if counts.corp_card %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.corp_card }}</span>
+            <span class="badge rounded-pill fs-6 px-3 py-2 badge-count-danger">{{ counts.corp_card }}</span>
             {% endif %}
           </div>
         </div>
@@ -109,7 +109,7 @@
               <div class="text-muted small">給与振込で精算する申請を処理</div>
             </div>
             {% if counts.payroll %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.payroll }}</span>
+            <span class="badge rounded-pill fs-6 px-3 py-2 badge-count-danger">{{ counts.payroll }}</span>
             {% endif %}
           </div>
         </div>
@@ -126,7 +126,7 @@
               <div class="text-muted small">自動引落の申請を処理</div>
             </div>
             {% if counts.auto_debit %}
-            <span class="badge rounded-pill fs-6 px-3 py-2" style="background:#dc3545; color:#fff;">{{ counts.auto_debit }}</span>
+            <span class="badge rounded-pill fs-6 px-3 py-2 badge-count-danger">{{ counts.auto_debit }}</span>
             {% endif %}
           </div>
         </div>

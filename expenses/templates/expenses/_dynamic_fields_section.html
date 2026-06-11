@@ -1,7 +1,7 @@
 {% load form_tags %}
 {% if dynamic_fields %}
 <div class="card mt-4">
-    <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+    <div class="card-header card-header-navy">
         <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>{% if dynamic_fields.0.section_header %}{{ dynamic_fields.0.section_header }}{% else %}追加入力項目{% endif %}</h5>
     </div>
     <div class="card-body">

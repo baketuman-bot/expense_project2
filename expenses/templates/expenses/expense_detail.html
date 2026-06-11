@@ -43,7 +43,7 @@
 
             <!-- 申請情報 -->
             <div class="card mb-3">
-                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <div class="card-header card-header-navy">
                     <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-file-alt me-2" style="color:#fff !important;"></i>申請情報</h5>
                 </div>
                 <div class="card-body p-0">
@@ -69,7 +69,7 @@
             {% if dynamic_fields_display %}
             {% with first_row=dynamic_fields_display.0 %}
             <div class="card mb-4">
-                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <div class="card-header card-header-navy">
                     <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>{% if first_row.type == 'section' %}{{ first_row.header }}{% else %}追加入力項目{% endif %}</h5>
                 </div>
                 <div class="card-body p-0">
@@ -103,7 +103,7 @@
 
             <!-- 移動経路明細 -->
             <div class="card mb-3">
-                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <div class="card-header card-header-navy">
                     <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-route me-2" style="color:#fff !important;"></i>移動経路明細</h5>
                 </div>
                 <div class="card-body">
@@ -121,7 +121,7 @@
             <!-- 宿泊費明細 -->
             {% if travel_accom_details %}
             <div class="card mb-3">
-                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <div class="card-header card-header-navy">
                     <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-bed me-2" style="color:#fff !important;"></i>宿泊費明細</h5>
                 </div>
                 <div class="card-body">
@@ -135,7 +135,7 @@
             <!-- 日当明細 -->
             {% if travel_allow_details %}
             <div class="card mb-3">
-                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <div class="card-header card-header-navy">
                     <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-coins me-2" style="color:#fff !important;"></i>日当明細</h5>
                 </div>
                 <div class="card-body p-0">
@@ -174,7 +174,7 @@
             {% else %}
             {# ── 通常の経費明細 ── #}
             <div class="card mb-4">
-                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <div class="card-header card-header-navy">
                     <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>経費明細</h5>
                 </div>
                 <div class="card-body">
@@ -196,7 +196,7 @@
             <!-- 承認フロー（履歴 + 承認予定者を統合タイムライン表示） -->
             {% if workflow_actions or pending_approvers %}
             <div class="card mb-4">
-                <div class="card-header" style="background:#17307a; border-radius:8px 8px 0 0;">
+                <div class="card-header card-header-navy">
                     <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-stream me-2" style="color:#fff !important;"></i>承認フロー</h5>
                 </div>
                 <div class="card-body pb-0">
