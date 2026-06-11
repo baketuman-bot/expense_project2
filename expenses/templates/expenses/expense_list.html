@@ -20,6 +20,33 @@
                 </div>
             </div>
 
+            <!-- フィルター条件チップ -->
+            {% if status_filter or date_from or date_to or keyword %}
+            <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+                <span class="text-muted small">絞り込み中:</span>
+                {% if keyword %}
+                <a href="?status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
+                    キーワード: {{ keyword }} <i class="fas fa-times ms-1"></i>
+                </a>
+                {% endif %}
+                {% if status_filter %}
+                <a href="?keyword={{ keyword }}&date_from={{ date_from }}&date_to={{ date_to }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
+                    ステータス: {{ status_filter }} <i class="fas fa-times ms-1"></i>
+                </a>
+                {% endif %}
+                {% if date_from %}
+                <a href="?keyword={{ keyword }}&status={{ status_filter }}&date_to={{ date_to }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
+                    から: {{ date_from }} <i class="fas fa-times ms-1"></i>
+                </a>
+                {% endif %}
+                {% if date_to %}
+                <a href="?keyword={{ keyword }}&status={{ status_filter }}&date_from={{ date_from }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
+                    まで: {{ date_to }} <i class="fas fa-times ms-1"></i>
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <!-- フィルター -->
             <div class="card mb-3">
                 <div class="card-body py-2">
@@ -78,7 +105,7 @@
                                 </thead>
                                 <tbody>
                                     {% for expense in expenses %}
-                                    <tr class="table-row-link" data-href="{% url 'expenses:expense_detail' expense.expense_main_id %}">
+                                    <tr class="table-row-link" data-href="{% url 'expenses:expense_detail' expense.expense_main_id %}" tabindex="0">
                                         <td class="text-center">
                                             <span class="badge bg-primary" style="font-size:14px;">#{{ expense.expense_main_id }}</span>
                                         </td>
@@ -188,21 +215,41 @@
                 </div>
             {% endif %}
 </div>
+<!-- 下書き削除確認モーダル -->
+<div class="modal fade" id="deleteDraftListModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-trash-alt text-danger me-2"></i>下書きを削除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">この下書きを削除します。削除したデータは復元できません。よろしいですか？</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-danger btn-sm" id="deleteDraftListConfirm">削除する</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.querySelectorAll('tr.table-row-link').forEach(function(row){
-    row.addEventListener('click', function(){
-        window.location.href = this.dataset.href;
-    });
-});
-document.querySelectorAll('.js-delete-draft-form').forEach(function(f){
-    f.addEventListener('submit', function(e){
-        if (!window.confirm('この下書きを削除します。よろしいですか？')) {
+(function() {
+    // 削除確認モーダル
+    var deleteDraftModal = new bootstrap.Modal(document.getElementById('deleteDraftListModal'));
+    var pendingDeleteForm = null;
+    document.querySelectorAll('.js-delete-draft-form').forEach(function(f) {
+        f.addEventListener('submit', function(e) {
             e.preventDefault();
-        }
+            pendingDeleteForm = f;
+            deleteDraftModal.show();
+        });
     });
-});
+    document.getElementById('deleteDraftListConfirm').addEventListener('click', function() {
+        deleteDraftModal.hide();
+        if (pendingDeleteForm) pendingDeleteForm.submit();
+    });
+})();
 </script>
 {% endblock %}
