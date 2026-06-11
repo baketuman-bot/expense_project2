@@ -2,6 +2,8 @@
 {% load static %}
 {% load form_tags %}
 
+{% block title %}{% if is_edit_mode %}申請編集{% else %}新規申請{% endif %} | {% endblock %}
+
 {% block extra_head %}{% endblock %}
 
 {% block content %}
