@@ -1,0 +1,66 @@
+{% extends "expenses/base.html" %}
+{% load expense_extras %}
+
+{% block title %}新規申請 | {% endblock %}
+
+{% block content %}
+<div class="mt-4" style="max-width:860px;">
+
+  <div class="page-head mb-4">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-plus-circle"></i></span>
+      新規申請
+    </h2>
+    <div class="page-actions">
+      <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-list me-1"></i>申請一覧
+      </a>
+    </div>
+  </div>
+
+  <p class="text-muted mb-4" style="font-size:14px;">申請する種別を選択してください。</p>
+
+  {% for grp, types in launcher_groups %}
+  <div class="mb-4">
+    <h6 class="fw-bold mb-2" style="font-size:13px; color:var(--sub); letter-spacing:.04em; text-transform:uppercase;">
+      {% if grp.menu_group == 'PAY' %}<i class="fas fa-receipt me-1"></i>
+      {% elif grp.menu_group == 'TRV' %}<i class="fas fa-plane-departure me-1"></i>
+      {% elif grp.menu_group == 'REC' %}<i class="fas fa-utensils me-1"></i>
+      {% elif grp.menu_group == 'LON' %}<i class="fas fa-coins me-1"></i>
+      {% else %}<i class="fas fa-folder-open me-1"></i>{% endif %}
+      {{ grp.menu_group_name }}
+    </h6>
+    <div class="row g-3">
+      {% for dt in types %}
+      <div class="col-md-4">
+        <a href="{% url 'expenses:expense_create_by_type' dt.document_type_id %}" class="text-decoration-none">
+          <div class="card h-100 card-hover-primary">
+            <div class="card-body d-flex align-items-center gap-3 py-3">
+              <span class="pt-ico flex-shrink-0" style="width:36px; height:36px; font-size:16px;">
+                {% if grp.menu_group == 'PAY' %}<i class="fas fa-receipt"></i>
+                {% elif grp.menu_group == 'TRV' %}<i class="fas fa-plane-departure"></i>
+                {% elif grp.menu_group == 'REC' %}<i class="fas fa-utensils"></i>
+                {% elif grp.menu_group == 'LON' %}<i class="fas fa-coins"></i>
+                {% else %}<i class="fas fa-file-alt"></i>{% endif %}
+              </span>
+              <div class="flex-grow-1">
+                <div class="fw-bold" style="font-size:14px;">{{ dt.type_name }}</div>
+                <div class="text-muted small" style="font-size:12px;">{{ grp.menu_group_name }}</div>
+              </div>
+              <i class="fas fa-chevron-right text-muted" style="font-size:12px;"></i>
+            </div>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty-state">
+    <div class="empty-state-icon"><i class="fas fa-file-alt"></i></div>
+    <div class="empty-state-title">申請種別がありません</div>
+  </div>
+  {% endfor %}
+
+</div>
+{% endblock %}

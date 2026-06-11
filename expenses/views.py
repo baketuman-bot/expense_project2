@@ -413,6 +413,23 @@ from .cloud_receipts import (
 )
 
 @login_required
+def expense_type_launcher(request):
+    """新規申請ランチャー: expense カテゴリの全 DocType をグループ別カードで表示。"""
+    groups = (M_DocumentGroup.objects
+              .filter(category='expense')
+              .prefetch_related('documenttype_set')
+              .order_by('menu_order'))
+    launcher_groups = []
+    for grp in groups:
+        types = list(grp.documenttype_set.order_by('document_type_id'))
+        if types:
+            launcher_groups.append((grp, types))
+    return render(request, "expenses/expense_type_launcher.html", {
+        'launcher_groups': launcher_groups,
+    })
+
+
+@login_required
 def home(request):
     from .models import T_DocumentApprover
 

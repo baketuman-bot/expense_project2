@@ -5,7 +5,9 @@ app_name = "expenses"
 
 urlpatterns = [
     path("", views.home, name="home"),
-    # 既定は DocType=1（支出伺い）を渡す
+    # 新規申請ランチャー
+    path("new/select/", views.expense_type_launcher, name="expense_type_launcher"),
+    # 既定は DocType=1（支出伺い）を渡す（互換維持）
     path("new/", views.expense_create, {"document_type_id": 1}, name="expense_create"),
     # 将来的に DocType を切り替えたい場合の可変ルート
     path("new/<int:document_type_id>/", views.expense_create, name="expense_create_by_type"),

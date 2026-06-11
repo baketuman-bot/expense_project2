@@ -14,7 +14,7 @@
                     <a href="{% url 'expenses:expense_csv' %}?status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword }}" class="btn btn-outline-success btn-sm">
                         <i class="fas fa-file-csv"></i> CSV出力
                     </a>
-                    <a href="{% url 'expenses:expense_create' %}" class="btn btn-primary btn-sm">
+                    <a href="{% url 'expenses:expense_type_launcher' %}" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus"></i> 新規申請
                     </a>
                 </div>
@@ -182,7 +182,7 @@
                         <div class="empty-state-title">経費申請はありません</div>
                         <div class="empty-state-desc">まだ申請がありません。新規申請を作成しましょう。</div>
                     {% endif %}
-                    <a href="{% url 'expenses:expense_create' %}" class="btn btn-primary">
+                    <a href="{% url 'expenses:expense_type_launcher' %}" class="btn btn-primary">
                         <i class="fas fa-plus"></i> 新規申請
                     </a>
                 </div>
