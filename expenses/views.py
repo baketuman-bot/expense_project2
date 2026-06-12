@@ -1541,6 +1541,11 @@ def expense_edit(request, pk):
         "copy_from_tsuka_cd": "",
         "copy_from_memo": "",
         "copy_from_ringi_no": "",
+        # _expense_info_section.html 用初期値
+        "init_tsuka_cd": expense.tsuka_cd,
+        "init_pay_kbn": expense.pay_kbn,
+        "init_memo": expense.memo,
+        "init_ringi_no": expense.ringi_no,
         # カテゴリ別フィールド制御
         **_asset_form_context(getattr(expense, 'document_type', None)),
     })
@@ -1895,6 +1900,11 @@ def keiri_approval_edit(request, pk):
         "copy_from_tsuka_cd": "",
         "copy_from_memo": "",
         "copy_from_ringi_no": "",
+        # _expense_info_section.html 用初期値
+        "init_tsuka_cd": expense.tsuka_cd,
+        "init_pay_kbn": expense.pay_kbn,
+        "init_memo": expense.memo,
+        "init_ringi_no": expense.ringi_no,
         **_asset_form_context(_edit_doc_type),
     })
 
@@ -2699,6 +2709,11 @@ def expense_create(request, document_type_id=None):
         "copy_from_memo": "",
         "copy_from_ringi_no": "",
         "form_action": "",
+        # _expense_info_section.html 用初期値（expense=None 時に expense.* を参照しないよう）
+        "init_tsuka_cd": "",
+        "init_pay_kbn": "",
+        "init_memo": "",
+        "init_ringi_no": "",
         "tax_choices": _item_choices('TAX', empty_label='--'),
         "coc_choices": _item_choices('COC'),
         # カテゴリ別フィールド制御
@@ -2921,6 +2936,8 @@ def expense_copy(request, pk):
         "dynamic_fields": dynamic_fields_for_copy,
         "submission_id": str(uuid.uuid4()),
         "error_message": None,
+        "expense": None,
+        "is_edit_mode": False,
         "current_bumon_cd": "",
         "copy_from_expense": source,
         "copy_from_bumon_cd": source.bumon_cd.bumon_cd if source.bumon_cd else "",
@@ -2932,6 +2949,11 @@ def expense_copy(request, pk):
         "doc1_wf_id": None,
         "tax_choices": _item_choices('TAX', empty_label='--'),
         "coc_choices": _item_choices('COC'),
+        # _expense_info_section.html 用初期値（expense=None のため空文字、copy_from_* で補完）
+        "init_tsuka_cd": "",
+        "init_pay_kbn": "",
+        "init_memo": "",
+        "init_ringi_no": "",
         # カテゴリ別フィールド制御
         **_asset_form_context(doc_type),
     })
