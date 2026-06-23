@@ -51,6 +51,12 @@ def _is_lon_doc_type(doc_type):
     return bool(mg and getattr(mg, 'menu_group', None) == 'LON')
 
 
+def _is_asset_doc_type(doc_type):
+    """固定資産 (category='assets') DocType かどうか判定する。"""
+    mg = getattr(doc_type, 'menu_group', None)
+    return bool(mg and getattr(mg, 'category', None) == 'assets')
+
+
 def _resolve_dynamic_fields_doc_type(doc_type):
     """同グループ内で M_DocumentField が定義されている代表 DocType を返す。
     doc_type 自身に定義があればそれを、なければ同 menu_group の他 DocType を探す。
@@ -939,9 +945,9 @@ def expense_edit(request, pk):
         if approver_missing_edit:
             error_message = f"承認ステップ {', '.join(approver_missing_edit)} の承認者を選択してください。"
 
-        # 経費明細チェック（申請時のみ・出張以外）：取引日・目的・支払先・勘定科目の空白
+        # 経費明細チェック（申請時のみ・出張以外・固定資産以外）：取引日・目的・支払先・勘定科目の空白
         detail_missing_edit = []
-        if not is_draft_edit and not _is_travel_doc_type(_edit_doc_type_post):
+        if not is_draft_edit and not _is_travel_doc_type(_edit_doc_type_post) and not _is_asset_doc_type(_edit_doc_type_post):
             try:
                 _total_detail_e = int(request.POST.get('form-TOTAL_FORMS', 0))
                 for _i in range(_total_detail_e):
@@ -2125,7 +2131,7 @@ def expense_create(request, document_type_id=None):
 
         # 経費明細チェック（申請時のみ・出張以外）：取引日・目的・支払先・勘定科目の空白
         detail_missing_create = []
-        if not is_draft and not _is_travel_doc_type(resolved_doc_type):
+        if not is_draft and not _is_travel_doc_type(resolved_doc_type) and not _is_asset_doc_type(resolved_doc_type):
             try:
                 _total_detail_c = int(request.POST.get('form-TOTAL_FORMS', 0))
                 for _i in range(_total_detail_c):

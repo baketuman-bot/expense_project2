@@ -114,7 +114,7 @@
                         {% endfor %}
                         {% if hide_detail_fields %}
                         <input type="hidden" name="{{ detail_form.date.html_name }}" value="">
-                        <input type="hidden" name="{{ detail_form.amount.html_name }}" value="0">
+                        <input type="hidden" name="{{ detail_form.amount.html_name }}" value="">
                         {% else %}
                         <div class="row">
                             <div class="col-md-4">
@@ -1199,7 +1199,7 @@ document.addEventListener('DOMContentLoaded', function(){
             var formula = parts[0].trim();
             var suffix  = parts.length > 1 ? parts[1].trim() : '';
             var expr = formula.replace(/\{amount_total\}/g, amountTotal);
-            expr = expr.replace(/\{(\w+)\}/g, function(_, name) {
+            expr = expr.replace(/\{([^}]+)\}/g, function(_, name) {
                 var el = document.getElementById('id_dyn_' + name);
                 if (!el) return '0';
                 var raw = (el.tagName === 'INPUT' || el.tagName === 'SELECT')
