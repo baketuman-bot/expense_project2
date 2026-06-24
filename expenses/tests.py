@@ -807,3 +807,34 @@ class ExpenseDetailAssetLayoutTest(AssetDetailFixtureMixin, TestCase):
         self.assertIn('合計金額', content)
         self.assertIn('追加入力項目', content)
         self.assertIn('>経費明細<', content)
+
+
+class ApprovalDetailAssetLayoutTest(AssetDetailFixtureMixin, TestCase):
+    """approval_detail.html の固定資産レイアウト出し分けを確認する"""
+
+    def setUp(self):
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_asset_document_hides_currency_and_total_and_renames_headings(self):
+        from django.urls import reverse
+        url = reverse('expenses:approval_detail', args=[self.asset_document.pk])
+        response = self.client.get(url)
+        content = response.content.decode('utf-8')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('<th>通貨</th>', content)
+        self.assertNotIn('合計金額', content)
+        self.assertIn('固定資産情報', content)
+        self.assertIn('資産画像', content)
+        self.assertNotIn('>経費明細<', content)
+
+    def test_normal_document_keeps_existing_layout(self):
+        from django.urls import reverse
+        url = reverse('expenses:approval_detail', args=[self.normal_document.pk])
+        response = self.client.get(url)
+        content = response.content.decode('utf-8')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('<th>通貨</th>', content)
+        self.assertIn('合計金額', content)
+        self.assertIn('追加入力項目', content)
+        self.assertIn('>経費明細<', content)

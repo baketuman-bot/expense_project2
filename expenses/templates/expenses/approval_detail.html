@@ -197,15 +197,19 @@
                             <tr><th>申請者</th><td colspan="3">{{ expense.applicant.user_name }}</td></tr>
                             <tr><th>申請日時</th><td colspan="3">{{ expense.created_at|date:"Y年m月d日 H:i" }}</td></tr>
                             <tr><th>負担部門</th><td colspan="3">{{ expense.bumon_cd.bumon_name|default:"-" }}</td></tr>
-                            <tr><th>通貨</th><td colspan="3">{% if expense.tsuka_cd %}{{ expense.tsuka_cd }}{% else %}-{% endif %}</td></tr>
+                            {% if not is_asset %}<tr><th>通貨</th><td colspan="3">{% if expense.tsuka_cd %}{{ expense.tsuka_cd }}{% else %}-{% endif %}</td></tr>{% endif %}
                             {% if expense.memo %}<tr><th>備考</th><td colspan="3">{{ expense.memo }}</td></tr>{% endif %}
                             {% if expense.ringi_no %}<tr><th>稟議No</th><td colspan="3">{{ expense.ringi_no }}</td></tr>{% endif %}
+                            {% if is_asset %}
+                            <tr><th>ステータス</th><td colspan="3"><span class="badge badge-inprogress"><i class="fas fa-clock me-1"></i>{% status_label expense progress %}</span></td></tr>
+                            {% else %}
                             <tr>
                                 <th>ステータス</th>
                                 <td><span class="badge badge-inprogress"><i class="fas fa-clock me-1"></i>{% status_label expense progress %}</span></td>
                                 <th>合計金額</th>
                                 <td class="fw-bold text-success fs-5">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</td>
                             </tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -215,7 +219,7 @@
                     {% with first_row=dynamic_fields_display.0 %}
                     <div class="card mb-4">
                         <div class="card-header card-header-navy">
-                            <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>{% if first_row.type == 'section' %}{{ first_row.header }}{% else %}追加入力項目{% endif %}</h5>
+                            <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>{% if first_row.type == 'section' %}{{ first_row.header }}{% elif is_asset %}固定資産情報{% else %}追加入力項目{% endif %}</h5>
                         </div>
                         <div class="card-body p-0">
                             <table class="info-table">
@@ -223,7 +227,7 @@
                                 {% for row in dynamic_fields_display %}
                                     {% if forloop.first and row.type == 'section' %}
                                     {% elif row.type == 'section' %}
-                                    <tr class="info-table-section"><th colspan="4">{{ row.header }}</th></tr>
+                                    <tr class="info-table-section"><th colspan="{{ row.colspan }}">{{ row.header }}</th></tr>
                                     {% else %}
                                     <tr>
                                         {% for f in row.fields %}
@@ -320,17 +324,19 @@
                     {# ── 通常の経費明細（カード形式） ── #}
                     <div class="card mb-4">
                         <div class="card-header card-header-navy">
-                            <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>経費明細</h5>
+                            <h5 class="mb-0" style="color:#fff !important;"><i class="fas fa-list me-2" style="color:#fff !important;"></i>{% if is_asset %}資産画像{% else %}経費明細{% endif %}</h5>
                         </div>
                         <div class="card-body">
                             {% if expense.details.all %}
                                 {% for detail in expense.details.all %}
                                     {% include "expenses/_expense_detail_display.html" %}
                                 {% endfor %}
+                                {% if not is_asset %}
                                 <div class="detail-total-bar mt-3">
                                     <span class="fw-normal" style="color:#047857; font-size:14px;">合計金額</span>
                                     {{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}
                                 </div>
+                                {% endif %}
                             {% else %}
                                 <div class="text-center py-4">
                                     <i class="fas fa-exclamation-triangle text-warning fa-2x mb-2"></i>
