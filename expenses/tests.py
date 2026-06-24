@@ -416,3 +416,66 @@ class CandidatesForStepAssetsRoleTest(TestCase):
         self.assertIn(assets_user, candidates)
         self.assertNotIn(other_user, candidates)
         self.assertNotIn(applicant, candidates)
+
+
+class OrApprovalAggregationFixtureMixin:
+    """OR承認スコープ（keiri/assets）の集約テスト用フィクスチャ"""
+
+    def _make_or_approval_fixture(self, scope):
+        from django.contrib.auth import get_user_model
+        from expenses.models import (
+            M_WorkflowTemplate, M_WorkflowStep, M_DocumentType, M_Status,
+            T_Document, T_DocumentApprover, M_UserRole,
+        )
+        User = get_user_model()
+
+        applicant = User.objects.create_user(
+            username=f'applicant_{scope}', man_number=f'APP_{scope.upper()}',
+            user_name='申請者', password='pass123',
+        )
+        approvers = []
+        for i in range(2):
+            u = User.objects.create_user(
+                username=f'{scope}_user_{i}', man_number=f'{scope.upper()}{i}',
+                user_name=f'{scope}担当{i}', password='pass123',
+            )
+            M_UserRole.objects.create(man_number=u, role=scope)
+            approvers.append(u)
+
+        tpl = M_WorkflowTemplate.objects.create(workflow_template_name=f'テンプレ_{scope}')
+        step = M_WorkflowStep.objects.create(
+            workflow_template=tpl, step_order=1, allowed_bumon_scope=scope,
+        )
+        doc_type = M_DocumentType.objects.create(
+            document_type_name=f'種別_{scope}', workflow_template_id=tpl,
+        )
+        status, _ = M_Status.objects.get_or_create(
+            status_cd='DRA', defaults={'status_name': '下書き'}
+        )
+        doc = T_Document.objects.create(
+            document_type=doc_type, title='テスト申請', man_number=applicant, status_cd=status,
+        )
+        for u in approvers:
+            T_DocumentApprover.objects.create(
+                document_id=doc, step_id=step, man_number=u, step_order=1, status='pending',
+            )
+        return doc, step
+
+
+class GetPendingApproversAggregationTest(OrApprovalAggregationFixtureMixin, TestCase):
+    """get_pending_approvers が OR承認スコープの複数候補者を1エントリに集約することを確認する"""
+
+    def test_aggregates_assets_candidates_to_single_label(self):
+        from expenses.utils import get_pending_approvers
+        doc, _step = self._make_or_approval_fixture('assets')
+        result = get_pending_approvers(doc)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].man_number.user_name, '固定資産担当')
+
+    def test_aggregates_keiri_candidates_to_single_label(self):
+        """回帰確認: keiri の既存挙動が変わっていないこと"""
+        from expenses.utils import get_pending_approvers
+        doc, _step = self._make_or_approval_fixture('keiri')
+        result = get_pending_approvers(doc)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].man_number.user_name, '経理部門')

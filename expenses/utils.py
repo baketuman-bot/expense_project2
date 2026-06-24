@@ -152,8 +152,8 @@ def get_pending_approvers(document):
     """承認予定者（未処理）一覧を返す。
 
     T_DocumentApprover に登録済みの pending/draft 行を返す。
-    keiri スコープのステップは複数候補者が登録されている場合でも
-    「経理部門」として1エントリに集約して返す。
+    OR_APPROVAL_SCOPES（keiri/assets）のステップは複数候補者が登録されている場合でも
+    スコープごとに1エントリ（経理部門・固定資産担当など）に集約して返す。
 
     テンプレートが参照する属性: step_order / man_number.user_name /
     man_number.post_cd.post_name
@@ -172,14 +172,14 @@ def get_pending_approvers(document):
     if not tpl:
         return sorted(explicit, key=lambda x: x.step_order or 0)
 
-    keiri_steps = list(
+    or_steps = list(
         M_WorkflowStep.objects
-        .filter(workflow_template=tpl, allowed_bumon_scope='keiri')
+        .filter(workflow_template=tpl, allowed_bumon_scope__in=OR_APPROVAL_SCOPES)
         .select_related('approver_post')
         .order_by('step_order')
     )
-    keiri_step_ids = {s.step_id for s in keiri_steps}
-    keiri_step_map = {s.step_id: s for s in keiri_steps}
+    or_step_ids = {s.step_id for s in or_steps}
+    or_step_map = {s.step_id: s for s in or_steps}
 
     done_step_ids = set(
         T_WorkflowAction.objects
@@ -188,20 +188,22 @@ def get_pending_approvers(document):
     )
 
     # explicit リストを処理:
-    #   keiri ステップ → step_id ごとに「経理部門」として1エントリに集約
-    #   非 keiri ステップ → そのまま返す
+    #   OR承認ステップ → step_id ごとにスコープの集約ラベルで1エントリに集約
+    #   それ以外のステップ → そのまま返す
     result = []
-    seen_keiri_step_ids = set()
+    seen_or_step_ids = set()
     for pa in explicit:
         sid = pa.step_id_id
-        if sid in keiri_step_ids:
-            if sid not in seen_keiri_step_ids:
-                seen_keiri_step_ids.add(sid)
-                step_obj = keiri_step_map.get(sid)
+        if sid in or_step_ids:
+            if sid not in seen_or_step_ids:
+                seen_or_step_ids.add(sid)
+                step_obj = or_step_map.get(sid)
+                scope = str(step_obj.allowed_bumon_scope or '').strip().lower() if step_obj else ''
+                label = OR_APPROVAL_SCOPE_LABELS.get(scope, '承認担当部門')
                 post_ns = SimpleNamespace(
                     post_name=(step_obj.approver_post.post_name if step_obj and step_obj.approver_post else '')
                 )
-                user_ns = SimpleNamespace(user_name='経理部門', last_name='経理部門', post_cd=post_ns)
+                user_ns = SimpleNamespace(user_name=label, last_name=label, post_cd=post_ns)
                 result.append(SimpleNamespace(
                     step_order=pa.step_order,
                     man_number=user_ns,
@@ -209,15 +211,17 @@ def get_pending_approvers(document):
         else:
             result.append(pa)
 
-    # keiri ステップで T_DocumentApprover 未登録のもの（フォールバック補完）
+    # OR承認ステップで T_DocumentApprover 未登録のもの（フォールバック補完）
     covered_step_ids = {pa.step_id_id for pa in explicit if pa.step_id_id}
-    for step in keiri_steps:
+    for step in or_steps:
         if step.step_id in covered_step_ids or step.step_id in done_step_ids:
             continue
+        scope = str(step.allowed_bumon_scope or '').strip().lower()
+        label = OR_APPROVAL_SCOPE_LABELS.get(scope, '承認担当部門')
         post_ns = SimpleNamespace(
             post_name=(step.approver_post.post_name if step.approver_post else '')
         )
-        user_ns = SimpleNamespace(user_name='経理部門', post_cd=post_ns)
+        user_ns = SimpleNamespace(user_name=label, post_cd=post_ns)
         result.append(SimpleNamespace(
             step_order=step.step_order,
             man_number=user_ns,
