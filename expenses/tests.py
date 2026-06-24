@@ -542,8 +542,10 @@ class TemplateOrApprovalFlagTest(TestCase):
         source = self._read_template('expense_form.html')
         self.assertIn('s.is_or_approval', source)
         self.assertNotIn("s.allowed_bumon_scope == 'keiri'", source)
+        self.assertIn('このステップは自動で回付されます', source)
 
     def test_travel_expense_form_uses_is_or_approval_flag(self):
         source = self._read_template('travel_expense_form.html')
         self.assertIn('s.is_or_approval', source)
         self.assertNotIn("s.allowed_bumon_scope == 'keiri'", source)
+        self.assertIn('このステップは自動で回付されます', source)

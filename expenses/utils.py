@@ -5,6 +5,8 @@ from .models import M_User, M_BelongTo, V_Group, M_WorkflowStep
 
 # 自動割当（OR承認）対象スコープ: 申請者が選択せず、対応する M_UserRole.role を
 # 持つユーザー全員が候補者として pending 登録される。
+# 新しいスコープを追加する場合は OR_APPROVAL_SCOPES と以下2つの辞書を必ず三点セットで更新すること
+# （いずれかが欠けると該当スコープのラベル解決がフォールバック値になる）。
 OR_APPROVAL_SCOPES = {'keiri', 'assets'}
 OR_APPROVAL_SCOPE_LABELS = {
     'keiri': '経理部門',
