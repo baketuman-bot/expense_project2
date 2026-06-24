@@ -479,3 +479,20 @@ class GetPendingApproversAggregationTest(OrApprovalAggregationFixtureMixin, Test
         result = get_pending_approvers(doc)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].man_number.user_name, '経理部門')
+
+
+class ViewsOrApprovalScopeLiteralTest(TestCase):
+    """views.py のステップ判定が文字列リテラル 'keiri' ではなく is_or_approval フラグを使うことを確認する"""
+
+    def test_no_hardcoded_keiri_scope_equality_check(self):
+        import inspect
+        from expenses import views
+        source = inspect.getsource(views)
+        self.assertNotIn("allowed_bumon_scope') == 'keiri'", source)
+        self.assertNotIn("scope == 'keiri'", source)
+
+    def test_is_or_approval_flag_used_in_views(self):
+        import inspect
+        from expenses import views
+        source = inspect.getsource(views)
+        self.assertIn('is_or_approval', source)

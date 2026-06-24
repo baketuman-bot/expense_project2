@@ -19,7 +19,10 @@ from .forms import (
     AccommodationFormSet, AccommodationEditFormSet,
     AllowanceFormSet, AllowanceEditFormSet,
 )
-from .utils import send_notification, steps_with_candidates, get_pending_approvers, candidates_for_step
+from .utils import (
+    send_notification, steps_with_candidates, get_pending_approvers, candidates_for_step,
+    OR_APPROVAL_SCOPES, OR_APPROVAL_SCOPE_LABELS, OR_APPROVAL_SCOPE_SHORT_LABELS,
+)
 from django.utils import timezone
 import uuid
 import logging
@@ -936,7 +939,7 @@ def expense_edit(request, pk):
                 if edit_doc_type and getattr(edit_doc_type, 'workflow_template_id', None):
                     steps_for_check = steps_with_candidates(request.user, edit_doc_type.workflow_template_id)
                     for s in steps_for_check:
-                        if s.get('allowed_bumon_scope') == 'keiri':
+                        if s.get('is_or_approval'):
                             continue
                         if not request.POST.get(f"approver_step_{s['step_id']}"):
                             approver_missing_edit.append(str(s['step_order']))
@@ -1276,10 +1279,10 @@ def expense_edit(request, pk):
                             # 下書き時に保存した仮承認者（status='draft'）を削除してから登録
                             # （削除しないと draft + pending の二重登録になる）
                             T_DocumentApprover.objects.filter(document_id=expense).delete()
-                            # keiriステップは候補者全員を登録（OR承認方式）、それ以外はフォームの選択値を保存
+                            # OR承認スコープ（keiri/assets）は候補者全員を登録、それ以外はフォームの選択値を保存
                             for s in steps:
-                                if s.get('allowed_bumon_scope') == 'keiri':
-                                    # keiri: 候補者全員を pending で登録（誰か1人が承認すれば次へ）
+                                if s.get('is_or_approval'):
+                                    # OR承認: 候補者全員を pending で登録（誰か1人が承認すれば次へ）
                                     if s.get('candidates'):
                                         try:
                                             step_obj = M_WorkflowStep.objects.get(pk=s['step_id'])
@@ -1344,11 +1347,11 @@ def expense_edit(request, pk):
                                     wf = doc_type.workflow_template_id if doc_type else None
                                     if wf:
                                         re_steps = steps_with_candidates(request.user, wf)
-                                        # 非経理ステップの既存承認者を削除して再登録
+                                        # OR承認スコープ（keiri/assets）以外の既存承認者を削除して再登録
                                         for s in re_steps:
                                             try:
                                                 step_obj = M_WorkflowStep.objects.get(pk=s['step_id'])
-                                                if s.get('allowed_bumon_scope') == 'keiri':
+                                                if s.get('is_or_approval'):
                                                     continue
                                                 T_DocumentApprover.objects.filter(
                                                     document_id=expense, step_id=step_obj
@@ -2120,7 +2123,7 @@ def expense_create(request, document_type_id=None):
                 if resolved_doc_type and getattr(resolved_doc_type, 'workflow_template_id', None):
                     steps_for_check = steps_with_candidates(request.user, resolved_doc_type.workflow_template_id)
                     for s in steps_for_check:
-                        if s.get('allowed_bumon_scope') == 'keiri':
+                        if s.get('is_or_approval'):
                             continue
                         if not request.POST.get(f"approver_step_{s['step_id']}"):
                             approver_missing_create.append(str(s['step_order']))
@@ -2431,11 +2434,10 @@ def expense_create(request, document_type_id=None):
                         from .models import T_DocumentApprover, M_WorkflowStep, M_User
                         for s in steps:
                             step_id = s['step_id']
-                            scope = s['allowed_bumon_scope']
                             selected = None
                             field_name = f"approver_step_{step_id}"
 
-                            if scope == 'keiri':
+                            if s.get('is_or_approval'):
                                 # 自動候補（あれば）をドラフト保存
                                 cand = s['candidates'][0] if s['candidates'] else None
                                 if cand:
@@ -2537,11 +2539,10 @@ def expense_create(request, document_type_id=None):
                             pass
                         for s in steps:
                             step_id = s['step_id']
-                            scope = s['allowed_bumon_scope']
                             field_name = f"approver_step_{step_id}"
                             # ここから先は承認者割当の検証・生成
-                            if scope == 'keiri':
-                                # keiri: 候補者全員を pending で登録（OR承認方式）
+                            if s.get('is_or_approval'):
+                                # OR承認スコープ（keiri/assets）: 候補者全員を pending で登録
                                 if not s['candidates']:
                                     continue
                                 try:
