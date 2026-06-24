@@ -635,3 +635,108 @@ class BuildDynamicFieldsDisplaySectionColspanTest(TestCase):
         section_rows = [r for r in rows if r['type'] == 'section']
         self.assertEqual(len(section_rows), 1)
         self.assertEqual(section_rows[0]['colspan'], 2)
+
+
+class AssetDetailFixtureMixin:
+    """固定資産ドキュメントと通常ドキュメントの比較用フィクスチャ。
+    expense_detail/approval_detail/settings_approval_detail のテンプレート出し分けテストで共有する。
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        from expenses.models import (
+            M_DocumentGroup, M_DocumentType, M_DocumentField, M_Status, T_Document, T_DocumentContent,
+        )
+        User = get_user_model()
+        cls.user = User.objects.create_user(
+            username='asset_detail_user', man_number='ASTDET1',
+            user_name='資産テスト担当', password='pass123',
+        )
+        cls.status, _ = M_Status.objects.get_or_create(
+            status_cd='INPRO', defaults={'status_name': '申請中', 'action_name': '提出'}
+        )
+
+        # 固定資産グループ・DocType・動的フィールド3つ・明細1件
+        asset_grp, _ = M_DocumentGroup.objects.get_or_create(
+            menu_group='ASTDETGRP', defaults={'menu_group_name': '固定資産テストグループ', 'category': 'assets', 'menu_order': 96},
+        )
+        cls.asset_doc_type = M_DocumentType.objects.create(
+            document_type_name='固定資産テスト種別', menu_group=asset_grp,
+        )
+        M_DocumentField.objects.create(
+            document_type=cls.asset_doc_type, field_name='maker_name', field_name_view='製造メーカー名',
+            field_type='char', field_order=1, row_break=False,
+        )
+        M_DocumentField.objects.create(
+            document_type=cls.asset_doc_type, field_name='model_no', field_name_view='型式',
+            field_type='char', field_order=2, row_break=False,
+        )
+        M_DocumentField.objects.create(
+            document_type=cls.asset_doc_type, field_name='serial_no', field_name_view='製造番号',
+            field_type='char', field_order=3, row_break=False,
+        )
+        cls.asset_document = T_Document.objects.create(
+            document_type=cls.asset_doc_type, title='固定資産テスト申請',
+            man_number=cls.user, status_cd=cls.status, tsuka_cd='JPY',
+        )
+        T_DocumentContent.objects.create(
+            document=cls.asset_document, purpose='テスト用途A', amount=10000,
+            content={'maker_name': 'テストメーカー', 'model_no': 'XYZ-100', 'serial_no': 'SN001'},
+        )
+
+        # 通常の経費グループ・DocType・動的フィールド1つ・明細1件（回帰確認用）
+        normal_grp, _ = M_DocumentGroup.objects.get_or_create(
+            menu_group='PAYDETGRP', defaults={'menu_group_name': '通常テストグループ', 'category': 'expense', 'menu_order': 97},
+        )
+        cls.normal_doc_type = M_DocumentType.objects.create(
+            document_type_name='通常テスト種別', menu_group=normal_grp,
+        )
+        M_DocumentField.objects.create(
+            document_type=cls.normal_doc_type, field_name='note1', field_name_view='備考1',
+            field_type='char', field_order=1, row_break=False,
+        )
+        cls.normal_document = T_Document.objects.create(
+            document_type=cls.normal_doc_type, title='通常テスト申請',
+            man_number=cls.user, status_cd=cls.status, tsuka_cd='JPY',
+        )
+        T_DocumentContent.objects.create(
+            document=cls.normal_document, purpose='テスト用途B', amount=5000,
+            content={'note1': 'メモ'},
+        )
+
+
+class IsAssetContextFlagTest(AssetDetailFixtureMixin, TestCase):
+    """expense_detail/approval_detail/settings_approval_detail が is_asset をコンテキストに渡すことを確認する"""
+
+    def setUp(self):
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_expense_detail_is_asset_true_for_asset_doctype(self):
+        from django.urls import reverse
+        url = reverse('expenses:expense_detail', args=[self.asset_document.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_asset'])
+
+    def test_expense_detail_is_asset_false_for_normal_doctype(self):
+        from django.urls import reverse
+        url = reverse('expenses:expense_detail', args=[self.normal_document.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['is_asset'])
+
+    def test_approval_detail_is_asset_true_for_asset_doctype(self):
+        from django.urls import reverse
+        url = reverse('expenses:approval_detail', args=[self.asset_document.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_asset'])
+
+    def test_settings_approval_detail_is_asset_true_for_asset_doctype(self):
+        from django.urls import reverse
+        url = reverse('expenses:settings_approval_detail', args=[self.asset_document.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['is_asset'])
