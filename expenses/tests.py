@@ -329,3 +329,12 @@ class SettleKbnFieldTest(TestCase):
         """`_V_DOCUMENTCONTENTS` SQL に dc.settle_kbn が含まれること"""
         from expenses.view_sqls import _V_DOCUMENTCONTENTS
         self.assertIn('dc.settle_kbn', _V_DOCUMENTCONTENTS)
+
+
+class WorkflowStepAssetsScopeChoiceTest(TestCase):
+    """M_WorkflowStep.BUMON_SCOPE_CHOICES に assets が追加されていることを確認する"""
+
+    def test_assets_choice_exists(self):
+        from expenses.models import M_WorkflowStep
+        choices = dict(M_WorkflowStep.BUMON_SCOPE_CHOICES)
+        self.assertEqual(choices.get('assets'), '固定資産')

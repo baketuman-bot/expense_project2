@@ -336,6 +336,7 @@ class M_WorkflowStep(models.Model):
         ('same', '同一'),
         ('parent', '親'),
         ('keiri', '経理'),
+        ('assets', '固定資産'),
         ('any', '全体'),
     ]
 
