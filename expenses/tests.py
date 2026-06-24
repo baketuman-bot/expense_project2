@@ -496,3 +496,32 @@ class ViewsOrApprovalScopeLiteralTest(TestCase):
         from expenses import views
         source = inspect.getsource(views)
         self.assertIn('is_or_approval', source)
+
+
+class BuildApprovalFlowAggregationTest(OrApprovalAggregationFixtureMixin, TestCase):
+    """_build_approval_flow が OR承認スコープのステップをスコープ別ラベルで集約することを確認する"""
+
+    def _make_instance(self, doc, step):
+        from expenses.models import T_WorkflowInstance
+        return T_WorkflowInstance.objects.create(
+            document_id=doc, workflow_template=step.workflow_template, step=step, step_order=1,
+        )
+
+    def test_assets_step_labeled_as_short_bracket_label(self):
+        from expenses.views import _build_approval_flow
+        doc, step = self._make_or_approval_fixture('assets')
+        self._make_instance(doc, step)
+        flow = _build_approval_flow([doc.document_id])
+        entries = flow[doc.document_id]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['name'], '[資産]')
+
+    def test_keiri_step_labeled_as_short_bracket_label(self):
+        """回帰確認: keiri の表示ラベル '[経理]' が変わっていないこと"""
+        from expenses.views import _build_approval_flow
+        doc, step = self._make_or_approval_fixture('keiri')
+        self._make_instance(doc, step)
+        flow = _build_approval_flow([doc.document_id])
+        entries = flow[doc.document_id]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['name'], '[経理]')

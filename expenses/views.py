@@ -3046,9 +3046,10 @@ def approval_list(request):
     ):
         did = pa.document_id_id
         if did not in pending_approver_map:
-            # keiri スコープのステップは個人名でなく「経理部門」と表示
-            if pa.step_id and getattr(pa.step_id, 'allowed_bumon_scope', '') == 'keiri':
-                pending_approver_map[did] = '経理部門'
+            # OR承認スコープ（keiri/assets）のステップは個人名でなく集約ラベルを表示
+            scope = str(getattr(pa.step_id, 'allowed_bumon_scope', '') or '').strip().lower()
+            if pa.step_id and scope in OR_APPROVAL_SCOPES:
+                pending_approver_map[did] = OR_APPROVAL_SCOPE_LABELS.get(scope, pa.man_number.user_name)
             else:
                 pending_approver_map[did] = pa.man_number.user_name
 
@@ -3822,9 +3823,10 @@ def settings_export(request):
 
 
 def _build_approval_flow(doc_ids):
-    """doc_id → 承認フローリスト を返す。keiri ステップも補完する。
-    各要素: {'name': str, 'status': 'APPROVED'|'REJECTED'|'pending', 'step_order': int, 'is_keiri': bool}
-    keiri スコープのステップは複数候補者が登録されていても '[経理]' として1エントリに集約する。
+    """doc_id → 承認フローリスト を返す。OR承認スコープ（keiri/assets）のステップも補完する。
+    各要素: {'name': str, 'status': 'APPROVED'|'REJECTED'|'pending', 'step_order': int, 'is_or_approval': bool}
+    OR承認スコープのステップは複数候補者が登録されていても、スコープごとに1エントリ
+    （例: '[経理]' '[資産]'）に集約する。
     """
     from .models import M_WorkflowStep
     if not doc_ids:
@@ -3838,23 +3840,25 @@ def _build_approval_flow(doc_ids):
         if inst.document_id_id not in inst_by_doc:
             inst_by_doc[inst.document_id_id] = inst
 
-    # ② keiri ステップの step_id セットを一括収集
+    # ② OR承認スコープのステップの step_id セットを一括収集
     template_ids = {inst.workflow_template_id for inst in inst_by_doc.values() if inst.workflow_template_id}
-    keiri_step_ids = set()
-    keiri_by_template = {}
+    or_step_ids = set()
+    or_by_template = {}
+    or_step_scope = {}
     for step in M_WorkflowStep.objects.filter(
         workflow_template__in=template_ids,
-        allowed_bumon_scope='keiri'
+        allowed_bumon_scope__in=OR_APPROVAL_SCOPES
     ).order_by('step_order'):
         tid = step.workflow_template_id
-        keiri_by_template.setdefault(tid, []).append(step)
-        keiri_step_ids.add(step.step_id)
+        or_by_template.setdefault(tid, []).append(step)
+        or_step_ids.add(step.step_id)
+        or_step_scope[step.step_id] = str(step.allowed_bumon_scope or '').strip().lower()
 
     # ③ T_DocumentApprover から登録済み承認者を収集
-    #    keiri ステップは step_id ごとに '[経理]' として1エントリに集約
+    #    OR承認スコープのステップは step_id ごとに集約ラベルで1エントリに集約
     approvers_by_doc = {}
     covered_steps = {}   # doc_id -> set of step_id
-    seen_keiri = {}      # doc_id -> step_id -> entry dict（集約用参照）
+    seen_or = {}         # doc_id -> step_id -> entry dict（集約用参照）
 
     for ap in T_DocumentApprover.objects.filter(
         document_id__in=doc_ids
@@ -3863,24 +3867,26 @@ def _build_approval_flow(doc_ids):
         if doc_id not in approvers_by_doc:
             approvers_by_doc[doc_id] = []
             covered_steps[doc_id] = set()
-            seen_keiri[doc_id] = {}
+            seen_or[doc_id] = {}
 
-        if ap.step_id_id and ap.step_id_id in keiri_step_ids:
-            # keiri: step_id ごとに1エントリに集約
+        if ap.step_id_id and ap.step_id_id in or_step_ids:
+            # OR承認: step_id ごとに1エントリに集約
             sid = ap.step_id_id
-            if sid not in seen_keiri[doc_id]:
+            if sid not in seen_or[doc_id]:
+                scope = or_step_scope.get(sid, '')
+                label = f"[{OR_APPROVAL_SCOPE_SHORT_LABELS.get(scope, '承認')}]"
                 entry = {
-                    'name': '[経理]',
+                    'name': label,
                     'status': ap.status or 'pending',
                     'step_order': ap.step_order,
                     'approved_at': ap.approved_at,
-                    'is_keiri': True,
+                    'is_or_approval': True,
                 }
-                seen_keiri[doc_id][sid] = entry
+                seen_or[doc_id][sid] = entry
                 approvers_by_doc[doc_id].append(entry)
             else:
                 # APPROVED が1件でもあれば APPROVED を優先
-                existing = seen_keiri[doc_id][sid]
+                existing = seen_or[doc_id][sid]
                 if ap.status == 'APPROVED' and existing['status'] != 'APPROVED':
                     existing['status'] = 'APPROVED'
                     existing['approved_at'] = ap.approved_at
@@ -3893,38 +3899,40 @@ def _build_approval_flow(doc_ids):
                 'status': ap.status or 'pending',
                 'step_order': ap.step_order,
                 'approved_at': ap.approved_at,
-                'is_keiri': False,
+                'is_or_approval': False,
             })
 
         if ap.step_id_id:
             covered_steps[doc_id].add(ap.step_id_id)
 
-    # ④ 承認済み keiri ステップを特定（T_WorkflowAction ベース）
-    done_keiri = {}  # doc_id -> set of step_id
+    # ④ 承認済み OR承認ステップを特定（T_WorkflowAction ベース）
+    done_or = {}  # doc_id -> set of step_id
     for act in T_WorkflowAction.objects.filter(
         instance__document_id__in=doc_ids,
         action_status_id='APPROVED'
     ).values('instance__document_id_id', 'step_id'):
         doc_id = act['instance__document_id_id']
-        done_keiri.setdefault(doc_id, set()).add(act['step_id'])
+        done_or.setdefault(doc_id, set()).add(act['step_id'])
 
-    # ⑤ keiri ステップを補完（T_DocumentApproverに登録がないケース）
+    # ⑤ OR承認ステップを補完（T_DocumentApproverに登録がないケース）
     for doc_id in doc_ids:
         inst = inst_by_doc.get(doc_id)
         if not inst:
             continue
-        keiri_steps = keiri_by_template.get(inst.workflow_template_id, [])
+        or_steps = or_by_template.get(inst.workflow_template_id, [])
         covered = covered_steps.get(doc_id, set())
-        done = done_keiri.get(doc_id, set())
-        for step in keiri_steps:
+        done = done_or.get(doc_id, set())
+        for step in or_steps:
             if step.step_id in covered:
                 continue
+            scope = or_step_scope.get(step.step_id, '')
+            label = f"[{OR_APPROVAL_SCOPE_SHORT_LABELS.get(scope, '承認')}]"
             approvers_by_doc.setdefault(doc_id, []).append({
-                'name': '[経理]',
+                'name': label,
                 'status': 'APPROVED' if step.step_id in done else 'pending',
                 'step_order': step.step_order,
                 'approved_at': None,
-                'is_keiri': True,
+                'is_or_approval': True,
             })
 
     # ⑥ step_order 順に整列
