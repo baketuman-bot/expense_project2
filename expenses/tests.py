@@ -740,3 +740,39 @@ class IsAssetContextFlagTest(AssetDetailFixtureMixin, TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context['is_asset'])
+
+
+class ExpenseDetailDisplayPartialAssetTest(AssetDetailFixtureMixin, TestCase):
+    """_expense_detail_display.html の is_asset 出し分けを単体でテストする"""
+
+    def test_partial_shows_only_purpose_value_for_asset(self):
+        from django.template.loader import render_to_string
+        detail = self.asset_document.contents.first()
+        html = render_to_string('expenses/_expense_detail_display.html', {
+            'expense': self.asset_document,
+            'detail': detail,
+            'is_asset': True,
+            'tax_label_map': {},
+            'coc_label_map': {},
+        })
+        self.assertNotIn('目的', html)
+        self.assertNotIn('取引日', html)
+        self.assertNotIn('支払先', html)
+        self.assertNotIn('info-label', html)
+        self.assertNotIn('font-size:17px', html)
+        self.assertIn('テスト用途A', html)
+
+    def test_partial_shows_full_panel_for_non_asset(self):
+        from django.template.loader import render_to_string
+        detail = self.normal_document.contents.first()
+        html = render_to_string('expenses/_expense_detail_display.html', {
+            'expense': self.normal_document,
+            'detail': detail,
+            'is_asset': False,
+            'tax_label_map': {},
+            'coc_label_map': {},
+        })
+        self.assertIn('目的', html)
+        self.assertIn('取引日', html)
+        self.assertIn('font-size:17px', html)
+        self.assertIn('テスト用途B', html)
