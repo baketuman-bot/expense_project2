@@ -42,3 +42,6 @@ db.sqlite3
 htmlcov/
 .coverage
 .claude/
+
+# git worktree作業ディレクトリ
+.worktrees/
