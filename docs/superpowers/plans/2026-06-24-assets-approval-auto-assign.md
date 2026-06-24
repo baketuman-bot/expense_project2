@@ -21,8 +21,10 @@
 
 **Files:**
 - Modify: `expenses/models.py`（`M_WorkflowStep.BUMON_SCOPE_CHOICES`、336行目付近）
-- Create: `expenses/migrations/0056_add_assets_workflow_scope.py`
+- Create: `expenses/migrations/0076_add_assets_workflow_scope.py`
 - Test: `expenses/tests.py`
+
+**Note:** CLAUDE.md は「最新: 0055」と記載しているが、実際の最新マイグレーションは `0075_add_fields_to_item_and_bumon.py`（2026-06-24時点でWSL上で確認済み）。ドキュメントが古いだけで、依存関係は実際の最新ファイルを基準にすること。
 
 **Interfaces:**
 - Produces: `M_WorkflowStep.BUMON_SCOPE_CHOICES` に `('assets', '固定資産')` が含まれる（管理者設定画面 `/settings/master/m_workflow_step/` のドロップダウンに表示されるようになる）。
@@ -73,7 +75,7 @@ new:
 
 - [ ] **Step 4: Create the migration**
 
-`makemigrations` が使えない場合（本番DB接続が必要なため）、以下の内容で手書きする。`expenses/migrations/0056_add_assets_workflow_scope.py`:
+`makemigrations` が使えない場合（本番DB接続が必要なため）、以下の内容で手書きする。`expenses/migrations/0076_add_assets_workflow_scope.py`:
 
 ```python
 from django.db import migrations, models
@@ -82,7 +84,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('expenses', '0055_add_settlement_fields'),
+        ('expenses', '0075_add_fields_to_item_and_bumon'),
     ]
 
     operations = [
@@ -115,7 +117,7 @@ Expected: PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add expenses/models.py expenses/migrations/0056_add_assets_workflow_scope.py expenses/tests.py
+git add expenses/models.py expenses/migrations/0076_add_assets_workflow_scope.py expenses/tests.py
 git commit -m "feat: M_WorkflowStepのallowed_bumon_scopeにassets選択肢を追加"
 ```
 
