@@ -525,3 +525,25 @@ class BuildApprovalFlowAggregationTest(OrApprovalAggregationFixtureMixin, TestCa
         entries = flow[doc.document_id]
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]['name'], '[経理]')
+
+
+class TemplateOrApprovalFlagTest(TestCase):
+    """承認者選択フォームが is_or_approval フラグで自動回付メッセージを出すことを確認する"""
+
+    def _read_template(self, name):
+        import os
+        from django.apps import apps
+        app_dir = apps.get_app_config('expenses').path
+        path = os.path.join(app_dir, 'templates', 'expenses', name)
+        with open(path, encoding='utf-8') as f:
+            return f.read()
+
+    def test_expense_form_uses_is_or_approval_flag(self):
+        source = self._read_template('expense_form.html')
+        self.assertIn('s.is_or_approval', source)
+        self.assertNotIn("s.allowed_bumon_scope == 'keiri'", source)
+
+    def test_travel_expense_form_uses_is_or_approval_flag(self):
+        source = self._read_template('travel_expense_form.html')
+        self.assertIn('s.is_or_approval', source)
+        self.assertNotIn("s.allowed_bumon_scope == 'keiri'", source)

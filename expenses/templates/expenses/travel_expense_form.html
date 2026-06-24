@@ -506,8 +506,8 @@
                         <label class="form-label">
                             承認 {{ s.step_order }}（{{ s.approver_post_name|default:'役職未設定' }}）以上
                         </label>
-                        {% if s.allowed_bumon_scope == 'keiri' %}
-                            <div class="form-text">経理ステップは自動で回付されます（選択不要）。</div>
+                        {% if s.is_or_approval %}
+                            <div class="form-text">このステップは自動で回付されます（選択不要）。</div>
                         {% elif s.allowed_bumon_scope == 'others' %}
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-6">
