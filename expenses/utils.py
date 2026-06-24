@@ -3,6 +3,18 @@ from django.conf import settings
 from django.db.models import Q, Subquery
 from .models import M_User, M_BelongTo, V_Group, M_WorkflowStep
 
+# 自動割当（OR承認）対象スコープ: 申請者が選択せず、対応する M_UserRole.role を
+# 持つユーザー全員が候補者として pending 登録される。
+OR_APPROVAL_SCOPES = {'keiri', 'assets'}
+OR_APPROVAL_SCOPE_LABELS = {
+    'keiri': '経理部門',
+    'assets': '固定資産担当',
+}
+OR_APPROVAL_SCOPE_SHORT_LABELS = {
+    'keiri': '経理',
+    'assets': '資産',
+}
+
 def _resolve_recipient(to_email: str | None):
     # 開発中は強制送信先を優先
     forced = getattr(settings, 'EMAIL_FORCE_TO', '')
@@ -122,6 +134,7 @@ def steps_with_candidates(applicant: M_User, workflow_template):
             'step_order': s.step_order,
             'step_type': s.step_type,
             'allowed_bumon_scope': scope_norm,
+            'is_or_approval': scope_norm in OR_APPROVAL_SCOPES,
             'approver_post_cd': s.approver_post.post_cd if s.approver_post else None,
             'approver_post_name': s.approver_post.post_name if s.approver_post else None,
             'candidates': [{

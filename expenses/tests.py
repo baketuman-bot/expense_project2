@@ -338,3 +338,81 @@ class WorkflowStepAssetsScopeChoiceTest(TestCase):
         from expenses.models import M_WorkflowStep
         choices = dict(M_WorkflowStep.BUMON_SCOPE_CHOICES)
         self.assertEqual(choices.get('assets'), '固定資産')
+
+
+class StepsWithCandidatesIsOrApprovalFlagTest(TestCase):
+    """steps_with_candidates が is_or_approval フラグを正しく設定することを確認する"""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import M_WorkflowTemplate, M_Post
+        User = get_user_model()
+        self.applicant = User.objects.create_user(
+            username='flag_applicant', man_number='FLAGAPP',
+            user_name='申請者', password='pass123',
+        )
+        self.post = M_Post.objects.create(post_cd='FLAGPOST', post_name='部長', post_order=10)
+        self.tpl = M_WorkflowTemplate.objects.create(workflow_template_name='フラグテスト')
+
+    def _make_step(self, scope):
+        from expenses.models import M_WorkflowStep
+        return M_WorkflowStep.objects.create(
+            workflow_template=self.tpl, step_order=1,
+            allowed_bumon_scope=scope, approver_post=self.post,
+        )
+
+    def test_is_or_approval_true_for_assets_scope(self):
+        from expenses.utils import steps_with_candidates
+        self._make_step('assets')
+        steps = steps_with_candidates(self.applicant, self.tpl)
+        self.assertTrue(steps[0]['is_or_approval'])
+
+    def test_is_or_approval_true_for_keiri_scope(self):
+        from expenses.utils import steps_with_candidates
+        self._make_step('keiri')
+        steps = steps_with_candidates(self.applicant, self.tpl)
+        self.assertTrue(steps[0]['is_or_approval'])
+
+    def test_is_or_approval_false_for_any_scope(self):
+        from expenses.utils import steps_with_candidates
+        self._make_step('any')
+        steps = steps_with_candidates(self.applicant, self.tpl)
+        self.assertFalse(steps[0]['is_or_approval'])
+
+
+class CandidatesForStepAssetsRoleTest(TestCase):
+    """assets スコープでは M_UserRole.role='assets' のユーザーのみが候補になることを確認する"""
+
+    def test_assets_scope_returns_only_assets_role_users(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import M_Post, M_WorkflowTemplate, M_WorkflowStep, M_UserRole
+        from expenses.utils import candidates_for_step
+        User = get_user_model()
+
+        approver_post = M_Post.objects.create(post_cd='ASTPOST', post_name='担当', post_order=10)
+        senior_post = M_Post.objects.create(post_cd='SENIORPOST', post_name='上位職', post_order=1)
+
+        applicant = User.objects.create_user(
+            username='ast_applicant', man_number='ASTAPP', user_name='申請者',
+            password='pass123', post_cd=senior_post,
+        )
+        assets_user = User.objects.create_user(
+            username='ast_user', man_number='ASTUSER', user_name='資産担当者',
+            password='pass123', post_cd=senior_post,
+        )
+        M_UserRole.objects.create(man_number=assets_user, role='assets')
+        other_user = User.objects.create_user(
+            username='other_user', man_number='OTHERUSER', user_name='他部門ユーザー',
+            password='pass123', post_cd=senior_post,
+        )
+
+        tpl = M_WorkflowTemplate.objects.create(workflow_template_name='資産候補テスト')
+        step = M_WorkflowStep.objects.create(
+            workflow_template=tpl, step_order=1,
+            allowed_bumon_scope='assets', approver_post=approver_post,
+        )
+
+        candidates = list(candidates_for_step(applicant, step))
+        self.assertIn(assets_user, candidates)
+        self.assertNotIn(other_user, candidates)
+        self.assertNotIn(applicant, candidates)
