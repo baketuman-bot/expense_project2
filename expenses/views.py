@@ -293,6 +293,14 @@ def _build_dynamic_fields_display(expense):
             for f in row['fields']:
                 f['td_colspan'] = 3 if n == 1 else 1
 
+    # セクション見出し行の colspan はテーブルの実列数（最大フィールド数×2）に合わせる。
+    # 固定値4だと3項目以上が並ぶデータ行ではテーブル幅と合わず見出しバーが途中で途切れる。
+    max_fields = max((len(row['fields']) for row in rows if row['type'] == 'data'), default=2)
+    section_colspan = max_fields * 2
+    for row in rows:
+        if row['type'] == 'section':
+            row['colspan'] = section_colspan
+
     return rows
 
 

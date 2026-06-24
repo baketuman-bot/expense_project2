@@ -549,3 +549,89 @@ class TemplateOrApprovalFlagTest(TestCase):
         self.assertIn('s.is_or_approval', source)
         self.assertNotIn("s.allowed_bumon_scope == 'keiri'", source)
         self.assertIn('このステップは自動で回付されます', source)
+
+
+class BuildDynamicFieldsDisplaySectionColspanTest(TestCase):
+    """_build_dynamic_fields_display のセクション見出し行 colspan 動的化を確認する"""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import (
+            M_DocumentGroup, M_DocumentType, M_DocumentField, M_Status, T_Document, T_DocumentContent,
+        )
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='colspan_test_user', man_number='COLSPAN1',
+            user_name='colspanテスト', password='pass123',
+        )
+        self.status, _ = M_Status.objects.get_or_create(
+            status_cd='INPRO', defaults={'status_name': '申請中', 'action_name': '提出'}
+        )
+        self.grp, _ = M_DocumentGroup.objects.get_or_create(
+            menu_group='COLSPANGRP', defaults={'menu_group_name': 'colspanテストグループ', 'category': 'expense', 'menu_order': 95},
+        )
+
+    def _make_document(self, doc_type, stored_content):
+        from expenses.models import T_Document, T_DocumentContent
+        doc = T_Document.objects.create(
+            document_type=doc_type, title='colspanテスト申請', man_number=self.user, status_cd=self.status,
+        )
+        T_DocumentContent.objects.create(document=doc, purpose='テスト', amount=1000, content=stored_content)
+        return doc
+
+    def test_section_colspan_matches_widest_data_row(self):
+        """3フィールドの行を含む場合、セクション見出し行の colspan は 6 になること"""
+        from expenses.models import M_DocumentType, M_DocumentField
+        from expenses.views import _build_dynamic_fields_display
+
+        doc_type = M_DocumentType.objects.create(document_type_name='colspanテスト種別A', menu_group=self.grp)
+        M_DocumentField.objects.create(
+            document_type=doc_type, field_name='a', field_name_view='A', field_type='char',
+            field_order=1, row_break=False, section_header='',
+        )
+        M_DocumentField.objects.create(
+            document_type=doc_type, field_name='b', field_name_view='B', field_type='char',
+            field_order=2, row_break=True, section_header='セクションA',
+        )
+        M_DocumentField.objects.create(
+            document_type=doc_type, field_name='c', field_name_view='C', field_type='char',
+            field_order=3, row_break=False, section_header='',
+        )
+        M_DocumentField.objects.create(
+            document_type=doc_type, field_name='d', field_name_view='D', field_type='char',
+            field_order=4, row_break=False, section_header='',
+        )
+        M_DocumentField.objects.create(
+            document_type=doc_type, field_name='e', field_name_view='E', field_type='char',
+            field_order=5, row_break=True, section_header='セクションB',
+        )
+        doc = self._make_document(doc_type, {'a': '1', 'b': '2', 'c': '3', 'd': '4', 'e': '5'})
+
+        rows = _build_dynamic_fields_display(doc)
+
+        section_rows = [r for r in rows if r['type'] == 'section']
+        self.assertEqual(len(section_rows), 2)
+        for r in section_rows:
+            self.assertEqual(r['colspan'], 6)
+
+    def test_section_colspan_defaults_to_2_when_all_rows_single_field(self):
+        """全データ行が1フィールドのみの場合、セクション見出し行の colspan は 2 になること"""
+        from expenses.models import M_DocumentType, M_DocumentField
+        from expenses.views import _build_dynamic_fields_display
+
+        doc_type = M_DocumentType.objects.create(document_type_name='colspanテスト種別B', menu_group=self.grp)
+        M_DocumentField.objects.create(
+            document_type=doc_type, field_name='x', field_name_view='X', field_type='char',
+            field_order=1, row_break=False, section_header='',
+        )
+        M_DocumentField.objects.create(
+            document_type=doc_type, field_name='y', field_name_view='Y', field_type='char',
+            field_order=2, row_break=True, section_header='セクションX',
+        )
+        doc = self._make_document(doc_type, {'x': '1', 'y': '2'})
+
+        rows = _build_dynamic_fields_display(doc)
+
+        section_rows = [r for r in rows if r['type'] == 'section']
+        self.assertEqual(len(section_rows), 1)
+        self.assertEqual(section_rows[0]['colspan'], 2)
