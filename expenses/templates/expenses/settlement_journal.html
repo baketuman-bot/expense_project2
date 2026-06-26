@@ -1,5 +1,7 @@
 {% extends "expenses/base.html" %}
 
+{% block title %}仕訳作成 — {% endblock %}
+
 {% block content %}
 <div class="mt-4" style="max-width:1200px;">
 
@@ -16,75 +18,79 @@
   </div>
 
   {% if rows %}
-  <form method="post" id="journal-form">
-    {% csrf_token %}
+  <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
+    <span class="text-muted small">{{ rows|length }} 件</span>
+    <a href="#" id="select-all" class="small">全選択</a>
+    <a href="#" id="deselect-all" class="small">全解除</a>
 
-    <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
-      <span class="text-muted small">{{ rows|length }} 件</span>
-      <a href="#" id="select-all" class="small">全選択</a>
-      <a href="#" id="deselect-all" class="small">全解除</a>
-
-      <div class="ms-auto d-flex gap-2">
-        <button type="button" class="btn btn-primary btn-sm" id="btn-generate">
-          <i class="fas fa-file-export me-1"></i>コンバートデータ生成
-        </button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0 small">
-          <thead>
-            <tr>
-              <th class="text-nowrap">申請ID</th>
-              <th class="text-nowrap">申請種別</th>
-              <th class="text-nowrap">明細日付</th>
-              <th>申請件名</th>
-              <th>支払先</th>
-              <th>目的</th>
-              <th class="text-end text-nowrap">金額</th>
-              <th class="text-nowrap">精算方法</th>
-              <th class="text-center text-nowrap">選択</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in rows %}
-            {% with c=row.content %}
-            <tr>
-              <td class="text-nowrap">
-                <a href="{% url 'expenses:expense_detail' c.document_id %}?from=settlement_menu">
-                  {{ c.document_id }}
-                </a>
-              </td>
-              <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
-              <td class="text-nowrap">{{ c.date|date:"Y/m/d" }}</td>
-              <td>{{ c.document.title }}</td>
-              <td>{{ c.shiharaisaki|default:"-" }}</td>
-              <td>{{ c.purpose|default:"-" }}</td>
-              <td class="text-end text-nowrap">
-                {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
-              </td>
-              <td class="text-nowrap">{{ row.settle_label }}</td>
-              <td class="text-center">
-                <input type="checkbox"
-                       class="form-check-input journal-check"
-                       name="selected_ids"
-                       value="{{ c.document_detail_id }}">
-              </td>
-            </tr>
-            {% endwith %}
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="mt-2 d-flex justify-content-end gap-2">
-      <button type="button" class="btn btn-primary btn-sm" id="btn-generate-bottom">
-        <i class="fas fa-file-export me-1"></i>コンバートデータ生成
+    <div class="ms-auto d-flex gap-2">
+      <button type="button" class="btn btn-primary btn-sm" id="btn-open-entry">
+        <i class="fas fa-edit me-1"></i>仕訳作成
       </button>
     </div>
-  </form>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 small">
+        <thead>
+          <tr>
+            <th class="text-nowrap">申請ID</th>
+            <th class="text-nowrap">申請種別</th>
+            <th class="text-nowrap">明細日付</th>
+            <th>申請件名</th>
+            <th>支払先</th>
+            <th>目的</th>
+            <th class="text-end text-nowrap">金額</th>
+            <th class="text-nowrap">精算方法</th>
+            <th class="text-nowrap">仕訳状態</th>
+            <th class="text-center text-nowrap">選択</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          {% with c=row.content %}
+          <tr class="{% if c.journal_done %}table-success{% endif %}">
+            <td class="text-nowrap">
+              <a href="{% url 'expenses:expense_detail' c.document_id %}?from=settlement_journal">
+                {{ c.document_id }}
+              </a>
+            </td>
+            <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
+            <td class="text-nowrap">{{ c.date|date:"Y/m/d" }}</td>
+            <td>{{ c.document.title }}</td>
+            <td>{{ c.shiharaisaki|default:"-" }}</td>
+            <td>{{ c.purpose|default:"-" }}</td>
+            <td class="text-end text-nowrap">
+              {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
+            </td>
+            <td class="text-nowrap">{{ row.settle_label }}</td>
+            <td class="text-nowrap">
+              {% if c.journal_done %}
+                <span class="badge" style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;">✔ 入力済</span>
+              {% else %}
+                <span class="badge bg-secondary bg-opacity-25 text-secondary">未入力</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              <input type="checkbox"
+                     class="form-check-input journal-check"
+                     value="{{ c.document_detail_id }}"
+                     {% if c.journal_done %}checked{% endif %}>
+            </td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-2 d-flex justify-content-end gap-2">
+    <button type="button" class="btn btn-primary btn-sm" id="btn-open-entry-bottom">
+      <i class="fas fa-edit me-1"></i>仕訳作成
+    </button>
+  </div>
 
   {% else %}
   <div class="card">
@@ -99,6 +105,8 @@
 
 <script>
 (function () {
+  var ENTRY_URL = "{% url 'expenses:journal_entry' %}";
+
   function getChecks() {
     return document.querySelectorAll('.journal-check');
   }
@@ -109,32 +117,28 @@
     return ids;
   }
 
-  function generate() {
+  function openEntry() {
     var ids = checkedIds();
     if (ids.length === 0) {
       alert('対象行を1件以上選択してください。');
       return;
     }
-    alert('コンバートデータ生成機能は準備中です。\n選択件数: ' + ids.length + ' 件');
+    window.location.href = ENTRY_URL + '?ids=' + ids.join(',');
   }
 
-  ['btn-generate', 'btn-generate-bottom'].forEach(function (id) {
+  ['btn-open-entry', 'btn-open-entry-bottom'].forEach(function (id) {
     var el = document.getElementById(id);
-    if (el) el.addEventListener('click', generate);
+    if (el) el.addEventListener('click', openEntry);
   });
 
-  if (document.getElementById('select-all')) {
-    document.getElementById('select-all').addEventListener('click', function (e) {
-      e.preventDefault();
-      getChecks().forEach(function (c) { c.checked = true; });
-    });
-  }
-  if (document.getElementById('deselect-all')) {
-    document.getElementById('deselect-all').addEventListener('click', function (e) {
-      e.preventDefault();
-      getChecks().forEach(function (c) { c.checked = false; });
-    });
-  }
+  document.getElementById('select-all') && document.getElementById('select-all').addEventListener('click', function (e) {
+    e.preventDefault();
+    getChecks().forEach(function (c) { c.checked = true; });
+  });
+  document.getElementById('deselect-all') && document.getElementById('deselect-all').addEventListener('click', function (e) {
+    e.preventDefault();
+    getChecks().forEach(function (c) { c.checked = false; });
+  });
 })();
 </script>
 {% endblock %}

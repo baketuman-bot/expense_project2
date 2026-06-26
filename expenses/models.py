@@ -669,6 +669,13 @@ class T_DocumentContent(models.Model):
     settle_kbn = models.CharField("精算区分", max_length=10, null=True, blank=True, db_column='settle_kbn')
     consumption_tax = models.DecimalField("消費税額", max_digits=10, decimal_places=2, null=True, blank=True)
     consumption_kbn = models.SmallIntegerField("内外税区分", null=True, blank=True)
+    # 仕訳作成フィールド
+    hojo_cd        = models.CharField("補助科目コード", max_length=10,  null=True, blank=True)
+    journal_tax_kbn  = models.CharField("仕訳税区分",   max_length=10,  null=True, blank=True)
+    journal_tax_rate = models.CharField("仕訳税率",      max_length=10,  null=True, blank=True)
+    journal_fx_rate  = models.CharField("換算レート",    max_length=20,  null=True, blank=True)
+    journal_fx_tax   = models.CharField("外貨税額",      max_length=20,  null=True, blank=True)
+    journal_done     = models.BooleanField("仕訳入力済", default=False)
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
 

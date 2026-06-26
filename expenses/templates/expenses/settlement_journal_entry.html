@@ -1,0 +1,738 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block title %}仕訳入力 — {% endblock %}
+{% block body_class %}journal-page{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── サイドバー非表示 ── */
+body.journal-page .precision-sidebar { display: none !important; }
+body.journal-page .precision-main    { margin-left: 0 !important; }
+
+/* ── 全画面レイアウト上書き ── */
+body.journal-page .precision-main {
+  padding: 0;
+  padding-top: var(--precision-banner-h); /* 固定トップバー分だけ押し下げ */
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+body.journal-page .precision-shell {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── ページヘッダ ── */
+.jnl-page-head {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.jnl-page-title {
+  font-family: "Zen Kaku Gothic New", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+.jnl-page-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* ── サマリーバー ── */
+.jnl-summary {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 5px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.jnl-sum-item { display: flex; align-items: center; gap: 5px; }
+.jnl-dot { width: 8px; height: 8px; border-radius: 50%; }
+.jnl-dot-done { background: #22c55e; }
+.jnl-dot-todo { background: #e5e7eb; border: 1px solid #9ca3af; }
+.jnl-dot-warn { background: #f59e0b; }
+.jnl-prog-track { width: 80px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.jnl-prog-fill  { height: 100%; background: #22c55e; border-radius: 3px; }
+
+/* ── 3ペイン ── */
+.jnl-workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 380px 460px 1fr;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+}
+.jnl-pane {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+.jnl-pane:last-child { border-right: none; }
+.jnl-pane-hd {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sub);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.jnl-pane-body { flex: 1; overflow-y: auto; }
+
+/* ── 明細一覧 ── */
+.jnl-list { list-style: none; margin: 0; padding: 0; }
+.jnl-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background .1s;
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 4px;
+  align-items: start;
+}
+.jnl-item:hover  { background: var(--primary-soft); }
+.jnl-item.active { background: var(--primary-soft); border-left: 3px solid var(--primary); }
+.jnl-item.done   { background: #f0fdf4; }
+.jnl-item.warn   { background: #fffbeb; }
+.jnl-item-no     { font-size: 10px; color: var(--sub); padding-top: 2px; }
+.jnl-item-name   { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jnl-item-sub    { font-size: 11px; color: var(--sub); margin-top: 1px; }
+.jnl-item-amount { font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ── バッジ ── */
+.jnl-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 7px; border-radius: 9999px; font-size: 10px; font-weight: 600;
+  border: 1px solid transparent;
+}
+.jnl-badge-done { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.jnl-badge-todo { background: #f3f4f6; color: var(--sub); border-color: var(--line-strong); }
+.jnl-badge-warn { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+
+/* ── リストナビ ── */
+.jnl-list-nav {
+  padding: 7px 10px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── フォームペイン ── */
+.jnl-section {
+  margin: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.jnl-section-hd {
+  background: var(--panel);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sub);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.jnl-ref-tbl { width: 100%; border-collapse: collapse; }
+.jnl-ref-tbl tr + tr td { border-top: 1px solid var(--line); }
+.jnl-ref-tbl td { padding: 5px 10px; font-size: 12px; }
+.jnl-ref-tbl td:first-child {
+  color: var(--sub); white-space: nowrap; width: 84px;
+  background: var(--panel); font-size: 11px;
+}
+.jnl-ref-tbl td:last-child { font-weight: 500; }
+
+.jnl-input-row {
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+}
+.jnl-input-row:first-child { border-top: none; }
+.jnl-lbl { width: 84px; font-size: 11px; color: var(--sub); flex-shrink: 0; text-align: right; }
+.jnl-ctrl {
+  flex: 1; border: 1px solid var(--line-strong); border-radius: 4px;
+  padding: 4px 8px; font-size: 12px; color: var(--ink); background: #fff; height: 28px;
+}
+.jnl-ctrl:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
+.jnl-ctrl-auto { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+.jnl-ctrl-hl   { background: #fffbeb; border-color: #f59e0b; }
+
+.jnl-form-nav {
+  padding: 9px 12px;
+  display: flex;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  flex-shrink: 0;
+}
+
+/* ── 証憑ビューア ── */
+.jnl-viewer-tb {
+  background: #1e293b;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.jnl-viewer-fname { color: #94a3b8; font-size: 11px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jnl-vbtn {
+  background: #334155; color: #e2e8f0; border: 1px solid #475569;
+  border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+.jnl-vbtn:hover { background: #475569; }
+.jnl-viewer-area {
+  flex: 1; background: #0f172a;
+  display: flex; align-items: center; justify-content: center;
+  overflow: auto; position: relative;
+}
+.jnl-viewer-area img {
+  max-width: 95%; max-height: 95%;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+  display: block;
+}
+.jnl-viewer-area iframe {
+  width: 95%; height: 90%;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+}
+.jnl-viewer-empty { color: #475569; text-align: center; }
+.jnl-viewer-empty i { font-size: 40px; margin-bottom: 8px; display: block; }
+.jnl-zoom {
+  position: absolute; bottom: 12px; right: 12px; display: flex; gap: 4px;
+}
+
+/* ── CSV モーダル ── */
+.jnl-modal-back {
+  position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+}
+.jnl-modal {
+  background: #fff; border-radius: 8px; width: 460px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.2);
+}
+.jnl-modal-hd {
+  padding: 14px 20px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+}
+.jnl-modal-ico { width: 32px; height: 32px; border-radius: 4px; background: #dcfce7; display: flex; align-items: center; justify-content: center; color: #16a34a; }
+.jnl-modal-title { font-family: "Zen Kaku Gothic New", sans-serif; font-size: 15px; font-weight: 700; }
+.jnl-modal-body { padding: 16px 20px; }
+.jnl-modal-ft { padding: 10px 20px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+.jnl-stat-cards { display: flex; gap: 10px; margin-bottom: 12px; }
+.jnl-stat-card { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 10px; text-align: center; }
+.jnl-stat-num { font-size: 20px; font-weight: 700; }
+.jnl-stat-lbl { font-size: 11px; color: var(--sub); }
+.jnl-col-list {
+  font-size: 11px; color: var(--sub); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 4px;
+  padding: 8px 10px; font-family: monospace; line-height: 1.8; margin-top: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% url 'expenses:journal_detail_api' 0 as _jnl_detail_url_base %}
+{% url 'expenses:journal_save' 0 as _jnl_save_url_base %}
+
+<!-- ページヘッダ -->
+<div class="jnl-page-head">
+  <span class="pt-ico"><i class="fas fa-book"></i></span>
+  <h2 class="jnl-page-title">仕訳作成</h2>
+  <div class="jnl-page-actions">
+    <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-arrow-left me-1"></i>精算処理メニューへ
+    </a>
+    <a href="{% url 'expenses:settlement_journal' %}" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-list me-1"></i>仕訳作成一覧へ
+    </a>
+    <a href="{% url 'expenses:journal_csv' %}" class="btn btn-sm btn-primary">
+      <i class="fas fa-file-csv me-1"></i>CSV出力
+    </a>
+  </div>
+</div>
+
+<!-- サマリーバー -->
+<div class="jnl-summary">
+  <div class="jnl-sum-item"><span class="jnl-dot jnl-dot-done"></span><strong>全{{ total }}件</strong></div>
+  <div class="jnl-sum-item"><span class="jnl-dot jnl-dot-done"></span>入力済 <strong style="color:#16a34a;">{{ done }}件</strong></div>
+  <div class="jnl-sum-item"><span class="jnl-dot jnl-dot-todo"></span>未入力 <strong>{{ todo }}件</strong></div>
+  {% if warn %}<div class="jnl-sum-item"><span class="jnl-dot jnl-dot-warn"></span>要確認 <strong style="color:#d97706;">{{ warn }}件</strong></div>{% endif %}
+  {% if total %}
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;">
+    <div class="jnl-prog-track"><div class="jnl-prog-fill" style="width:{% widthratio done total 100 %}%;"></div></div>
+    <span style="color:var(--sub);">{% widthratio done total 100 %}% 完了</span>
+  </div>
+  {% endif %}
+</div>
+
+{% if rows %}
+<!-- 3ペインレイアウト -->
+<div class="jnl-workspace">
+
+  <!-- 左: 明細一覧 -->
+  <div class="jnl-pane">
+    <div class="jnl-pane-hd"><i class="fas fa-list-ul"></i> 明細一覧 <span style="font-weight:400;color:var(--sub);">{{ total }}件</span></div>
+    <div class="jnl-pane-body">
+      <ul class="jnl-list" id="jnl-list">
+        {% for r in rows %}
+        <li class="jnl-item {% if r.journal_done %}done{% elif r.warn %}warn{% endif %} {% if forloop.first %}active{% endif %}"
+            id="jnl-item-{{ r.pk }}"
+            data-pk="{{ r.pk }}"
+            onclick="jnlSelect({{ r.pk }})">
+          <span class="jnl-item-no">{{ forloop.counter }}</span>
+          <div style="min-width:0;">
+            <div class="jnl-item-name">{{ r.account_name }}</div>
+            <div class="jnl-item-sub">{{ r.applicant }} ／ {{ r.date|date:"Y/m/d" }}</div>
+            <div class="jnl-item-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.purpose }}</div>
+            <div style="margin-top:3px;">
+              {% if r.journal_done %}
+                <span class="jnl-badge jnl-badge-done">✔ 入力済</span>
+              {% elif r.warn %}
+                <span class="jnl-badge jnl-badge-warn">⚠ 要確認</span>
+              {% else %}
+                <span class="jnl-badge jnl-badge-todo">未入力</span>
+              {% endif %}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div class="jnl-item-amount">{% if r.amount %}¥{{ r.amount|floatformat:"0" }}{% endif %}</div>
+            <div class="jnl-item-sub" style="font-size:10px;">{{ r.settle_label }}</div>
+            {% if r.journal_done %}<div class="jnl-item-sub" style="font-size:10px;color:#16a34a;">入力済</div>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="jnl-list-nav">
+      <button class="btn btn-sm btn-outline-secondary flex-fill" onclick="jnlPrevTodo()">
+        <i class="fas fa-chevron-left"></i> 前の未入力
+      </button>
+      <button class="btn btn-sm btn-primary flex-fill" onclick="jnlNextTodo()">
+        次の未入力 <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- 中: 仕訳入力フォーム -->
+  <div class="jnl-pane">
+    <div class="jnl-pane-hd" id="jnl-form-hd">
+      <i class="fas fa-edit"></i> 仕訳入力
+      <span id="jnl-form-label" style="color:var(--ink);font-weight:600;margin-left:4px;"></span>
+      <div style="margin-left:auto;" id="jnl-form-badge"></div>
+    </div>
+    <div class="jnl-pane-body" id="jnl-form-body">
+
+      <!-- 元データ参照 -->
+      <div class="jnl-section">
+        <div class="jnl-section-hd" style="color:var(--primary);"><i class="fas fa-info-circle"></i> 元データ（参照）</div>
+        <table class="jnl-ref-tbl">
+          <tr><td>申請者</td><td id="ref-applicant"></td></tr>
+          <tr><td>申請ID</td><td id="ref-doc-id"></td></tr>
+          <tr><td>日付</td><td id="ref-date"></td></tr>
+          <tr><td>部門コード</td><td id="ref-bumon-cd"></td></tr>
+          <tr><td>部門名</td><td id="ref-bumon-name"></td></tr>
+          <tr><td>科目コード</td><td id="ref-account-cd"></td></tr>
+          <tr><td>科目名</td><td id="ref-account-name"></td></tr>
+          <tr><td>税抜金額</td><td id="ref-amount" style="font-weight:700;"></td></tr>
+          <tr><td>消費税</td><td id="ref-consumption-tax"></td></tr>
+          <tr><td>税区分</td><td id="ref-consumption-kbn"></td></tr>
+          <tr><td>税区分名</td><td id="ref-consumption-kbn-name"></td></tr>
+          <tr><td>登録No</td><td id="ref-tekikaku"></td></tr>
+          <tr><td>外貨コード</td><td id="ref-tsuka"></td></tr>
+          <tr><td>摘要</td><td id="ref-purpose"></td></tr>
+          <tr><td>支払先</td><td id="ref-shiharaisaki"></td></tr>
+        </table>
+      </div>
+
+      <!-- 手入力エリア -->
+      <div class="jnl-section" style="margin-bottom:10px;">
+        <div class="jnl-section-hd" style="color:#dc2626;"><i class="fas fa-pencil-alt"></i> 手入力エリア（経理担当者記入）</div>
+
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">補助科目</span>
+          <select class="jnl-ctrl" id="inp-hojo" style="flex:1;">
+            <option value="">— 選択してください —</option>
+          </select>
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">税金額</span>
+          <input type="text" class="jnl-ctrl jnl-ctrl-hl" id="inp-tax-amt" placeholder="例: 100" style="max-width:110px;">
+          <span style="font-size:11px;color:var(--sub);">円</span>
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">税区分</span>
+          <select class="jnl-ctrl" id="inp-tax-kbn" style="flex:1;">
+            <option value="">— 選択 —</option>
+            {% for t in tax_options %}
+            <option value="{{ t.key }}">{{ t.content }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">税率</span>
+          <select class="jnl-ctrl" id="inp-tax-rate" style="max-width:110px;">
+            <option value="">—</option>
+            <option value="対象外">対象外</option>
+            <option value="8%">8%</option>
+            <option value="10%">10%</option>
+          </select>
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">換算レート</span>
+          <input type="text" class="jnl-ctrl" id="inp-fx-rate" placeholder="外貨以外は空欄" style="max-width:110px;">
+          <span style="font-size:10px;color:#9ca3af;">外貨のみ</span>
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">外貨税額</span>
+          <input type="text" class="jnl-ctrl" id="inp-fx-tax" placeholder="外貨以外は空欄" style="max-width:110px;">
+        </div>
+      </div>
+
+    </div><!-- /pane-body -->
+
+    <!-- 保存ナビ -->
+    <div class="jnl-form-nav">
+      <button class="btn btn-sm btn-outline-secondary" onclick="jnlGoPrev()">
+        <i class="fas fa-chevron-left"></i> 前へ
+      </button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-sm btn-success" onclick="jnlSave(false)" style="flex:1;justify-content:center;">
+        <i class="fas fa-save"></i> 保存
+      </button>
+      <button class="btn btn-sm btn-primary" onclick="jnlSave(true)" style="flex:1;justify-content:center;">
+        保存して次へ <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- 右: 証憑ビューア -->
+  <div class="jnl-pane">
+    <div class="jnl-viewer-tb">
+      <i class="fas fa-paperclip" style="color:#94a3b8;"></i>
+      <span class="jnl-viewer-fname" id="viewer-fname">—</span>
+      <a id="viewer-open-btn" href="#" target="_blank" class="jnl-vbtn" style="display:none;">
+        <i class="fas fa-external-link-alt"></i> 別タブで開く
+      </a>
+    </div>
+    <div class="jnl-viewer-area" id="viewer-area">
+      <div class="jnl-viewer-empty">
+        <i class="fas fa-image"></i>
+        <div style="font-size:12px;">明細を選択すると<br>証憑が表示されます</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /workspace -->
+
+{% else %}
+<!-- データなし -->
+<div style="padding:40px 28px;">
+  <div class="card">
+    <div class="card-body text-center text-muted py-5">
+      <i class="fas fa-check-circle fa-2x mb-2 d-block" style="color:var(--primary);"></i>
+      仕訳作成の対象データはありません。
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+(function () {
+  /* ── 定数 ── */
+  var DETAIL_URL_TPL = "{% url 'expenses:journal_detail_api' 0 %}".replace('/0/', '/{pk}/');
+  var SAVE_URL_TPL   = "{% url 'expenses:journal_save' 0 %}".replace('/0/', '/{pk}/');
+  var CSRF           = '{{ csrf_token }}';
+  var currentPk      = null;
+  var zoomLevel      = 1.0;
+  var currentAttUrl  = null;
+  var currentIsImg   = false;
+
+  /* ── アイテム選択 ── */
+  window.jnlSelect = function (pk) {
+    document.querySelectorAll('.jnl-item').forEach(function (el) {
+      el.classList.remove('active');
+    });
+    var item = document.getElementById('jnl-item-' + pk);
+    if (item) {
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+    }
+    currentPk = pk;
+    zoomLevel  = 1.0;
+    fetch(DETAIL_URL_TPL.replace('{pk}', pk))
+      .then(function (r) { return r.json(); })
+      .then(function (d) { populateForm(pk, d); });
+  };
+
+  function populateForm(pk, d) {
+    /* 参照テーブル */
+    var ref = d.ref;
+    setText('ref-applicant',   ref.applicant);
+    var docLink = '<a href="/' + ref.document_id + '/?from=settlement_journal" style="color:var(--primary);font-size:11px;">#' + ref.document_id + ' →</a>';
+    document.getElementById('ref-doc-id').innerHTML = docLink;
+    setText('ref-date',        ref.date);
+    setText('ref-bumon-cd',    ref.bumon_cd);
+    setText('ref-bumon-name',  ref.bumon_name);
+    setText('ref-account-cd',  ref.account_cd);
+    setText('ref-account-name',ref.account_name);
+    setText('ref-amount',            ref.amount ? '¥' + Number(ref.amount).toLocaleString() : '');
+    setText('ref-consumption-tax',   ref.consumption_tax ? '¥' + Number(ref.consumption_tax).toLocaleString() : '');
+    setText('ref-consumption-kbn',   ref.consumption_kbn);
+    setText('ref-consumption-kbn-name', ref.consumption_kbn_name);
+    setText('ref-tekikaku',          ref.tekikaku_cd);
+    setText('ref-tsuka',             ref.tsuka_cd);
+    setText('ref-purpose',           ref.purpose);
+    setText('ref-shiharaisaki',      ref.shiharaisaki);
+
+    /* ヘッダラベル */
+    document.getElementById('jnl-form-label').textContent = '— 明細 #' + pk;
+    var badge = document.getElementById('jnl-form-badge');
+    if (d.journal_done) {
+      badge.innerHTML = '<span class="jnl-badge jnl-badge-done">✔ 入力済</span>';
+    } else if (d.warn) {
+      badge.innerHTML = '<span class="jnl-badge jnl-badge-warn">⚠ 要確認</span>';
+    } else {
+      badge.innerHTML = '<span class="jnl-badge jnl-badge-todo">未入力</span>';
+    }
+
+    /* 補助科目プルダウン再構築 */
+    var hojoSel = document.getElementById('inp-hojo');
+    hojoSel.innerHTML = '<option value="">— 選択してください —</option>';
+    (d.hojo_options || []).forEach(function (h) {
+      var opt = document.createElement('option');
+      opt.value = h.cd;
+      opt.textContent = h.cd + '　' + h.name;
+      hojoSel.appendChild(opt);
+    });
+    /* 保存済み値を復元 */
+    var entry = d.entry;
+    hojoSel.value = entry.hojo_cd || '';
+    document.getElementById('inp-tax-amt').value     = entry.consumption_tax || '';
+    document.getElementById('inp-tax-kbn').value     = entry.journal_tax_kbn || '';
+    document.getElementById('inp-tax-rate').value    = entry.journal_tax_rate || '';
+    document.getElementById('inp-fx-rate').value     = entry.journal_fx_rate || '';
+    document.getElementById('inp-fx-tax').value      = entry.journal_fx_tax || '';
+
+    /* 証憑ビューア */
+    currentAttUrl = d.att_url;
+    currentIsImg  = d.att_is_image;
+    renderViewer(d.att_url, d.att_name, d.att_is_image, d.att_is_pdf);
+  }
+
+  function renderViewer(url, attName, isImg, isPdf) {
+    var area    = document.getElementById('viewer-area');
+    var fnEl    = document.getElementById('viewer-fname');
+    var openBtn = document.getElementById('viewer-open-btn');
+
+    /* ファイル名表示（添付なし / 対応外 / 画像 / PDF 共通） */
+    if (attName) {
+      fnEl.textContent = attName;
+    } else {
+      fnEl.textContent = '—';
+    }
+
+    area.innerHTML = '';
+
+    if (!url && !attName) {
+      /* 添付なし */
+      area.innerHTML = '<div class="jnl-viewer-empty"><i class="fas fa-image"></i><div style="font-size:12px;">証憑なし</div></div>';
+      openBtn.style.display = 'none';
+      return;
+    }
+
+    if (!url) {
+      /* 添付あり・プレビュー非対応形式 */
+      area.innerHTML = '<div class="jnl-viewer-empty">'
+        + '<i class="fas fa-file" style="color:#94a3b8;"></i>'
+        + '<div style="font-size:12px;color:#94a3b8;margin-top:6px;">プレビュー非対応のファイル形式です</div>'
+        + '<div style="font-size:11px;color:#64748b;margin-top:4px;word-break:break-all;padding:0 16px;">' + attName + '</div>'
+        + '</div>';
+      openBtn.style.display = 'none';
+      return;
+    }
+
+    openBtn.href          = url;
+    openBtn.style.display = '';
+
+    var zoomDiv = document.createElement('div');
+    zoomDiv.className = 'jnl-zoom';
+    zoomDiv.innerHTML = '<button class="jnl-vbtn" onclick="jnlZoom(0.8)"><i class="fas fa-minus"></i></button>'
+                      + '<button class="jnl-vbtn" onclick="jnlZoom(1.25)"><i class="fas fa-plus"></i></button>';
+
+    if (isImg) {
+      var img = document.createElement('img');
+      img.src = url;
+      img.style.transform = 'scale(' + zoomLevel + ')';
+      img.style.transformOrigin = 'top center';
+      img.id = 'viewer-img';
+      area.appendChild(img);
+      area.appendChild(zoomDiv);
+    } else if (isPdf) {
+      var ifr = document.createElement('iframe');
+      ifr.src = url;
+      ifr.id  = 'viewer-iframe';
+      area.appendChild(ifr);
+    }
+  }
+
+  window.jnlZoom = function (factor) {
+    zoomLevel = Math.max(0.3, Math.min(4.0, zoomLevel * factor));
+    var img = document.getElementById('viewer-img');
+    if (img) img.style.transform = 'scale(' + zoomLevel + ')';
+  };
+
+  /* ── 保存 ── */
+  window.jnlSave = function (andNext) {
+    if (!currentPk) return;
+    var body = new URLSearchParams({
+      csrfmiddlewaretoken: CSRF,
+      hojo_cd:          document.getElementById('inp-hojo').value,
+      consumption_tax:  document.getElementById('inp-tax-amt').value,
+      journal_tax_kbn:  document.getElementById('inp-tax-kbn').value,
+      journal_tax_rate: document.getElementById('inp-tax-rate').value,
+      journal_fx_rate:  document.getElementById('inp-fx-rate').value,
+      journal_fx_tax:   document.getElementById('inp-fx-tax').value,
+    });
+    fetch(SAVE_URL_TPL.replace('{pk}', currentPk), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { alert('保存に失敗しました。'); return; }
+        updateListItem(currentPk, d.journal_done);
+        if (andNext) {
+          jnlNextTodo();
+        }
+      });
+  };
+
+  function updateListItem(pk, done) {
+    var item = document.getElementById('jnl-item-' + pk);
+    if (!item) return;
+    item.classList.remove('done', 'warn');
+    if (done) item.classList.add('done');
+    var badge = item.querySelector('.jnl-badge');
+    if (badge) {
+      badge.className = done ? 'jnl-badge jnl-badge-done' : 'jnl-badge jnl-badge-todo';
+      badge.textContent = done ? '✔ 入力済' : '未入力';
+    }
+
+    /* ヘッダバッジ更新 */
+    var hdrBadge = document.getElementById('jnl-form-badge');
+    if (hdrBadge) {
+      hdrBadge.innerHTML = done
+        ? '<span class="jnl-badge jnl-badge-done">✔ 入力済</span>'
+        : '<span class="jnl-badge jnl-badge-todo">未入力</span>';
+    }
+  }
+
+  /* ── ナビゲーション ── */
+  function pkList() {
+    return Array.from(document.querySelectorAll('.jnl-item')).map(function (el) {
+      return parseInt(el.dataset.pk);
+    });
+  }
+
+  window.jnlGoPrev = function () {
+    var pks = pkList();
+    var idx = pks.indexOf(currentPk);
+    if (idx > 0) jnlSelect(pks[idx - 1]);
+  };
+
+  function nextTodoPk(fromPk) {
+    var pks  = pkList();
+    var idx  = pks.indexOf(fromPk);
+    for (var i = idx + 1; i < pks.length; i++) {
+      var el = document.getElementById('jnl-item-' + pks[i]);
+      if (el && !el.classList.contains('done')) return pks[i];
+    }
+    return null;
+  }
+
+  function prevTodoPk(fromPk) {
+    var pks = pkList();
+    var idx = pks.indexOf(fromPk);
+    for (var i = idx - 1; i >= 0; i--) {
+      var el = document.getElementById('jnl-item-' + pks[i]);
+      if (el && !el.classList.contains('done')) return pks[i];
+    }
+    return null;
+  }
+
+  window.jnlNextTodo = function () {
+    var next = nextTodoPk(currentPk);
+    if (next) { jnlSelect(next); return; }
+    /* 未入力がなければ先頭から探す */
+    var all  = pkList();
+    for (var i = 0; i < all.length; i++) {
+      var el = document.getElementById('jnl-item-' + all[i]);
+      if (el && !el.classList.contains('done')) { jnlSelect(all[i]); return; }
+    }
+    alert('すべての明細の入力が完了しています。CSV出力してください。');
+  };
+
+  window.jnlPrevTodo = function () {
+    var prev = prevTodoPk(currentPk);
+    if (prev) { jnlSelect(prev); return; }
+    /* 末尾から逆方向に循環 */
+    var all = pkList();
+    for (var i = all.length - 1; i >= 0; i--) {
+      var el = document.getElementById('jnl-item-' + all[i]);
+      if (el && !el.classList.contains('done')) { jnlSelect(all[i]); return; }
+    }
+    alert('未入力の明細はありません。');
+  };
+
+  /* ── ユーティリティ ── */
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val || '';
+  }
+
+  /* ── 初期選択 ── */
+  var firstItem = document.querySelector('.jnl-item');
+  if (firstItem) {
+    currentPk = parseInt(firstItem.dataset.pk);
+    /* 最初の未入力を選ぼうとし、なければ先頭 */
+    var firstTodo = document.querySelector('.jnl-item:not(.done)');
+    var initPk    = firstTodo ? parseInt(firstTodo.dataset.pk) : currentPk;
+    jnlSelect(initPk);
+  }
+})();
+</script>
+{% endblock %}

@@ -63,7 +63,11 @@ urlpatterns = [
     path("settings/settlement/payroll/", views.settlement_payroll, name="settlement_payroll"),
     path("settings/settlement/auto_debit/", views.settlement_auto_debit, name="settlement_auto_debit"),
     # 仕訳処理
-    path("settings/settlement/journal/", views.settlement_journal, name="settlement_journal"),
+    path("settings/settlement/journal/",                views.settlement_journal,  name="settlement_journal"),
+    path("settings/settlement/journal/entry/",          views.journal_entry,       name="journal_entry"),
+    path("settings/settlement/journal/csv/",            views.journal_csv,         name="journal_csv"),
+    path("settings/settlement/journal/<int:pk>/",       views.journal_detail_api,  name="journal_detail_api"),
+    path("settings/settlement/journal/<int:pk>/save/",  views.journal_save,        name="journal_save"),
     # マスタ設定
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),

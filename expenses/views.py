@@ -5000,10 +5000,45 @@ _JOURNAL_KBN_LABEL = {
     'LON_INPRO': '前借証',
 }
 
+# 部門コード → 科目コード上2桁マッピング（3桁科目コードを5桁に変換するため）
+_BUMON_CS_KBN = {
+    "11000":"83","11400":"84","11430":"84","12000":"83","13000":"83",
+    "19100":"83","19400":"83","19700":"84","21000":"83","21101":"83",
+    "21102":"83","21200":"83","21210":"83","21300":"83","21410":"84",
+    "22102":"83","23000":"83","23101":"83","23102":"83","23200":"83",
+    "25101":"83","25102":"83","25200":"83","25301":"83","29100":"84",
+    "29200":"83","29210":"83","29220":"83","29300":"84","29320":"84",
+    "29400":"83","29410":"83","29500":"83","29610":"84","29620":"84",
+    "29630":"84","29640":"84","29650":"84","29660":"84","29700":"84",
+    "29800":"84","31000":"83","31100":"83","31300":"83","61100":"83",
+    "73200":"83","73300":"83","73600":"83","90100":"83","90110":"83",
+    "90120":"83","90200":"83","90210":"83","90220":"83","91000":"84",
+    "91030":"84","91050":"84","91110":"84","91120":"84","91300":"84",
+    "91500":"84","91600":"84","91700":"84","91710":"84","91900":"84",
+    "92000":"84","92020":"84","92030":"84","92040":"84","92100":"84",
+    "92110":"84","92120":"84","92130":"84","92140":"84","92200":"84",
+    "92210":"84","92400":"84","92410":"84","92500":"84","92600":"84",
+    "92700":"84","92900":"84","93200":"84","93400":"84","97400":"84",
+}
+
+
+def _build_account_cd_5(account_cd, bumon_cd):
+    """3〜5桁の科目コードを会計システム向け5桁コードに変換する"""
+    cd = str(account_cd or '').strip()
+    ln = len(cd)
+    if ln >= 5:
+        return cd
+    if ln == 4:
+        return "8" + cd
+    if ln == 3:
+        prefix = _BUMON_CS_KBN.get(str(bumon_cd or '').strip(), "??")
+        return prefix + cd
+    return cd
+
 
 @login_required
 def settlement_journal(request):
-    """仕訳作成: INPRO ステータスの明細一覧を表示し、会計システム向けデータを生成する"""
+    """仕訳作成: INPRO ステータスの明細一覧から対象を選んで仕訳入力画面へ"""
     journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
     contents = (
         T_DocumentContent.objects
@@ -5016,6 +5051,264 @@ def settlement_journal(request):
         'rows': rows,
         'current': 'settlement_journal',
     })
+
+
+@login_required
+def journal_entry(request):
+    """仕訳入力: 選択された明細IDの3ペインUI。?ids=1,2,3 で絞り込む"""
+    journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
+
+    raw_ids = request.GET.get('ids', '')
+    try:
+        selected_ids = [int(x) for x in raw_ids.split(',') if x.strip().isdigit()]
+    except Exception:
+        selected_ids = []
+
+    if not selected_ids:
+        return redirect('expenses:settlement_journal')
+
+    contents = list(
+        T_DocumentContent.objects
+        .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
+        .filter(
+            document_detail_id__in=selected_ids,
+            settle_kbn__in=journal_kbns,
+            document__status_cd_id='FNS',
+        )
+        .order_by('document__document_type_id', 'document__document_id', 'date')
+    )
+
+    if not contents:
+        return redirect('expenses:settlement_journal')
+
+    total = len(contents)
+    done  = sum(1 for c in contents if c.journal_done)
+    warn  = sum(1 for c in contents
+                if not c.journal_done and not _BUMON_CS_KBN.get(str(c.document.bumon_cd_id or '').strip()))
+
+    tax_options = list(
+        M_Item.objects.filter(data_kbn='TAX_C').order_by('key').values('key', 'content', 'content2', 'content3')
+    )
+
+    rows = []
+    for c in contents:
+        bumon_cd = str(c.document.bumon_cd_id or '').strip()
+        raw_acd  = str(c.account_id or '').strip()
+        acd5     = _build_account_cd_5(raw_acd, bumon_cd)
+        rows.append({
+            'pk':           c.document_detail_id,
+            'account_name': c.account.account_name if c.account else '',
+            'date':         c.date,
+            'applicant':    str(c.document.man_number) if c.document.man_number else '',
+            'amount':       c.amount,
+            'purpose':      c.purpose or '',
+            'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn or ''),
+            'journal_done': c.journal_done,
+            'warn':         acd5.startswith('??'),
+        })
+
+    return render(request, 'expenses/settlement_journal_entry.html', {
+        'rows':        rows,
+        'total':       total,
+        'done':        done,
+        'todo':        total - done,
+        'warn':        warn,
+        'tax_options': tax_options,
+        'current':     'settlement_journal',
+    })
+
+
+@login_required
+def journal_detail_api(request, pk):
+    """AJAX: 明細1件の参照データ・仕訳入力値・添付URL・補助科目候補をJSON返却"""
+    import os as _os
+    content = get_object_or_404(
+        T_DocumentContent.objects.select_related(
+            'document', 'document__man_number', 'document__bumon_cd', 'account'
+        ),
+        pk=pk,
+    )
+    doc     = content.document
+    bumon_cd = str(doc.bumon_cd_id or '').strip()
+    raw_acd  = str(content.account_id or '').strip()
+    acd5     = _build_account_cd_5(raw_acd, bumon_cd)
+
+    # 添付ファイル（最初の1件）- 画像・PDF のみプレビュー。それ以外はファイル名のみ返す
+    att_url      = None
+    att_name     = None
+    att_is_image = False
+    att_is_pdf   = False
+    try:
+        att = content.attachments.first()
+        if att and att.file:
+            ext      = _os.path.splitext(att.file.name)[1].lower()
+            att_name = _os.path.basename(att.file.name)
+            if ext in ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'):
+                att_url      = att.file.url
+                att_is_image = True
+            elif ext == '.pdf':
+                att_url    = att.file.url
+                att_is_pdf = True
+            # それ以外: att_url=None, att_name は返す（ファイル名表示のみ）
+    except Exception:
+        pass
+
+    # 補助科目候補（同じ科目コードに紐づくもの）
+    hojo_options = list(
+        M_AccountSub.objects.filter(account_cd=raw_acd)
+        .order_by('sub_account_cd')
+        .values('sub_account_cd', 'sub_account_name')
+    )
+
+    # consumption_kbn の名称を M_Item[data_kbn='TAX'] から取得
+    c_kbn_name = ''
+    if content.consumption_kbn is not None:
+        item = M_Item.objects.filter(
+            data_kbn='TAX', key=str(content.consumption_kbn)
+        ).values_list('content', flat=True).first()
+        c_kbn_name = item or ''
+
+    # tekikaku_cd に 'T' を付与
+    tekikaku_display = ('T' + str(content.tekikaku_cd)) if content.tekikaku_cd else ''
+
+    return JsonResponse({
+        'ref': {
+            'applicant':          str(doc.man_number) if doc.man_number else '',
+            'document_id':        doc.document_id,
+            'date':               content.date.strftime('%Y-%m-%d') if content.date else '',
+            'bumon_cd':           bumon_cd,
+            'bumon_name':         doc.bumon_cd.bumon_name if doc.bumon_cd else '',
+            'account_cd':         acd5,
+            'account_name':       content.account.account_name if content.account else '',
+            'amount':             str(content.amount or ''),
+            'tsuka_cd':           doc.tsuka_cd or '',
+            'purpose':            content.purpose or '',
+            'shiharaisaki':       content.shiharaisaki or '',
+            'consumption_tax':    str(content.consumption_tax or ''),
+            'consumption_kbn':    str(content.consumption_kbn) if content.consumption_kbn is not None else '',
+            'consumption_kbn_name': c_kbn_name,
+            'tekikaku_cd':        tekikaku_display,
+        },
+        'entry': {
+            'hojo_cd':           content.hojo_cd or '',
+            'consumption_tax':   str(content.consumption_tax or ''),
+            'journal_tax_kbn':   content.journal_tax_kbn or '',
+            'journal_tax_rate':  content.journal_tax_rate or '',
+            'journal_fx_rate':   content.journal_fx_rate or '',
+            'journal_fx_tax':    content.journal_fx_tax or '',
+        },
+        'hojo_options': [
+            {'cd': h['sub_account_cd'], 'name': h['sub_account_name']}
+            for h in hojo_options
+        ],
+        'att_url':      att_url,
+        'att_name':     att_name,
+        'att_is_image': att_is_image,
+        'att_is_pdf':   att_is_pdf,
+        'settle_label': _JOURNAL_KBN_LABEL.get(content.settle_kbn, content.settle_kbn or ''),
+        'journal_done': content.journal_done,
+        'warn':         acd5.startswith('??'),
+    })
+
+
+@login_required
+def journal_save(request, pk):
+    """AJAX POST: 明細1件の仕訳入力値を保存する"""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
+
+    content = get_object_or_404(T_DocumentContent, pk=pk)
+
+    content.hojo_cd          = request.POST.get('hojo_cd', '').strip() or None
+    content.journal_tax_kbn  = request.POST.get('journal_tax_kbn', '').strip() or None
+    content.journal_tax_rate = request.POST.get('journal_tax_rate', '').strip() or None
+    content.journal_fx_rate  = request.POST.get('journal_fx_rate', '').strip() or None
+    content.journal_fx_tax   = request.POST.get('journal_fx_tax', '').strip() or None
+
+    tax_val = request.POST.get('consumption_tax', '').strip()
+    if tax_val:
+        try:
+            content.consumption_tax = Decimal(tax_val)
+        except Exception:
+            content.consumption_tax = None
+    else:
+        content.consumption_tax = None
+
+    content.journal_done = bool(content.hojo_cd or content.consumption_tax)
+
+    content.save(update_fields=[
+        'hojo_cd', 'consumption_tax',
+        'journal_tax_kbn', 'journal_tax_rate',
+        'journal_fx_rate', 'journal_fx_tax', 'journal_done',
+    ])
+
+    return JsonResponse({'ok': True, 'journal_done': content.journal_done})
+
+
+@login_required
+def journal_csv(request):
+    """仕訳CSV出力: 会計システム取込形式でストリーミングダウンロード"""
+    import csv as _csv
+
+    journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
+    contents = (
+        T_DocumentContent.objects
+        .select_related('document__bumon_cd', 'account')
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS')
+        .order_by('document__document_type_id', 'document__document_id', 'date')
+    )
+
+    # 補助科目名を一括取得 (account_cd, sub_account_cd) → name
+    _hojo_name_map = {
+        (str(h['account_cd']), str(h['sub_account_cd'])): h['sub_account_name']
+        for h in M_AccountSub.objects.values('account_cd', 'sub_account_cd', 'sub_account_name')
+    }
+
+    class _Echo:
+        def write(self, value):
+            return value
+
+    def _rows():
+        writer = _csv.writer(_Echo())
+        yield writer.writerow([
+            '伝票区切', '伝票日付', '部門ｺｰﾄﾞ', '部門名',
+            '科目ｺｰﾄﾞ', '科目名', '補助科目ｺｰﾄﾞ', '補助科目名',
+            '税抜金額', '税金額', '税区分', '税率',
+            '外貨ｺｰﾄﾞ', '換算ﾚｰﾄ', '外貨金額', '外貨税額', '摘要（品名）',
+        ])
+        for c in contents:
+            bumon_cd  = str(c.document.bumon_cd_id or '').strip()
+            raw_acd   = str(c.account_id or '').strip()
+            acd5      = _build_account_cd_5(raw_acd, bumon_cd)
+            hojo_cd   = c.hojo_cd or ''
+            hojo_name = _hojo_name_map.get((raw_acd, hojo_cd), '') if hojo_cd else ''
+            yield writer.writerow([
+                '*',
+                c.date.strftime('%Y-%m-%d') if c.date else '',
+                bumon_cd,
+                c.document.bumon_cd.bumon_name if c.document.bumon_cd else '',
+                acd5,
+                c.account.account_name if c.account else '',
+                hojo_cd,
+                hojo_name,
+                str(c.amount or ''),
+                str(c.consumption_tax or ''),
+                c.journal_tax_kbn or '',
+                c.journal_tax_rate or '',
+                c.document.tsuka_cd or '',
+                c.journal_fx_rate or '',
+                str(c.amount or ''),
+                c.journal_fx_tax or '',
+                c.purpose or '',
+            ])
+
+    from django.http import StreamingHttpResponse
+    response = StreamingHttpResponse(
+        _rows(),
+        content_type='text/csv; charset=utf-8-sig',
+    )
+    response['Content-Disposition'] = 'attachment; filename="仕訳取込.csv"'
+    return response
 
 
 @login_required

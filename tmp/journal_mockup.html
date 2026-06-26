@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仕訳作成 — 経費精算システム モックアップ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+/* ── Swiss / Flat Corporate デザイントークン ── */
+:root {
+  --primary: #17307a;
+  --primary-hover: #1e3a8a;
+  --primary-soft: #eff3fb;
+  --panel: #f9fafb;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --success: #166534;
+  --success-bg: #dcfce7;
+  --warning: #92400e;
+  --warning-bg: #fef3c7;
+  --danger: #991b1b;
+  --danger-bg: #fee2e2;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --topbar-h: 48px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: -apple-system,"Segoe UI","Noto Sans JP",sans-serif; font-size: 13px; color: var(--text); background: #f3f4f6; }
+
+/* ── トップバー ── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--topbar-h); background: var(--primary);
+  display: flex; align-items: center; padding: 0 16px; gap: 12px;
+}
+.topbar-brand { color: #fff; font-family:"Zen Kaku Gothic New",sans-serif; font-size: 15px; font-weight: 700; }
+.topbar-spacer { flex: 1; }
+.topbar-user { color: rgba(255,255,255,.7); font-size: 12px; }
+
+/* ── メインコンテナ（topbar分オフセット）── */
+.app-shell {
+  display: flex; height: 100vh; padding-top: var(--topbar-h);
+}
+
+/* ── コンテンツエリア ── */
+.content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── ページヘッダ ── */
+.page-head {
+  background: #fff; border-bottom: 1px solid var(--line);
+  padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+}
+.pt-ico {
+  width: 32px; height: 32px; border-radius: 4px; background: var(--primary);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px;
+}
+.page-title { font-family:"Zen Kaku Gothic New",sans-serif; font-size: 18px; font-weight: 700; color: var(--text); }
+.page-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+/* ── サマリーバー ── */
+.summary-bar {
+  background: var(--panel); border-bottom: 1px solid var(--line);
+  padding: 6px 20px; display: flex; gap: 16px; align-items: center; flex-shrink: 0;
+}
+.summary-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.summary-dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot-done { background: #22c55e; }
+.dot-todo { background: #e5e7eb; border: 1px solid #9ca3af; }
+.dot-warn { background: #f59e0b; }
+
+/* ── 3ペインレイアウト ── */
+.three-pane {
+  flex: 1; display: grid;
+  grid-template-columns: 320px 340px 1fr;
+  overflow: hidden;
+}
+.pane {
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--line); overflow: hidden;
+}
+.pane:last-child { border-right: none; }
+.pane-header {
+  background: var(--panel); border-bottom: 1px solid var(--line);
+  padding: 8px 12px; font-size: 11px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em;
+  flex-shrink: 0;
+}
+.pane-body { flex: 1; overflow-y: auto; }
+
+/* ── 明細一覧 (左ペイン) ── */
+.item-list { list-style: none; }
+.item-row {
+  padding: 8px 12px; border-bottom: 1px solid var(--line);
+  cursor: pointer; transition: background .1s;
+  display: grid; grid-template-columns: 24px 1fr auto; gap: 4px; align-items: start;
+}
+.item-row:hover { background: var(--primary-soft); }
+.item-row.selected { background: var(--primary-soft); border-left: 3px solid var(--primary); }
+.item-row.done    { background: #f0fdf4; }
+.item-row.warning { background: #fffbeb; }
+
+.item-no { font-size: 10px; color: var(--text-muted); padding-top: 2px; }
+.item-main { min-width: 0; }
+.item-name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.item-meta { text-align: right; }
+.item-amount { font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; }
+.item-date { font-size: 10px; color: var(--text-muted); }
+
+/* ステータスバッジ */
+.badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 7px; border-radius: 9999px; font-size: 10px; font-weight: 600;
+  border: 1px solid transparent;
+}
+.badge-done  { background: var(--success-bg); color: var(--success); border-color: #bbf7d0; }
+.badge-todo  { background: #f3f4f6; color: var(--text-muted); border-color: var(--line-strong); }
+.badge-warn  { background: var(--warning-bg); color: var(--warning); border-color: #fde68a; }
+
+/* ── フォームペイン (中央) ── */
+.form-section {
+  margin: 10px 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+}
+.form-section-head {
+  background: var(--panel); padding: 6px 10px;
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 6px;
+}
+.form-section-head .accent { color: var(--primary); }
+.form-section-head .accent-red { color: #dc2626; }
+.ref-table { width: 100%; border-collapse: collapse; }
+.ref-table tr + tr td { border-top: 1px solid var(--line); }
+.ref-table td { padding: 5px 10px; font-size: 12px; }
+.ref-table td:first-child { color: var(--text-muted); white-space: nowrap; width: 90px; background: var(--panel); font-size: 11px; }
+.ref-table td:last-child { font-weight: 500; }
+
+.input-row { padding: 6px 10px; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); }
+.input-row:first-child { border-top: none; }
+.input-label { width: 90px; font-size: 11px; color: var(--text-muted); flex-shrink: 0; text-align: right; }
+.form-control {
+  flex: 1; border: 1px solid var(--line-strong); border-radius: 4px;
+  padding: 5px 8px; font-size: 12px; color: var(--text);
+  background: #fff; height: 30px;
+}
+.form-control:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
+.form-control.highlight { background: #fffbeb; border-color: #f59e0b; }
+.form-select {
+  flex: 1; border: 1px solid var(--line-strong); border-radius: 4px;
+  padding: 5px 8px; font-size: 12px; color: var(--text);
+  background: #fff; height: 30px;
+}
+.form-select:focus { outline: 2px solid var(--primary); }
+.auto-fill { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+
+.form-nav {
+  padding: 10px 12px; display: flex; gap: 8px;
+  border-top: 1px solid var(--line); background: #fff; flex-shrink: 0;
+}
+
+/* ── ボタン ── */
+.btn {
+  padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 6px;
+  text-decoration: none; white-space: nowrap;
+}
+.btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-success { background: #16a34a; color: #fff; }
+.btn-success:hover { background: #15803d; }
+.btn-outline { background: #fff; color: var(--text); border-color: var(--line-strong); }
+.btn-outline:hover { background: var(--panel); }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+
+/* ── 証憑ビューア (右ペイン) ── */
+.viewer-toolbar {
+  background: #1e293b; padding: 8px 12px;
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.viewer-filename {
+  color: #94a3b8; font-size: 11px; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.viewer-btn {
+  background: #334155; color: #e2e8f0; border: 1px solid #475569;
+  border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;
+}
+.viewer-btn:hover { background: #475569; }
+.viewer-area {
+  flex: 1; background: #0f172a; display: flex; align-items: center; justify-content: center;
+  overflow: auto; position: relative;
+}
+.receipt-preview {
+  max-width: 90%; max-height: 90%;
+  background: #fff; border-radius: 4px; overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+.viewer-zoom {
+  position: absolute; bottom: 12px; right: 12px;
+  display: flex; gap: 4px;
+}
+
+/* ── モーダル（CSV出力確認） ── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-card {
+  background: #fff; border-radius: 8px; width: 480px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.18);
+}
+.modal-head {
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+}
+.modal-head-icon { width: 32px; height: 32px; border-radius: 4px; background: #dcfce7; display: flex; align-items: center; justify-content: center; color: #16a34a; }
+.modal-title { font-family:"Zen Kaku Gothic New",sans-serif; font-size: 15px; font-weight: 700; }
+.modal-body { padding: 16px 20px; font-size: 13px; }
+.modal-foot { padding: 12px 20px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── インジケーター ── */
+.progress-ring { display: flex; align-items: center; gap: 8px; }
+.ring-track { width: 80px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.ring-fill  { height: 100%; background: #22c55e; border-radius: 4px; }
+.ring-text  { font-size: 12px; color: var(--text-muted); }
+
+/* モックアップ注釈バナー */
+.mockup-banner {
+  background: #fef3c7; border-bottom: 2px solid #f59e0b;
+  padding: 6px 20px; font-size: 11px; color: #92400e; text-align: center;
+  font-weight: 600; flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- トップバー -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <i class="fas fa-yen-sign" style="margin-right:8px;"></i>経費精算システム
+  </div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user"><i class="fas fa-user" style="margin-right:4px;"></i>経理 太郎</div>
+</div>
+
+<div class="app-shell">
+
+  <!-- コンテンツエリア（サイドバーなし） -->
+  <div class="content">
+
+    <!-- モックアップ注釈 -->
+    <div class="mockup-banner">
+      ⚠ これはUIモックアップです。データはサンプルです。
+    </div>
+
+    <!-- ページヘッダ -->
+    <div class="page-head">
+      <div class="pt-ico"><i class="fas fa-file-invoice"></i></div>
+      <h2 class="page-title">仕訳作成</h2>
+      <div class="page-actions">
+        <a href="#" class="btn btn-outline btn-sm" onclick="alert('精算処理メニューへ戻る')">
+          <i class="fas fa-arrow-left"></i> 精算処理に戻る
+        </a>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('csv-modal').style.display='flex'">
+          <i class="fas fa-file-csv"></i> CSV出力
+        </button>
+      </div>
+    </div>
+
+    <!-- サマリーバー -->
+    <div class="summary-bar">
+      <div class="summary-item">
+        <span class="summary-dot dot-done"></span>
+        <strong>全36件</strong>
+      </div>
+      <div class="summary-item">
+        <span class="summary-dot dot-done"></span>
+        入力済 <strong style="color:#16a34a;">33件</strong>
+      </div>
+      <div class="summary-item">
+        <span class="summary-dot dot-todo"></span>
+        未入力 <strong>3件</strong>
+      </div>
+      <div class="summary-item">
+        <span class="summary-dot dot-warn"></span>
+        要確認 <strong style="color:#d97706;">1件</strong>
+      </div>
+      <div style="margin-left:auto;" class="progress-ring">
+        <div class="ring-track"><div class="ring-fill" style="width:91%;"></div></div>
+        <span class="ring-text">91% 完了</span>
+      </div>
+    </div>
+
+    <!-- 3ペインレイアウト -->
+    <div class="three-pane">
+
+      <!-- 左ペイン: 明細一覧 -->
+      <div class="pane">
+        <div class="pane-header">
+          <i class="fas fa-list-ul"></i>&nbsp; 明細一覧
+          &nbsp;<span style="font-weight:400;color:var(--text-muted);">36件</span>
+        </div>
+        <div class="pane-body">
+          <ul class="item-list">
+            <!-- 入力済 -->
+            <li class="item-row done" onclick="selectRow(this,1)">
+              <span class="item-no">1</span>
+              <div class="item-main">
+                <div class="item-name">交際費</div>
+                <div class="item-sub">経理統括 ／ 2026-05-13</div>
+                <div class="item-sub">摘要: mokuteki</div>
+                <div style="margin-top:3px;"><span class="badge badge-done">✔ 入力済</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥888</div>
+                <div class="item-date">補助:交際費その他</div>
+              </div>
+            </li>
+            <li class="item-row done" onclick="selectRow(this,2)">
+              <span class="item-no">2</span>
+              <div class="item-main">
+                <div class="item-name">旅費交通費</div>
+                <div class="item-sub">経理統括 ／ 2026-05-19</div>
+                <div class="item-sub">摘要: 出張旅費</div>
+                <div style="margin-top:3px;"><span class="badge badge-done">✔ 入力済</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥500</div>
+                <div class="item-date">補助:海外</div>
+              </div>
+            </li>
+            <!-- 未入力 (選択中) -->
+            <li class="item-row selected" id="row-3" onclick="selectRow(this,3)">
+              <span class="item-no">3</span>
+              <div class="item-main">
+                <div class="item-name">事務消耗品費</div>
+                <div class="item-sub">経理統括 ／ 2026-05-05</div>
+                <div class="item-sub">摘要: 会計研修費</div>
+                <div style="margin-top:3px;"><span class="badge badge-todo">未入力</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥1,100</div>
+                <div class="item-date">補助: 未設定</div>
+              </div>
+            </li>
+            <!-- 要確認 -->
+            <li class="item-row warning" onclick="selectRow(this,4)">
+              <span class="item-no">4</span>
+              <div class="item-main">
+                <div class="item-name">旅費交通費</div>
+                <div class="item-sub">応用技術 ／ 2026-05-18</div>
+                <div class="item-sub">摘要: 出張旅費</div>
+                <div style="margin-top:3px;"><span class="badge badge-warn">⚠ 要確認</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥5,000</div>
+                <div class="item-date">部門CD未登録</div>
+              </div>
+            </li>
+            <!-- 未入力 -->
+            <li class="item-row" onclick="selectRow(this,5)">
+              <span class="item-no">5</span>
+              <div class="item-main">
+                <div class="item-name">材料仕入高</div>
+                <div class="item-sub">経理統括 ／ 2026-06-05</div>
+                <div class="item-sub">摘要: 部材購入</div>
+                <div style="margin-top:3px;"><span class="badge badge-todo">未入力</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥1,000</div>
+                <div class="item-date">補助: 未設定</div>
+              </div>
+            </li>
+            <li class="item-row done" onclick="selectRow(this,6)">
+              <span class="item-no">6</span>
+              <div class="item-main">
+                <div class="item-name">保修費</div>
+                <div class="item-sub">経理統括 ／ 2026-05-30</div>
+                <div class="item-sub">摘要: 備品購入</div>
+                <div style="margin-top:3px;"><span class="badge badge-done">✔ 入力済</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥1,500</div>
+              </div>
+            </li>
+            <li class="item-row done" onclick="selectRow(this,7)">
+              <span class="item-no">7</span>
+              <div class="item-main">
+                <div class="item-name">仮払金</div>
+                <div class="item-sub">経理統括 ／ 2026-05-29</div>
+                <div class="item-sub">摘要: 切手</div>
+                <div style="margin-top:3px;"><span class="badge badge-done">✔ 入力済</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥10,000</div>
+              </div>
+            </li>
+            <li class="item-row done" onclick="selectRow(this,8)">
+              <span class="item-no">8</span>
+              <div class="item-main">
+                <div class="item-name">雑費</div>
+                <div class="item-sub">人事部 ／ 2026-05-14</div>
+                <div class="item-sub">摘要: 社労士顧問料</div>
+                <div style="margin-top:3px;"><span class="badge badge-done">✔ 入力済</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥33,000</div>
+              </div>
+            </li>
+            <li class="item-row done" onclick="selectRow(this,9)">
+              <span class="item-no">9</span>
+              <div class="item-main">
+                <div class="item-name">賃借料</div>
+                <div class="item-sub">経理統括 ／ 2026-05-30</div>
+                <div class="item-sub">摘要: 会議室利用</div>
+                <div style="margin-top:3px;"><span class="badge badge-done">✔ 入力済</span></div>
+              </div>
+              <div class="item-meta">
+                <div class="item-amount">¥50,000</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 前後ナビ -->
+        <div style="padding:8px 12px;border-top:1px solid var(--line);background:#fff;display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-outline btn-sm" style="flex:1;justify-content:center;">
+            <i class="fas fa-chevron-left"></i> 前の未入力
+          </button>
+          <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center;">
+            次の未入力 <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 中央ペイン: 入力フォーム -->
+      <div class="pane">
+        <div class="pane-header">
+          <i class="fas fa-edit"></i>&nbsp; 仕訳入力
+          &nbsp;—&nbsp;<span style="color:var(--text);font-weight:600;">明細 #3</span>
+          <div style="margin-left:auto;"><span class="badge badge-todo">未入力</span></div>
+        </div>
+
+        <div class="pane-body">
+
+          <!-- 元データ参照 -->
+          <div class="form-section">
+            <div class="form-section-head">
+              <i class="fas fa-info-circle accent"></i>
+              <span class="accent">元データ（参照）</span>
+            </div>
+            <table class="ref-table">
+              <tr><td>申請者</td><td>山田 花子</td></tr>
+              <tr><td>申請ID</td><td><a href="#" style="color:var(--primary);font-size:11px;">#42 →</a></td></tr>
+              <tr><td>日付</td><td>2026-05-05</td></tr>
+              <tr><td>部門コード</td><td>92210</td></tr>
+              <tr><td>部門名</td><td>経理統括</td></tr>
+              <tr><td>科目コード</td><td>84690</td></tr>
+              <tr><td>科目名</td><td>事務消耗品費</td></tr>
+              <tr><td>税抜金額</td><td style="font-weight:700;">¥1,100</td></tr>
+              <tr><td>外貨コード</td><td>00（円）</td></tr>
+              <tr><td>摘要</td><td>会計研修費</td></tr>
+              <tr><td>支払先</td><td>日本経理協会</td></tr>
+            </table>
+          </div>
+
+          <!-- 手入力エリア -->
+          <div class="form-section" style="margin-bottom:10px;">
+            <div class="form-section-head">
+              <i class="fas fa-pencil-alt accent-red"></i>
+              <span class="accent-red">手入力エリア（経理担当者記入）</span>
+            </div>
+
+            <!-- 補助科目コード -->
+            <div class="input-row">
+              <span class="input-label">補助科目</span>
+              <select class="form-select" id="sub-cd" onchange="autoFillSubName(this)">
+                <option value="">— 選択してください —</option>
+                <option value="1">1　事務消耗品費　一般</option>
+                <option value="2">2　事務消耗品費　印刷</option>
+                <option value="3">3　事務消耗品費　IT機器</option>
+                <option value="4">4　事務消耗品費　その他</option>
+              </select>
+            </div>
+            <!-- 補助科目名（自動入力） -->
+            <div class="input-row">
+              <span class="input-label">補助科目名</span>
+              <input type="text" class="form-control auto-fill" id="sub-name" placeholder="補助科目選択で自動入力" readonly>
+            </div>
+            <!-- 税金額 -->
+            <div class="input-row">
+              <span class="input-label">税金額</span>
+              <input type="text" class="form-control highlight" id="tax-amt" placeholder="例: 100" style="max-width:120px;">
+              <span style="font-size:11px;color:var(--text-muted);">円</span>
+            </div>
+            <!-- 税区分 -->
+            <div class="input-row">
+              <span class="input-label">税区分</span>
+              <select class="form-select" id="tax-kbn">
+                <option value="">— 選択 —</option>
+                <option value="10">課税仕入 10%</option>
+                <option value="08">課税仕入 8%（軽減）</option>
+                <option value="00">対象外</option>
+                <option value="99">不課税</option>
+              </select>
+            </div>
+            <!-- 税率 -->
+            <div class="input-row">
+              <span class="input-label">税率</span>
+              <select class="form-select" id="tax-rate" style="max-width:120px;">
+                <option>対象外</option>
+                <option>8%</option>
+                <option>10%</option>
+              </select>
+            </div>
+            <!-- 換算レート -->
+            <div class="input-row">
+              <span class="input-label">換算レート</span>
+              <input type="text" class="form-control" id="fx-rate" placeholder="外貨のみ入力" style="max-width:120px;" disabled>
+              <span style="font-size:10px;color:#9ca3af;">外貨以外は空欄</span>
+            </div>
+            <!-- 外貨税額 -->
+            <div class="input-row">
+              <span class="input-label">外貨税額</span>
+              <input type="text" class="form-control" id="fx-tax" placeholder="外貨のみ入力" style="max-width:120px;" disabled>
+            </div>
+          </div>
+
+        </div><!-- /pane-body -->
+
+        <!-- 保存・ナビゲーション -->
+        <div class="form-nav">
+          <button class="btn btn-outline" onclick="alert('前のレコードへ')">
+            <i class="fas fa-chevron-left"></i> 前へ
+          </button>
+          <div style="flex:1;"></div>
+          <button class="btn btn-success" onclick="saveRecord()" style="flex:1;justify-content:center;">
+            <i class="fas fa-save"></i> 保存
+          </button>
+          <button class="btn btn-primary" onclick="saveAndNext()" style="flex:1;justify-content:center;">
+            保存して次へ <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 右ペイン: 証憑ビューア -->
+      <div class="pane">
+        <div class="viewer-toolbar">
+          <i class="fas fa-paperclip" style="color:#94a3b8;"></i>
+          <span class="viewer-filename">receipt_20260505_yamada_01.pdf</span>
+          <button class="viewer-btn" title="新しいタブで開く"><i class="fas fa-external-link-alt"></i> 別タブで開く</button>
+        </div>
+        <div class="viewer-area">
+          <!-- 証憑イメージのプレースホルダー（モックアップ） -->
+          <div class="receipt-preview" style="width:340px;">
+            <div style="background:#f1f5f9;padding:12px 16px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;">
+              receipt_20260505_yamada_01.pdf
+            </div>
+            <!-- 領収書モックアップ -->
+            <div style="padding:24px 20px;font-size:12px;line-height:1.8;background:#fff;">
+              <div style="text-align:center;margin-bottom:12px;">
+                <div style="font-size:16px;font-weight:700;margin-bottom:4px;">領　収　書</div>
+                <div style="font-size:11px;color:#64748b;">No. 2026-0505-001</div>
+              </div>
+              <div style="border:1px solid #e2e8f0;border-radius:4px;padding:10px 14px;margin-bottom:10px;">
+                <div style="font-size:11px;color:#64748b;">宛名</div>
+                <div style="font-weight:600;">IDC様</div>
+              </div>
+              <div style="margin-bottom:8px;">
+                <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                  <tr style="background:#f8fafc;">
+                    <th style="padding:4px 8px;text-align:left;border:1px solid #e2e8f0;">品名</th>
+                    <th style="padding:4px 8px;text-align:right;border:1px solid #e2e8f0;">金額</th>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 8px;border:1px solid #e2e8f0;">日本経理協会<br>会計研修費</td>
+                    <td style="padding:4px 8px;text-align:right;border:1px solid #e2e8f0;">¥1,100</td>
+                  </tr>
+                  <tr style="background:#f8fafc;">
+                    <td style="padding:4px 8px;border:1px solid #e2e8f0;font-weight:600;">合計</td>
+                    <td style="padding:4px 8px;text-align:right;border:1px solid #e2e8f0;font-weight:700;">¥1,100</td>
+                  </tr>
+                </table>
+              </div>
+              <div style="font-size:11px;color:#64748b;">
+                <div>発行日: 2026年5月5日</div>
+                <div>発行者: 公益社団法人 日本経理協会</div>
+                <div>登録番号: T1234567890123</div>
+              </div>
+            </div>
+          </div>
+          <div class="viewer-zoom">
+            <button class="viewer-btn"><i class="fas fa-minus"></i></button>
+            <button class="viewer-btn"><i class="fas fa-plus"></i></button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /three-pane -->
+  </div><!-- /content -->
+</div><!-- /app-shell -->
+
+<!-- CSV出力確認モーダル -->
+<div class="modal-backdrop" id="csv-modal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-head-icon"><i class="fas fa-file-csv"></i></div>
+      <div>
+        <div class="modal-title">仕訳CSV出力</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">会計システム取込用のCSVを出力します</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;gap:12px;margin-bottom:8px;">
+          <div style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:#16a34a;">33</div>
+            <div style="font-size:11px;color:var(--text-muted);">入力済</div>
+          </div>
+          <div style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:#6b7280;">3</div>
+            <div style="font-size:11px;color:var(--text-muted);">未入力</div>
+          </div>
+          <div style="flex:1;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:10px;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:#d97706;">1</div>
+            <div style="font-size:11px;color:#92400e;">要確認</div>
+          </div>
+        </div>
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:12px;color:#92400e;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <strong>要確認の明細が1件あります。</strong>
+          部門コードが未登録のため科目コードを正確に変換できない可能性があります。
+        </div>
+      </div>
+
+      <div style="font-size:12px;margin-bottom:8px;font-weight:600;color:var(--text-muted);">出力対象の選択</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="export-scope" value="all" checked>
+          すべての明細を出力（36件）
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="export-scope" value="done">
+          入力済のみ出力（33件）
+        </label>
+      </div>
+
+      <div style="font-size:12px;margin-bottom:6px;font-weight:600;color:var(--text-muted);">出力カラム（仕訳取込形式）</div>
+      <div style="font-size:11px;color:var(--text-muted);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 10px;font-family:monospace;line-height:1.8;">
+        伝票区切 / 伝票日付 / 部門コード / 部門名 / 科目コード / 科目名<br>
+        補助科目コード / 補助科目名 / 税抜金額 / 税金額 / 税区分 / 税率<br>
+        外貨コード / 換算レート / 外貨金額 / 外貨税額 / 摘要（品名）
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="document.getElementById('csv-modal').style.display='none'">キャンセル</button>
+      <button class="btn btn-success" onclick="alert('仕訳取込.csv をダウンロードしました');document.getElementById('csv-modal').style.display='none'">
+        <i class="fas fa-download"></i> CSVをダウンロード
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function selectRow(el, num) {
+  document.querySelectorAll('.item-row').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function autoFillSubName(sel) {
+  const names = {
+    '1': '事務消耗品費　一般',
+    '2': '事務消耗品費　印刷',
+    '3': '事務消耗品費　IT機器',
+    '4': '事務消耗品費　その他',
+  };
+  const subNameEl = document.getElementById('sub-name');
+  if (sel.value) {
+    subNameEl.value = names[sel.value] || '';
+  } else {
+    subNameEl.value = '';
+  }
+}
+
+function saveRecord() {
+  const row = document.getElementById('row-3');
+  if (row) {
+    const badge = row.querySelector('.badge');
+    badge.className = 'badge badge-done';
+    badge.textContent = '✔ 入力済';
+    row.classList.remove('selected');
+    row.classList.add('done', 'selected');
+    row.querySelector('.item-date').textContent = '補助:' + (document.getElementById('sub-name').value || '設定済');
+  }
+  alert('保存しました。');
+}
+
+function saveAndNext() {
+  saveRecord();
+}
+</script>
+</body>
+</html>
