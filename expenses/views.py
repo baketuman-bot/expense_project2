@@ -1614,7 +1614,7 @@ def _can_do_keiri_edit(user, document):
     is_asset = _is_asset_doc_type(getattr(document, 'document_type', None))
 
     if is_asset:
-        asset_roles = ['assets', 'keiri', 'admin']
+        asset_roles = ['assets', 'keiri', 'admin', 'approver']
         try:
             inst = T_WorkflowInstance.objects.filter(document_id=document).order_by('-started_at').first()
             if inst and inst.step and inst.step.allowed_bumon_scope == 'assets':
