@@ -3458,7 +3458,7 @@ def approval_detail(request, pk):
         travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
         travel_route_subtotal = sum((d.amount or 0) for d in travel_route_details)
 
-    can_keiri_edit = _is_keiri_approver(request.user, expense)
+    can_keiri_edit = _can_do_keiri_edit(request.user, expense)
 
     # 修正履歴を取得（最新20件）
     edit_histories = (
