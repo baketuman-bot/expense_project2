@@ -869,3 +869,107 @@ class SettingsApprovalDetailAssetLayoutTest(AssetDetailFixtureMixin, TestCase):
         self.assertIn('合計金額', content)
         self.assertIn('追加入力項目', content)
         self.assertIn('>経費明細<', content)
+
+
+class CanDoKeiriEditAssetTest(TestCase):
+    """_can_do_keiri_edit: 固定資産申請における権限チェックのテスト（モック使用）"""
+
+    def _make_doc(self, is_asset=True, status_cd='INPRO'):
+        doc = MagicMock()
+        mg = MagicMock()
+        mg.category = 'assets' if is_asset else 'expense'
+        mg.menu_group = 'AST' if is_asset else 'PAY'
+        dt = MagicMock()
+        dt.menu_group = mg
+        doc.document_type = dt
+        status = MagicMock()
+        status.status_cd = status_cd
+        doc.status_cd = status
+        return doc
+
+    def _make_user(self, roles):
+        user = MagicMock()
+        user.man_number = 'test001'
+        return user
+
+    @patch('expenses.views.T_WorkflowInstance')
+    @patch('expenses.views.M_UserRole')
+    @patch('expenses.views._is_asset_doc_type')
+    def test_asset_doc_assets_scope_with_assets_role_returns_true(
+        self, mock_is_asset, mock_role, mock_twi
+    ):
+        """固定資産申請 + assets スコープ承認中 + assets ロール → True"""
+        from expenses.views import _can_do_keiri_edit
+        mock_is_asset.return_value = True
+
+        inst = MagicMock()
+        inst.step.allowed_bumon_scope = 'assets'
+        mock_twi.objects.filter.return_value.order_by.return_value.first.return_value = inst
+        mock_role.objects.filter.return_value.exists.return_value = True
+
+        user = self._make_user(['assets'])
+        doc = self._make_doc(is_asset=True, status_cd='INPRO')
+
+        result = _can_do_keiri_edit(user, doc)
+        self.assertTrue(result)
+
+    @patch('expenses.views.T_WorkflowInstance')
+    @patch('expenses.views.M_UserRole')
+    @patch('expenses.views._is_asset_doc_type')
+    def test_asset_doc_fns_with_keiri_role_returns_true(
+        self, mock_is_asset, mock_role, mock_twi
+    ):
+        """固定資産申請 + FNS + keiri ロール → True"""
+        from expenses.views import _can_do_keiri_edit
+        mock_is_asset.return_value = True
+
+        inst = MagicMock()
+        inst.step.allowed_bumon_scope = 'keiri'  # assets スコープでないステップ
+        mock_twi.objects.filter.return_value.order_by.return_value.first.return_value = inst
+        mock_role.objects.filter.return_value.exists.return_value = True
+
+        user = self._make_user(['keiri'])
+        doc = self._make_doc(is_asset=True, status_cd='FNS')
+
+        result = _can_do_keiri_edit(user, doc)
+        self.assertTrue(result)
+
+    @patch('expenses.views.T_WorkflowInstance')
+    @patch('expenses.views.M_UserRole')
+    @patch('expenses.views._is_asset_doc_type')
+    def test_asset_doc_without_role_returns_false(
+        self, mock_is_asset, mock_role, mock_twi
+    ):
+        """固定資産申請 + assets スコープ + ロールなし → False"""
+        from expenses.views import _can_do_keiri_edit
+        mock_is_asset.return_value = True
+
+        inst = MagicMock()
+        inst.step.allowed_bumon_scope = 'assets'
+        mock_twi.objects.filter.return_value.order_by.return_value.first.return_value = inst
+        mock_role.objects.filter.return_value.exists.return_value = False
+
+        user = self._make_user([])
+        doc = self._make_doc(is_asset=True, status_cd='INPRO')
+
+        result = _can_do_keiri_edit(user, doc)
+        self.assertFalse(result)
+
+    @patch('expenses.views.T_WorkflowInstance')
+    @patch('expenses.views.M_UserRole')
+    @patch('expenses.views._is_asset_doc_type')
+    @patch('expenses.views._is_keiri_approver')
+    def test_non_asset_doc_falls_through_to_keiri_logic(
+        self, mock_is_keiri_approver, mock_is_asset, mock_role, mock_twi
+    ):
+        """非固定資産申請 → 既存の keiri ロジックに委譲"""
+        from expenses.views import _can_do_keiri_edit
+        mock_is_asset.return_value = False
+        mock_is_keiri_approver.return_value = True
+
+        user = self._make_user(['keiri'])
+        doc = self._make_doc(is_asset=False, status_cd='INPRO')
+
+        result = _can_do_keiri_edit(user, doc)
+        self.assertTrue(result)
+        mock_is_keiri_approver.assert_called_once_with(user, doc)

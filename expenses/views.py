@@ -1610,21 +1610,38 @@ def _is_keiri_approver(user, document):
 
 
 def _can_do_keiri_edit(user, document):
-    """データ修正ボタンの表示・実行権限。
-    承認中 keiri ステップの場合に加え、最終承認済み(FNS)でも keiri/approver ロールがあれば可。
-    """
-    if _is_keiri_approver(user, document):
-        return True
-    try:
-        status_cd = getattr(getattr(document, 'status_cd', None), 'status_cd', None)
-        if status_cd == 'FNS':
-            return M_UserRole.objects.filter(
-                man_number=user,
-                role__in=['keiri', 'approver'],
-            ).exists()
-    except Exception:
-        pass
-    return False
+    """承認者によるデータ修正権限チェック。keiri（経費）と assets（固定資産）に対応。"""
+    is_asset = _is_asset_doc_type(getattr(document, 'document_type', None))
+
+    if is_asset:
+        asset_roles = ['assets', 'keiri', 'admin']
+        try:
+            inst = T_WorkflowInstance.objects.filter(document_id=document).order_by('-started_at').first()
+            if inst and inst.step and inst.step.allowed_bumon_scope == 'assets':
+                if M_UserRole.objects.filter(man_number=user, role__in=asset_roles).exists():
+                    return True
+        except Exception:
+            pass
+        try:
+            status_cd = getattr(getattr(document, 'status_cd', None), 'status_cd', None)
+            if status_cd == 'FNS':
+                return M_UserRole.objects.filter(man_number=user, role__in=asset_roles).exists()
+        except Exception:
+            pass
+        return False
+    else:
+        if _is_keiri_approver(user, document):
+            return True
+        try:
+            status_cd = getattr(getattr(document, 'status_cd', None), 'status_cd', None)
+            if status_cd == 'FNS':
+                return M_UserRole.objects.filter(
+                    man_number=user,
+                    role__in=['keiri', 'approver'],
+                ).exists()
+        except Exception:
+            pass
+        return False
 
 
 def _snapshot_expense(expense):
