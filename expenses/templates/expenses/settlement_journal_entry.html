@@ -71,6 +71,7 @@ body.journal-page .precision-shell {
 /* ── 3ペイン ── */
 .jnl-workspace {
   flex: 1;
+  min-height: 0;        /* flex コンテナ内でグリッドが縮小できるようにする */
   display: grid;
   grid-template-columns: 380px 460px 1fr;
   overflow: hidden;
@@ -81,6 +82,7 @@ body.journal-page .precision-shell {
   flex-direction: column;
   border-right: 1px solid var(--line);
   overflow: hidden;
+  min-height: 0;
 }
 .jnl-pane:last-child { border-right: none; }
 .jnl-pane-hd {
@@ -107,7 +109,7 @@ body.journal-page .precision-shell {
   cursor: pointer;
   transition: background .1s;
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 36px 1fr auto;
   gap: 4px;
   align-items: start;
 }
@@ -209,9 +211,12 @@ body.journal-page .precision-shell {
 }
 .jnl-vbtn:hover { background: #475569; }
 .jnl-viewer-area {
-  flex: 1; background: #0f172a;
+  flex: 1;
+  min-height: 0;
+  background: #0f172a;
   display: flex; align-items: center; justify-content: center;
-  overflow: auto; position: relative;
+  overflow: auto;
+  position: relative;  /* iframe の absolute 基準 */
 }
 .jnl-viewer-area img {
   max-width: 95%; max-height: 95%;
@@ -219,12 +224,13 @@ body.journal-page .precision-shell {
   box-shadow: 0 4px 24px rgba(0,0,0,.5);
   display: block;
 }
-.jnl-viewer-area iframe {
-  width: 95%; height: 90%;
-  border: none;
-  border-radius: 4px;
-  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+/* PDF は iframe を使わずリンクで開くため iframe スタイルは不要 */
+/* PDF サムネイルなし時のアイコン表示（ダーク背景上） */
+.jnl-pdf-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; color: #94a3b8; text-align: center; padding: 20px;
 }
+.jnl-pdf-placeholder i { font-size: 52px; color: #ef4444; }
 .jnl-viewer-empty { color: #475569; text-align: center; }
 .jnl-viewer-empty i { font-size: 40px; margin-bottom: 8px; display: block; }
 .jnl-zoom {
@@ -309,7 +315,7 @@ body.journal-page .precision-shell {
             id="jnl-item-{{ r.pk }}"
             data-pk="{{ r.pk }}"
             onclick="jnlSelect({{ r.pk }})">
-          <span class="jnl-item-no">{{ forloop.counter }}</span>
+          <span class="jnl-item-no">{{ r.document_id }}</span>
           <div style="min-width:0;">
             <div class="jnl-item-name">{{ r.account_name }}</div>
             <div class="jnl-item-sub">{{ r.applicant }} ／ {{ r.date|date:"Y/m/d" }}</div>
@@ -549,10 +555,10 @@ body.journal-page .precision-shell {
     /* 証憑ビューア */
     currentAttUrl = d.att_url;
     currentIsImg  = d.att_is_image;
-    renderViewer(d.att_url, d.att_name, d.att_is_image, d.att_is_pdf);
+    renderViewer(d.att_url, d.att_name, d.att_is_image, d.att_is_pdf, d.att_thumbnail_url);
   }
 
-  function renderViewer(url, attName, isImg, isPdf) {
+  function renderViewer(url, attName, isImg, isPdf, thumbnailUrl) {
     var area    = document.getElementById('viewer-area');
     var fnEl    = document.getElementById('viewer-fname');
     var openBtn = document.getElementById('viewer-open-btn');
@@ -601,10 +607,37 @@ body.journal-page .precision-shell {
       area.appendChild(img);
       area.appendChild(zoomDiv);
     } else if (isPdf) {
-      var ifr = document.createElement('iframe');
-      ifr.src = url;
-      ifr.id  = 'viewer-iframe';
-      area.appendChild(ifr);
+      /* PDF: 詳細・承認画面と同方式 — サムネイルまたはアイコン + クリックで新タブ */
+      var link = document.createElement('a');
+      link.href   = url;
+      link.target = '_blank';
+      link.rel    = 'noopener';
+      link.style.cssText = 'display:block;text-align:center;cursor:pointer;padding:8px;';
+      link.title  = 'クリックでPDFを新しいタブで表示';
+
+      if (thumbnailUrl) {
+        /* サムネイル画像があれば表示（詳細画面の att.thumbnail.url と同じ） */
+        var wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;display:inline-block;max-width:100%;';
+        var tImg = document.createElement('img');
+        tImg.src = thumbnailUrl;
+        tImg.alt = 'PDF';
+        tImg.style.cssText = 'max-width:100%;max-height:85vh;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.5);display:block;';
+        var badge = document.createElement('span');
+        badge.className = 'badge bg-danger';
+        badge.style.cssText = 'position:absolute;bottom:6px;right:6px;font-size:10px;';
+        badge.innerHTML = '<i class="fas fa-external-link-alt"></i> PDF';
+        wrapper.appendChild(tImg);
+        wrapper.appendChild(badge);
+        link.appendChild(wrapper);
+      } else {
+        /* サムネイルなし: PDFアイコン + テキスト */
+        link.innerHTML = '<div class="jnl-pdf-placeholder">'
+          + '<i class="fas fa-file-pdf"></i>'
+          + '<div style="font-size:12px;color:#e2e8f0;">PDFを表示</div>'
+          + '</div>';
+      }
+      area.appendChild(link);
     }
   }
 

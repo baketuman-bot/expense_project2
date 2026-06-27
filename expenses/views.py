@@ -5097,6 +5097,7 @@ def journal_entry(request):
         acd5     = _build_account_cd_5(raw_acd, bumon_cd)
         rows.append({
             'pk':           c.document_detail_id,
+            'document_id':  c.document.document_id,
             'account_name': c.account.account_name if c.account else '',
             'date':         c.date,
             'applicant':    str(c.document.man_number) if c.document.man_number else '',
@@ -5134,10 +5135,11 @@ def journal_detail_api(request, pk):
     acd5     = _build_account_cd_5(raw_acd, bumon_cd)
 
     # 添付ファイル（最初の1件）- 画像・PDF のみプレビュー。それ以外はファイル名のみ返す
-    att_url      = None
-    att_name     = None
-    att_is_image = False
-    att_is_pdf   = False
+    att_url           = None
+    att_name          = None
+    att_is_image      = False
+    att_is_pdf        = False
+    att_thumbnail_url = None
     try:
         att = content.attachments.first()
         if att and att.file:
@@ -5149,6 +5151,12 @@ def journal_detail_api(request, pk):
             elif ext == '.pdf':
                 att_url    = att.file.url
                 att_is_pdf = True
+                # PDF のサムネイル（T_DocumentAttachment.thumbnail）を返す
+                if att.thumbnail:
+                    try:
+                        att_thumbnail_url = att.thumbnail.url
+                    except Exception:
+                        pass
             # それ以外: att_url=None, att_name は返す（ファイル名表示のみ）
     except Exception:
         pass
@@ -5201,10 +5209,11 @@ def journal_detail_api(request, pk):
             {'cd': h['sub_account_cd'], 'name': h['sub_account_name']}
             for h in hojo_options
         ],
-        'att_url':      att_url,
-        'att_name':     att_name,
-        'att_is_image': att_is_image,
-        'att_is_pdf':   att_is_pdf,
+        'att_url':           att_url,
+        'att_name':          att_name,
+        'att_is_image':      att_is_image,
+        'att_is_pdf':        att_is_pdf,
+        'att_thumbnail_url': att_thumbnail_url,
         'settle_label': _JOURNAL_KBN_LABEL.get(content.settle_kbn, content.settle_kbn or ''),
         'journal_done': content.journal_done,
         'warn':         acd5.startswith('??'),
