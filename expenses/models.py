@@ -674,7 +674,6 @@ class T_DocumentContent(models.Model):
     journal_tax_kbn  = models.CharField("仕訳税区分",   max_length=10,  null=True, blank=True)
     journal_tax_rate = models.CharField("仕訳税率",      max_length=10,  null=True, blank=True)
     journal_fx_rate  = models.CharField("換算レート",    max_length=20,  null=True, blank=True)
-    journal_fx_tax   = models.CharField("外貨税額",      max_length=20,  null=True, blank=True)
     journal_done     = models.BooleanField("仕訳入力済", default=False)
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
@@ -1091,4 +1090,17 @@ class T_Assets(models.Model):
         verbose_name = '固定資産'
         verbose_name_plural = '固定資産'
         ordering = ['asset_no']
+
+
+# 換算為替レートマスタ
+class M_ExchangeRate(models.Model):
+    keijo_ym      = models.CharField("計上年月", max_length=6)
+    tsuka_cd      = models.CharField("通貨コード", max_length=3)
+    exchange_rate = models.DecimalField("換算レート", max_digits=5, decimal_places=2)
+
+    class Meta:
+        db_table = 'M_ExchangeRate'
+        unique_together = [('keijo_ym', 'tsuka_cd')]
+        verbose_name = '換算為替レート'
+        verbose_name_plural = '換算為替レート'
 

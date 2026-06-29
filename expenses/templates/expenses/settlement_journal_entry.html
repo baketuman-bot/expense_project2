@@ -365,16 +365,13 @@ body.journal-page .precision-shell {
           <tr><td>申請者</td><td id="ref-applicant"></td></tr>
           <tr><td>申請ID</td><td id="ref-doc-id"></td></tr>
           <tr><td>日付</td><td id="ref-date"></td></tr>
-          <tr><td>部門コード</td><td id="ref-bumon-cd"></td></tr>
-          <tr><td>部門名</td><td id="ref-bumon-name"></td></tr>
-          <tr><td>科目コード</td><td id="ref-account-cd"></td></tr>
-          <tr><td>科目名</td><td id="ref-account-name"></td></tr>
-          <tr><td>税抜金額</td><td id="ref-amount" style="font-weight:700;"></td></tr>
+          <tr><td>部門</td><td><span id="ref-bumon-cd"></span>　<span id="ref-bumon-name" style="color:var(--sub);"></span></td></tr>
+          <tr><td>科目</td><td><span id="ref-account-cd"></span>　<span id="ref-account-name" style="color:var(--sub);"></span></td></tr>
+          <tr><td>税込金額</td><td id="ref-amount" style="font-weight:700;"></td></tr>
           <tr><td>消費税</td><td id="ref-consumption-tax"></td></tr>
-          <tr><td>税区分</td><td id="ref-consumption-kbn"></td></tr>
-          <tr><td>税区分名</td><td id="ref-consumption-kbn-name"></td></tr>
+          <tr><td>税区分</td><td><span id="ref-consumption-kbn"></span>　<span id="ref-consumption-kbn-name" style="color:var(--sub);"></span></td></tr>
           <tr><td>登録No</td><td id="ref-tekikaku"></td></tr>
-          <tr><td>外貨コード</td><td id="ref-tsuka"></td></tr>
+          <tr><td>通貨</td><td><span id="ref-tsuka"></span>　<span id="ref-tsuka-name" style="color:var(--sub);"></span></td></tr>
           <tr><td>摘要</td><td id="ref-purpose"></td></tr>
           <tr><td>支払先</td><td id="ref-shiharaisaki"></td></tr>
         </table>
@@ -400,7 +397,7 @@ body.journal-page .precision-shell {
           <select class="jnl-ctrl" id="inp-tax-kbn" style="flex:1;">
             <option value="">— 選択 —</option>
             {% for t in tax_options %}
-            <option value="{{ t.key }}">{{ t.content }}</option>
+            <option value="{{ t.key }}">{{ t.key }}　{{ t.content }}</option>
             {% endfor %}
           </select>
         </div>
@@ -413,14 +410,16 @@ body.journal-page .precision-shell {
             <option value="10%">10%</option>
           </select>
         </div>
+        <div id="tax-rate-warn-row" style="display:none;padding:3px 10px 5px 10px;">
+          <span style="color:#dc2626;font-size:11px;font-weight:600;">
+            <i class="fas fa-exclamation-triangle"></i>
+            要確認：計算税率 <span id="tax-rate-calc-val"></span> は 8% / 10% 以外です
+          </span>
+        </div>
         <div class="jnl-input-row">
           <span class="jnl-lbl">換算レート</span>
           <input type="text" class="jnl-ctrl" id="inp-fx-rate" placeholder="外貨以外は空欄" style="max-width:110px;">
           <span style="font-size:10px;color:#9ca3af;">外貨のみ</span>
-        </div>
-        <div class="jnl-input-row">
-          <span class="jnl-lbl">外貨税額</span>
-          <input type="text" class="jnl-ctrl" id="inp-fx-tax" placeholder="外貨以外は空欄" style="max-width:110px;">
         </div>
       </div>
 
@@ -514,12 +513,16 @@ body.journal-page .precision-shell {
     setText('ref-bumon-name',  ref.bumon_name);
     setText('ref-account-cd',  ref.account_cd);
     setText('ref-account-name',ref.account_name);
-    setText('ref-amount',            ref.amount ? '¥' + Number(ref.amount).toLocaleString() : '');
+    var displayAmount = (ref.consumption_kbn === '1')
+      ? (Number(ref.amount || 0) + Number(ref.consumption_tax || 0))
+      : Number(ref.amount || 0);
+    setText('ref-amount', displayAmount ? '¥' + displayAmount.toLocaleString() : '');
     setText('ref-consumption-tax',   ref.consumption_tax ? '¥' + Number(ref.consumption_tax).toLocaleString() : '');
-    setText('ref-consumption-kbn',   ref.consumption_kbn);
+    setText('ref-consumption-kbn',      ref.consumption_kbn);
     setText('ref-consumption-kbn-name', ref.consumption_kbn_name);
     setText('ref-tekikaku',          ref.tekikaku_cd);
     setText('ref-tsuka',             ref.tsuka_cd);
+    setText('ref-tsuka-name',        ref.tsuka_name);
     setText('ref-purpose',           ref.purpose);
     setText('ref-shiharaisaki',      ref.shiharaisaki);
 
@@ -547,10 +550,19 @@ body.journal-page .precision-shell {
     var entry = d.entry;
     hojoSel.value = entry.hojo_cd || '';
     document.getElementById('inp-tax-amt').value     = entry.consumption_tax || '';
-    document.getElementById('inp-tax-kbn').value     = entry.journal_tax_kbn || '';
-    document.getElementById('inp-tax-rate').value    = entry.journal_tax_rate || '';
-    document.getElementById('inp-fx-rate').value     = entry.journal_fx_rate || '';
-    document.getElementById('inp-fx-tax').value      = entry.journal_fx_tax || '';
+    document.getElementById('inp-tax-kbn').value     = entry.journal_tax_kbn || d.default_tax_kbn || '';
+    document.getElementById('inp-tax-rate').value    = entry.journal_tax_rate || d.default_tax_rate || '';
+    document.getElementById('inp-fx-rate').value     = entry.journal_fx_rate || d.default_fx_rate || '';
+
+    /* 税率 要確認ウォーニング */
+    var warnRow  = document.getElementById('tax-rate-warn-row');
+    var calcSpan = document.getElementById('tax-rate-calc-val');
+    if (!entry.journal_tax_rate && d.tax_rate_warn) {
+      calcSpan.textContent = d.tax_rate_calc;
+      warnRow.style.display = '';
+    } else {
+      warnRow.style.display = 'none';
+    }
 
     /* 証憑ビューア */
     currentAttUrl = d.att_url;
@@ -657,7 +669,6 @@ body.journal-page .precision-shell {
       journal_tax_kbn:  document.getElementById('inp-tax-kbn').value,
       journal_tax_rate: document.getElementById('inp-tax-rate').value,
       journal_fx_rate:  document.getElementById('inp-fx-rate').value,
-      journal_fx_tax:   document.getElementById('inp-fx-tax').value,
     });
     fetch(SAVE_URL_TPL.replace('{pk}', currentPk), {
       method: 'POST',

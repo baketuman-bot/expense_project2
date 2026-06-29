@@ -12,6 +12,7 @@ from .models import (
     T_DocumentAttachment, M_WorkflowTemplate, M_WorkflowStep, M_DocumentGroup, M_MailManage,
     M_AccountSub,
     T_Settle, T_DocumentEditHistory,
+    M_ExchangeRate,
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -1057,6 +1058,16 @@ def expense_edit(request, pk):
                 except Exception:
                     dynamic_values = {}
 
+                # REC グループ: description キーに対応する M_Item.content2 を hojo_cd として事前解決
+                _hojo_cd_from_rec = None
+                if dynamic_values.get('description'):
+                    try:
+                        _rec_item = M_Item.objects.filter(data_kbn='REC', key=dynamic_values['description']).first()
+                        if _rec_item:
+                            _hojo_cd_from_rec = (_rec_item.content2 or '').strip() or None
+                    except Exception:
+                        pass
+
                 # 2) 明細の保存（フォームセットの各行）
                 # 出張旅費の場合は勘定科目670・目的を強制セット
                 _edit_doc_type_obj = getattr(expense, 'document_type', None)
@@ -1107,9 +1118,13 @@ def expense_edit(request, pk):
                         if _account_670:
                             detail.account = _account_670
                         detail.purpose = '出張旅費'
+                        detail.hojo_cd = '1'
                     # 前借証: 勘定科目を13700に強制セット
                     if _is_lon_save and _account_13700:
                         detail.account = _account_13700
+                    # REC グループ: description に対応する hojo_cd を全明細にセット
+                    if _hojo_cd_from_rec is not None:
+                        detail.hojo_cd = _hojo_cd_from_rec
 
                     detail.save()
                     # 3) 添付の追加（新規に指定されたファイル分）
@@ -1170,6 +1185,7 @@ def expense_edit(request, pk):
                         if _account_670:
                             adetail.account = _account_670
                         adetail.purpose = '宿泊費'
+                        adetail.hojo_cd = '2'
                         adetail.save()
                         # ファイルアップロード（直接）
                         try:
@@ -1224,6 +1240,8 @@ def expense_edit(request, pk):
                         if _account_670:
                             aldetail.account = _account_670
                         aldetail.purpose = '日当'
+                        aldetail.hojo_cd = '2'
+                        aldetail.date = expense.created_at.date()
                         aldetail.save()
 
                 # 提出ボタン押下時は INPRO へ状態遷移し、ワークフローを生成
@@ -2207,6 +2225,16 @@ def expense_create(request, document_type_id=None):
         except Exception:
             dynamic_values = {}
 
+        # REC グループ: description キーに対応する M_Item.content2 を hojo_cd として事前解決
+        _hojo_cd_from_rec = None
+        if dynamic_values.get('description'):
+            try:
+                _rec_item = M_Item.objects.filter(data_kbn='REC', key=dynamic_values['description']).first()
+                if _rec_item:
+                    _hojo_cd_from_rec = (_rec_item.content2 or '').strip() or None
+            except Exception:
+                pass
+
         _expense_fs_valid = expense_formset is None or expense_formset.is_valid()
         if formset.is_valid() and _expense_fs_valid and currency_valid and not bumon_required_error and not approver_missing_create and not trip_title_error_create and not travel_row_error_create and not detail_missing_create:
             try:
@@ -2319,9 +2347,13 @@ def expense_create(request, document_type_id=None):
                                 if _account_670_c:
                                     detail.account = _account_670_c
                                 detail.purpose = '出張旅費'
+                                detail.hojo_cd = '1'
                             # 前借証: 勘定科目を13700に強制セット
                             if _is_lon_save_c and _account_13700_c:
                                 detail.account = _account_13700_c
+                            # REC グループ: description に対応する hojo_cd を全明細にセット
+                            if _hojo_cd_from_rec is not None:
+                                detail.hojo_cd = _hojo_cd_from_rec
                             detail.save()
                             try:
                                 from .models import T_DocumentAttachment
@@ -2396,6 +2428,7 @@ def expense_create(request, document_type_id=None):
                             if _account_670_c:
                                 adetail.account = _account_670_c
                             adetail.purpose = '宿泊費'
+                            adetail.hojo_cd = '2'
                             adetail.save()
                             # ファイルアップロード（直接）
                             try:
@@ -2451,6 +2484,8 @@ def expense_create(request, document_type_id=None):
                             if _account_670_c:
                                 aldetail.account = _account_670_c
                             aldetail.purpose = '日当'
+                            aldetail.hojo_cd = '2'
+                            aldetail.date = expense.created_at.date()
                             aldetail.save()
 
                     # 下書き時: 選択済みの承認者をドラフトとして保存
@@ -5176,8 +5211,80 @@ def journal_detail_api(request, pk):
         ).values_list('content', flat=True).first()
         c_kbn_name = item or ''
 
+    # tsuka_cd の名称を M_Item[data_kbn='CUR'] から取得
+    tsuka_name = ''
+    if doc.tsuka_cd:
+        cur_item = M_Item.objects.filter(
+            data_kbn='CUR', key=str(doc.tsuka_cd)
+        ).values_list('content', flat=True).first()
+        tsuka_name = cur_item or ''
+
     # tekikaku_cd に 'T' を付与
     tekikaku_display = ('T' + str(content.tekikaku_cd)) if content.tekikaku_cd else ''
+
+    # デフォルト税区分: consumption_kbn が 0 or 1 のみ課税対象
+    if content.consumption_kbn in (0, 1):
+        bumon_tax_kbn = doc.bumon_cd.consumption_tax_kbn if doc.bumon_cd else None
+        has_tekikaku  = bool(content.tekikaku_cd)
+        if bumon_tax_kbn == 1:
+            default_tax_kbn = '12'  if has_tekikaku else '312'
+        else:
+            default_tax_kbn = '10'  if has_tekikaku else '310'
+    else:
+        default_tax_kbn = '0'
+
+    # デフォルト税率: consumption_kbn で計算
+    default_tax_rate = ''
+    tax_rate_warn    = False
+    tax_rate_calc    = ''
+    _amt = content.amount
+    _tax = content.consumption_tax
+    if content.consumption_kbn == 1 and _amt and _tax:
+        # 税抜処理: tax / amount
+        try:
+            rate_pct = round(float(_tax) / float(_amt), 2) * 100
+            rate_int = round(rate_pct)
+            if rate_int == 10:
+                default_tax_rate = '10%'
+            elif rate_int == 8:
+                default_tax_rate = '8%'
+            else:
+                tax_rate_warn = True
+                tax_rate_calc = f'{rate_int}%'
+        except Exception:
+            pass
+    elif content.consumption_kbn == 0 and _amt and _tax:
+        # 税込処理: tax / (amount - tax)
+        try:
+            base = float(_amt) - float(_tax)
+            if base != 0:
+                rate_pct = round(float(_tax) / base, 2) * 100
+                rate_int = round(rate_pct)
+                if rate_int == 10:
+                    default_tax_rate = '10%'
+                elif rate_int == 8:
+                    default_tax_rate = '8%'
+                else:
+                    tax_rate_warn = True
+                    tax_rate_calc = f'{rate_int}%'
+        except Exception:
+            pass
+    elif content.consumption_kbn not in (0, 1):
+        default_tax_rate = '対象外'
+
+    # 換算レートのデフォルト: tsuka_cd='00'(円)は空白、それ以外はM_ExchangeRateから最新値を取得
+    default_fx_rate = ''
+    tsuka_cd_val = (doc.tsuka_cd or '').strip()
+    if tsuka_cd_val and tsuka_cd_val != '00':
+        rate_val = (
+            M_ExchangeRate.objects
+            .filter(tsuka_cd=tsuka_cd_val)
+            .order_by('-keijo_ym')
+            .values_list('exchange_rate', flat=True)
+            .first()
+        )
+        if rate_val is not None:
+            default_fx_rate = str(rate_val)
 
     return JsonResponse({
         'ref': {
@@ -5190,6 +5297,7 @@ def journal_detail_api(request, pk):
             'account_name':       content.account.account_name if content.account else '',
             'amount':             str(content.amount or ''),
             'tsuka_cd':           doc.tsuka_cd or '',
+            'tsuka_name':         tsuka_name,
             'purpose':            content.purpose or '',
             'shiharaisaki':       content.shiharaisaki or '',
             'consumption_tax':    str(content.consumption_tax or ''),
@@ -5203,7 +5311,6 @@ def journal_detail_api(request, pk):
             'journal_tax_kbn':   content.journal_tax_kbn or '',
             'journal_tax_rate':  content.journal_tax_rate or '',
             'journal_fx_rate':   content.journal_fx_rate or '',
-            'journal_fx_tax':    content.journal_fx_tax or '',
         },
         'hojo_options': [
             {'cd': h['sub_account_cd'], 'name': h['sub_account_name']}
@@ -5214,9 +5321,14 @@ def journal_detail_api(request, pk):
         'att_is_image':      att_is_image,
         'att_is_pdf':        att_is_pdf,
         'att_thumbnail_url': att_thumbnail_url,
-        'settle_label': _JOURNAL_KBN_LABEL.get(content.settle_kbn, content.settle_kbn or ''),
-        'journal_done': content.journal_done,
-        'warn':         acd5.startswith('??'),
+        'settle_label':    _JOURNAL_KBN_LABEL.get(content.settle_kbn, content.settle_kbn or ''),
+        'journal_done':    content.journal_done,
+        'warn':            acd5.startswith('??'),
+        'default_tax_kbn':  default_tax_kbn,
+        'default_tax_rate': default_tax_rate,
+        'tax_rate_warn':    tax_rate_warn,
+        'tax_rate_calc':    tax_rate_calc,
+        'default_fx_rate':  default_fx_rate,
     })
 
 
@@ -5232,7 +5344,6 @@ def journal_save(request, pk):
     content.journal_tax_kbn  = request.POST.get('journal_tax_kbn', '').strip() or None
     content.journal_tax_rate = request.POST.get('journal_tax_rate', '').strip() or None
     content.journal_fx_rate  = request.POST.get('journal_fx_rate', '').strip() or None
-    content.journal_fx_tax   = request.POST.get('journal_fx_tax', '').strip() or None
 
     tax_val = request.POST.get('consumption_tax', '').strip()
     if tax_val:
@@ -5248,7 +5359,7 @@ def journal_save(request, pk):
     content.save(update_fields=[
         'hojo_cd', 'consumption_tax',
         'journal_tax_kbn', 'journal_tax_rate',
-        'journal_fx_rate', 'journal_fx_tax', 'journal_done',
+        'journal_fx_rate', 'journal_done',
     ])
 
     return JsonResponse({'ok': True, 'journal_done': content.journal_done})
@@ -5283,7 +5394,7 @@ def journal_csv(request):
             '伝票区切', '伝票日付', '部門ｺｰﾄﾞ', '部門名',
             '科目ｺｰﾄﾞ', '科目名', '補助科目ｺｰﾄﾞ', '補助科目名',
             '税抜金額', '税金額', '税区分', '税率',
-            '外貨ｺｰﾄﾞ', '換算ﾚｰﾄ', '外貨金額', '外貨税額', '摘要（品名）',
+            '外貨ｺｰﾄﾞ', '換算ﾚｰﾄ', '外貨金額', '摘要（品名）',
         ])
         for c in contents:
             bumon_cd  = str(c.document.bumon_cd_id or '').strip()
@@ -5307,7 +5418,6 @@ def journal_csv(request):
                 c.document.tsuka_cd or '',
                 c.journal_fx_rate or '',
                 str(c.amount or ''),
-                c.journal_fx_tax or '',
                 c.purpose or '',
             ])
 
