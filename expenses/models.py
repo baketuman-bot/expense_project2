@@ -117,6 +117,7 @@ class M_AccountSub(models.Model):
     account_cd = models.CharField("勘定科目コード", max_length=20)
     sub_account_cd = models.CharField("補助科目コード", max_length=5)
     sub_account_name = models.CharField("補助科目名", max_length=50)
+    pr_kbn = models.SmallIntegerField("表示デフォルト区分", default=0)
 
     def __str__(self):
         return f"{self.account_cd} / {self.sub_account_cd} {self.sub_account_name}"
@@ -675,6 +676,19 @@ class T_DocumentContent(models.Model):
     journal_tax_rate = models.CharField("仕訳税率",      max_length=10,  null=True, blank=True)
     journal_fx_rate  = models.CharField("換算レート",    max_length=20,  null=True, blank=True)
     journal_done     = models.BooleanField("仕訳入力済", default=False)
+    # 仕訳借方フィールド
+    journal_amont           = models.DecimalField("借方税抜金額",    max_digits=10, decimal_places=2, null=True, blank=True)
+    journal_tax             = models.DecimalField("借方税額",        max_digits=10, decimal_places=2, null=True, blank=True)
+    journal_amont_fx        = models.DecimalField("借方税抜外貨",    max_digits=10, decimal_places=2, null=True, blank=True)
+    journal_tax_fx          = models.DecimalField("借方税額外貨",    max_digits=10, decimal_places=2, null=True, blank=True)
+    journal_discription_deb = models.CharField("借方適用",          max_length=50,  null=True, blank=True)
+    # 仕訳貸方フィールド
+    account_cd_cre          = models.CharField("貸方科目コード",     max_length=20,  null=True, blank=True)
+    account_sub_cd_cre      = models.CharField("貸方補助科目コード", max_length=10,  null=True, blank=True)
+    journal_amount_cre      = models.DecimalField("貸方税抜金額",    max_digits=10, decimal_places=2, null=True, blank=True)
+    journal_amont_fx_cre    = models.DecimalField("貸方税抜外貨",    max_digits=10, decimal_places=2, null=True, blank=True)
+    journal_tori_cd_cre     = models.CharField("貸方取引先コード",   max_length=10,  null=True, blank=True)
+    journal_discription_cre = models.CharField("貸方摘要",          max_length=50,  null=True, blank=True)
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
 

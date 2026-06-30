@@ -4470,8 +4470,8 @@ MASTER_REGISTRY = {
     },
     'm_account_sub': {
         'model': M_AccountSub,
-        'list_fields': [('account_cd', '勘定科目コード'), ('sub_account_cd', '補助科目コード'), ('sub_account_name', '補助科目名')],
-        'form_fields': ['account_cd', 'sub_account_cd', 'sub_account_name'],
+        'list_fields': [('account_cd', '勘定科目コード'), ('sub_account_cd', '補助科目コード'), ('sub_account_name', '補助科目名'), ('pr_kbn', '表示デフォルト区分')],
+        'form_fields': ['account_cd', 'sub_account_cd', 'sub_account_name', 'pr_kbn'],
         'pk_attr': 'pk',
     },
 }
@@ -5286,6 +5286,116 @@ def journal_detail_api(request, pk):
         if rate_val is not None:
             default_fx_rate = str(rate_val)
 
+    # ── 手入力エリア デフォルト値計算 ──
+    from decimal import Decimal as _Dec, InvalidOperation as _DecErr
+
+    def _dec_str(v):
+        return '' if v is None else str(round(v, 2))
+
+    _c_amount  = content.amount
+    _c_tax     = content.consumption_tax
+    _is_foreign = bool(tsuka_cd_val and tsuka_cd_val != '00')
+    _fx_dec = None
+    if default_fx_rate:
+        try:
+            _fx_dec = _Dec(default_fx_rate)
+        except Exception:
+            pass
+
+    # 借方税抜金額: kbn=1(外税)→amount / kbn≠1(内税)→amount-消費税 / 外貨なら×換算レート / round0
+    if _c_amount is not None:
+        _amont_base = _c_amount if content.consumption_kbn == 1 else (_c_amount - (_c_tax or _Dec('0')))
+        _amont_yen = (_amont_base * _fx_dec) if (_is_foreign and _fx_dec) else _amont_base
+        _def_journal_amont = round(_amont_yen, 0)
+    else:
+        _def_journal_amont = None
+
+    # 借方消費税: consumption_tax × 換算レート / round0
+    if _c_tax is not None:
+        _tax_yen = (_c_tax * _fx_dec) if (_is_foreign and _fx_dec) else _c_tax
+        _def_consumption_tax = round(_tax_yen, 0)
+    else:
+        _def_consumption_tax = None
+
+    # 借方税抜外貨: kbn=1(外税)→amount / kbn≠1(内税)→amount-消費税 (外貨のみ)
+    if _is_foreign and _c_amount is not None:
+        _def_amont_fx = _c_amount if content.consumption_kbn == 1 else (_c_amount - (_c_tax or _Dec('0')))
+    else:
+        _def_amont_fx = None
+
+    # 借方税額外貨: 外貨のとき consumption_tax
+    _def_tax_fx = _c_tax if (_is_foreign and _c_tax is not None) else None
+
+    # 借方適用
+    _applicant_name = doc.man_number.user_name if doc.man_number else ''
+    if raw_acd.strip() == '670':
+        _deb_parts = ['旅費特例']
+        if content.shiharaisaki:
+            _deb_parts.append(content.shiharaisaki)
+        if _applicant_name:
+            _deb_parts.append(_applicant_name)
+    else:
+        _deb_parts = []
+        if content.purpose:
+            _deb_parts.append(content.purpose)
+        if content.shiharaisaki:
+            _deb_parts.append(content.shiharaisaki)
+    _def_desc_deb = ' '.join(_deb_parts)[:50]
+
+    # 貸方科目: corpo_card=2→'41410' / else→m_item.content3[PAY,pay_kbn]
+    if content.corpo_card == 2:
+        _def_cre_acd = '41410'
+    else:
+        _pay_c3 = (
+            M_Item.objects.filter(data_kbn='PAY', key=(doc.pay_kbn or ''))
+            .values_list('content3', flat=True).first()
+        ) if doc.pay_kbn else None
+        _def_cre_acd = _pay_c3 or ''
+
+    # 貸方補助科目コード
+    if _def_cre_acd == '11120':
+        _def_cre_sub = '1'
+    elif _def_cre_acd == '41400':
+        _def_cre_sub = '5' if 'アイコック' in (content.shiharaisaki or '') else '10'
+    elif _def_cre_acd == '41410':
+        _cocn = (
+            M_Item.objects.filter(data_kbn='COCN', key=str(content.corpo_card or ''))
+            .values_list('content2', flat=True).first()
+        )
+        _def_cre_sub = _cocn or ''
+    else:
+        _def_cre_sub = ''
+
+    # 貸方税抜金額: kbn=1(外税)→amount+消費税 / kbn≠1(内税)→amount / 外貨なら×換算レート / round0
+    if _c_amount is not None:
+        _cre_base = (_c_amount + (_c_tax or _Dec('0'))) if content.consumption_kbn == 1 else _c_amount
+        _cre_yen = (_cre_base * _fx_dec) if (_is_foreign and _fx_dec) else _cre_base
+        _def_cre_amt = round(_cre_yen, 0)
+    else:
+        _def_cre_amt = None
+
+    # 貸方税抜外貨: kbn=1(外税)→amount+消費税 / kbn≠1(内税)→amount (外貨のみ)
+    if _is_foreign and _c_amount is not None:
+        _def_cre_amont_fx = (_c_amount + (_c_tax or _Dec('0'))) if content.consumption_kbn == 1 else _c_amount
+    else:
+        _def_cre_amont_fx = None
+
+    # 貸方取引先コード: 貸方科目='41430' のときのみ申請者社員番号
+    if _def_cre_acd == '41430':
+        _def_cre_tori = str(doc.man_number.man_number) if doc.man_number else ''
+    else:
+        _def_cre_tori = ''
+
+    # 貸方摘要: M/D purpose shiharaisaki (スペース連結、50文字上限)
+    _cre_parts = []
+    if content.date:
+        _cre_parts.append(f'{content.date.month}/{content.date.day}')
+    if content.purpose:
+        _cre_parts.append(content.purpose)
+    if content.shiharaisaki:
+        _cre_parts.append(content.shiharaisaki)
+    _def_desc_cre = ' '.join(_cre_parts)[:50]
+
     return JsonResponse({
         'ref': {
             'applicant':          str(doc.man_number) if doc.man_number else '',
@@ -5306,11 +5416,21 @@ def journal_detail_api(request, pk):
             'tekikaku_cd':        tekikaku_display,
         },
         'entry': {
-            'hojo_cd':           content.hojo_cd or '',
-            'consumption_tax':   str(content.consumption_tax or ''),
-            'journal_tax_kbn':   content.journal_tax_kbn or '',
-            'journal_tax_rate':  content.journal_tax_rate or '',
-            'journal_fx_rate':   content.journal_fx_rate or '',
+            'hojo_cd':               content.hojo_cd or '',
+            'journal_amont':         str(content.journal_amont or ''),
+            'consumption_tax':       str(content.consumption_tax or ''),
+            'journal_tax_kbn':       content.journal_tax_kbn or '',
+            'journal_tax_rate':      content.journal_tax_rate or '',
+            'journal_amont_fx':      str(content.journal_amont_fx or ''),
+            'journal_tax_fx':        str(content.journal_tax_fx or ''),
+            'journal_fx_rate':       content.journal_fx_rate or '',
+            'journal_discription_deb': content.journal_discription_deb or '',
+            'account_cd_cre':        content.account_cd_cre or '',
+            'account_sub_cd_cre':    content.account_sub_cd_cre or '',
+            'journal_amount_cre':    str(content.journal_amount_cre or ''),
+            'journal_amont_fx_cre':  str(content.journal_amont_fx_cre or ''),
+            'journal_tori_cd_cre':   content.journal_tori_cd_cre or '',
+            'journal_discription_cre': content.journal_discription_cre or '',
         },
         'hojo_options': [
             {'cd': h['sub_account_cd'], 'name': h['sub_account_name']}
@@ -5329,6 +5449,17 @@ def journal_detail_api(request, pk):
         'tax_rate_warn':    tax_rate_warn,
         'tax_rate_calc':    tax_rate_calc,
         'default_fx_rate':  default_fx_rate,
+        'default_journal_amont':        _dec_str(_def_journal_amont),
+        'default_consumption_tax':      _dec_str(_def_consumption_tax),
+        'default_journal_amont_fx':     _dec_str(_def_amont_fx),
+        'default_journal_tax_fx':       _dec_str(_def_tax_fx),
+        'default_discription_deb':      _def_desc_deb,
+        'default_account_cd_cre':       _def_cre_acd,
+        'default_account_sub_cd_cre':   _def_cre_sub,
+        'default_journal_amount_cre':   _dec_str(_def_cre_amt),
+        'default_journal_amont_fx_cre': _dec_str(_def_cre_amont_fx),
+        'default_journal_tori_cd_cre':  _def_cre_tori,
+        'default_discription_cre':      _def_desc_cre,
     })
 
 
@@ -5340,26 +5471,43 @@ def journal_save(request, pk):
 
     content = get_object_or_404(T_DocumentContent, pk=pk)
 
-    content.hojo_cd          = request.POST.get('hojo_cd', '').strip() or None
-    content.journal_tax_kbn  = request.POST.get('journal_tax_kbn', '').strip() or None
-    content.journal_tax_rate = request.POST.get('journal_tax_rate', '').strip() or None
-    content.journal_fx_rate  = request.POST.get('journal_fx_rate', '').strip() or None
+    content.hojo_cd              = request.POST.get('hojo_cd', '').strip() or None
+    content.journal_tax_kbn      = request.POST.get('journal_tax_kbn', '').strip() or None
+    content.journal_tax_rate     = request.POST.get('journal_tax_rate', '').strip() or None
+    content.journal_fx_rate      = request.POST.get('journal_fx_rate', '').strip() or None
+    content.journal_discription_deb = request.POST.get('journal_discription_deb', '').strip() or None
+    content.account_cd_cre       = request.POST.get('account_cd_cre', '').strip() or None
+    content.account_sub_cd_cre   = request.POST.get('account_sub_cd_cre', '').strip() or None
+    content.journal_tori_cd_cre  = request.POST.get('journal_tori_cd_cre', '').strip() or None
+    content.journal_discription_cre = request.POST.get('journal_discription_cre', '').strip() or None
 
-    tax_val = request.POST.get('consumption_tax', '').strip()
-    if tax_val:
-        try:
-            content.consumption_tax = Decimal(tax_val)
-        except Exception:
-            content.consumption_tax = None
-    else:
-        content.consumption_tax = None
+    def _parse_decimal(key):
+        v = request.POST.get(key, '').strip()
+        if v:
+            try:
+                return Decimal(v)
+            except Exception:
+                pass
+        return None
 
-    content.journal_done = bool(content.hojo_cd or content.consumption_tax)
+    content.journal_amont       = _parse_decimal('journal_amont')
+    content.consumption_tax     = _parse_decimal('consumption_tax')
+    content.journal_amont_fx    = _parse_decimal('journal_amont_fx')
+    content.journal_tax_fx      = _parse_decimal('journal_tax_fx')
+    content.journal_amount_cre  = _parse_decimal('journal_amount_cre')
+    content.journal_amont_fx_cre = _parse_decimal('journal_amont_fx_cre')
+
+    content.journal_done = bool(content.hojo_cd or content.consumption_tax or content.journal_amont)
 
     content.save(update_fields=[
-        'hojo_cd', 'consumption_tax',
+        'hojo_cd', 'journal_amont', 'consumption_tax',
         'journal_tax_kbn', 'journal_tax_rate',
-        'journal_fx_rate', 'journal_done',
+        'journal_amont_fx', 'journal_tax_fx',
+        'journal_fx_rate', 'journal_discription_deb',
+        'account_cd_cre', 'account_sub_cd_cre',
+        'journal_amount_cre', 'journal_amont_fx_cre',
+        'journal_tori_cd_cre', 'journal_discription_cre',
+        'journal_done',
     ])
 
     return JsonResponse({'ok': True, 'journal_done': content.journal_done})

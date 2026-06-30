@@ -177,7 +177,7 @@ body.journal-page .precision-shell {
   border-top: 1px solid var(--line);
 }
 .jnl-input-row:first-child { border-top: none; }
-.jnl-lbl { width: 84px; font-size: 11px; color: var(--sub); flex-shrink: 0; text-align: right; }
+.jnl-lbl { width: 108px; font-size: 11px; color: var(--sub); flex-shrink: 0; text-align: right; }
 .jnl-ctrl {
   flex: 1; border: 1px solid var(--line-strong); border-radius: 4px;
   padding: 4px 8px; font-size: 12px; color: var(--ink); background: #fff; height: 28px;
@@ -381,15 +381,23 @@ body.journal-page .precision-shell {
       <div class="jnl-section" style="margin-bottom:10px;">
         <div class="jnl-section-hd" style="color:#dc2626;"><i class="fas fa-pencil-alt"></i> 手入力エリア（経理担当者記入）</div>
 
+        <!-- 借方 -->
+        <div style="padding:3px 10px 2px 10px;font-size:10px;font-weight:600;color:var(--sub);letter-spacing:.04em;background:var(--panel);border-bottom:1px solid var(--line);">借方</div>
+
         <div class="jnl-input-row">
-          <span class="jnl-lbl">補助科目</span>
+          <span class="jnl-lbl">借方補助科目</span>
           <select class="jnl-ctrl" id="inp-hojo" style="flex:1;">
             <option value="">— 選択してください —</option>
           </select>
         </div>
         <div class="jnl-input-row">
-          <span class="jnl-lbl">税金額</span>
-          <input type="text" class="jnl-ctrl jnl-ctrl-hl" id="inp-tax-amt" placeholder="例: 100" style="max-width:110px;">
+          <span class="jnl-lbl">税抜金額</span>
+          <input type="text" class="jnl-ctrl" id="inp-jnl-amont" placeholder="例: 1,000" style="max-width:120px;text-align:right;">
+          <span style="font-size:11px;color:var(--sub);">円</span>
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">消費税</span>
+          <input type="text" class="jnl-ctrl jnl-ctrl-hl" id="inp-tax-amt" placeholder="例: 100" style="max-width:120px;text-align:right;">
           <span style="font-size:11px;color:var(--sub);">円</span>
         </div>
         <div class="jnl-input-row">
@@ -417,10 +425,52 @@ body.journal-page .precision-shell {
           </span>
         </div>
         <div class="jnl-input-row">
+          <span class="jnl-lbl">借方税抜外貨</span>
+          <input type="text" class="jnl-ctrl" id="inp-jnl-amont-fx" placeholder="" style="max-width:120px;text-align:right;">
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">借方税額外貨</span>
+          <input type="text" class="jnl-ctrl" id="inp-jnl-tax-fx" placeholder="" style="max-width:120px;text-align:right;">
+        </div>
+        <div class="jnl-input-row">
           <span class="jnl-lbl">換算レート</span>
-          <input type="text" class="jnl-ctrl" id="inp-fx-rate" placeholder="外貨以外は空欄" style="max-width:110px;">
+          <input type="text" class="jnl-ctrl" id="inp-fx-rate" placeholder="外貨以外は空欄" style="max-width:120px;">
           <span style="font-size:10px;color:#9ca3af;">外貨のみ</span>
         </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">借方適用</span>
+          <input type="text" class="jnl-ctrl" id="inp-jnl-desc-deb" maxlength="50" placeholder="" style="flex:1;">
+        </div>
+
+        <!-- 貸方 -->
+        <div style="padding:3px 10px 2px 10px;font-size:10px;font-weight:600;color:var(--sub);letter-spacing:.04em;background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:4px;">貸方</div>
+
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">貸方科目</span>
+          <input type="text" class="jnl-ctrl" id="inp-cre-account-cd" maxlength="20" placeholder="" style="max-width:160px;">
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">貸方補助科目</span>
+          <input type="text" class="jnl-ctrl" id="inp-cre-sub-cd" maxlength="10" placeholder="" style="max-width:120px;">
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">貸方税抜金額</span>
+          <input type="text" class="jnl-ctrl" id="inp-cre-amount" placeholder="" style="max-width:120px;text-align:right;">
+          <span style="font-size:11px;color:var(--sub);">円</span>
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">貸方税抜外貨</span>
+          <input type="text" class="jnl-ctrl" id="inp-cre-amont-fx" placeholder="" style="max-width:120px;text-align:right;">
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">貸方取引先</span>
+          <input type="text" class="jnl-ctrl" id="inp-cre-tori-cd" maxlength="10" placeholder="" style="max-width:120px;">
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">貸方摘要</span>
+          <input type="text" class="jnl-ctrl" id="inp-cre-desc" maxlength="50" placeholder="" style="flex:1;">
+        </div>
+
       </div>
 
     </div><!-- /pane-body -->
@@ -484,6 +534,23 @@ body.journal-page .precision-shell {
   var zoomLevel      = 1.0;
   var currentAttUrl  = null;
   var currentIsImg   = false;
+
+  /* ── 数値フォーマット ── */
+  function fmtInt(v) {
+    if (v === '' || v === null || v === undefined) return '';
+    var n = parseFloat(String(v).replace(/,/g, ''));
+    if (isNaN(n)) return v;
+    return Math.round(n).toLocaleString('ja-JP');
+  }
+  function fmtDec2(v) {
+    if (v === '' || v === null || v === undefined) return '';
+    var n = parseFloat(String(v).replace(/,/g, ''));
+    if (isNaN(n)) return v;
+    return n.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function stripFmt(v) {
+    return String(v).replace(/,/g, '');
+  }
 
   /* ── アイテム選択 ── */
   window.jnlSelect = function (pk) {
@@ -549,10 +616,20 @@ body.journal-page .precision-shell {
     /* 保存済み値を復元 */
     var entry = d.entry;
     hojoSel.value = entry.hojo_cd || '';
-    document.getElementById('inp-tax-amt').value     = entry.consumption_tax || '';
-    document.getElementById('inp-tax-kbn').value     = entry.journal_tax_kbn || d.default_tax_kbn || '';
-    document.getElementById('inp-tax-rate').value    = entry.journal_tax_rate || d.default_tax_rate || '';
-    document.getElementById('inp-fx-rate').value     = entry.journal_fx_rate || d.default_fx_rate || '';
+    document.getElementById('inp-jnl-amont').value      = fmtInt(entry.journal_amont      || d.default_journal_amont        || '');
+    document.getElementById('inp-tax-amt').value        = fmtInt(entry.consumption_tax    || d.default_consumption_tax || '');
+    document.getElementById('inp-tax-kbn').value        = entry.journal_tax_kbn    || d.default_tax_kbn              || '';
+    document.getElementById('inp-tax-rate').value       = entry.journal_tax_rate   || d.default_tax_rate             || '';
+    document.getElementById('inp-jnl-amont-fx').value  = fmtDec2(entry.journal_amont_fx   || d.default_journal_amont_fx     || '');
+    document.getElementById('inp-jnl-tax-fx').value    = fmtDec2(entry.journal_tax_fx     || d.default_journal_tax_fx       || '');
+    document.getElementById('inp-fx-rate').value       = entry.journal_fx_rate    || d.default_fx_rate              || '';
+    document.getElementById('inp-jnl-desc-deb').value  = entry.journal_discription_deb  || d.default_discription_deb     || '';
+    document.getElementById('inp-cre-account-cd').value = entry.account_cd_cre    || d.default_account_cd_cre       || '';
+    document.getElementById('inp-cre-sub-cd').value    = entry.account_sub_cd_cre || d.default_account_sub_cd_cre   || '';
+    document.getElementById('inp-cre-amount').value    = fmtInt(entry.journal_amount_cre || d.default_journal_amount_cre   || '');
+    document.getElementById('inp-cre-amont-fx').value  = fmtDec2(entry.journal_amont_fx_cre || d.default_journal_amont_fx_cre || '');
+    document.getElementById('inp-cre-tori-cd').value   = entry.journal_tori_cd_cre  || d.default_journal_tori_cd_cre  || '';
+    document.getElementById('inp-cre-desc').value      = entry.journal_discription_cre || d.default_discription_cre  || '';
 
     /* 税率 要確認ウォーニング */
     var warnRow  = document.getElementById('tax-rate-warn-row');
@@ -663,12 +740,22 @@ body.journal-page .precision-shell {
   window.jnlSave = function (andNext) {
     if (!currentPk) return;
     var body = new URLSearchParams({
-      csrfmiddlewaretoken: CSRF,
-      hojo_cd:          document.getElementById('inp-hojo').value,
-      consumption_tax:  document.getElementById('inp-tax-amt').value,
-      journal_tax_kbn:  document.getElementById('inp-tax-kbn').value,
-      journal_tax_rate: document.getElementById('inp-tax-rate').value,
-      journal_fx_rate:  document.getElementById('inp-fx-rate').value,
+      csrfmiddlewaretoken:    CSRF,
+      hojo_cd:                document.getElementById('inp-hojo').value,
+      journal_amont:          stripFmt(document.getElementById('inp-jnl-amont').value),
+      consumption_tax:        stripFmt(document.getElementById('inp-tax-amt').value),
+      journal_tax_kbn:        document.getElementById('inp-tax-kbn').value,
+      journal_tax_rate:       document.getElementById('inp-tax-rate').value,
+      journal_amont_fx:       stripFmt(document.getElementById('inp-jnl-amont-fx').value),
+      journal_tax_fx:         stripFmt(document.getElementById('inp-jnl-tax-fx').value),
+      journal_fx_rate:        document.getElementById('inp-fx-rate').value,
+      journal_discription_deb: document.getElementById('inp-jnl-desc-deb').value,
+      account_cd_cre:         document.getElementById('inp-cre-account-cd').value,
+      account_sub_cd_cre:     document.getElementById('inp-cre-sub-cd').value,
+      journal_amount_cre:     stripFmt(document.getElementById('inp-cre-amount').value),
+      journal_amont_fx_cre:   stripFmt(document.getElementById('inp-cre-amont-fx').value),
+      journal_tori_cd_cre:    document.getElementById('inp-cre-tori-cd').value,
+      journal_discription_cre: document.getElementById('inp-cre-desc').value,
     });
     fetch(SAVE_URL_TPL.replace('{pk}', currentPk), {
       method: 'POST',
