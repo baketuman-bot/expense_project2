@@ -447,7 +447,8 @@ body.journal-page .precision-shell {
 
         <div class="jnl-input-row">
           <span class="jnl-lbl">貸方科目</span>
-          <input type="text" class="jnl-ctrl" id="inp-cre-account-cd" maxlength="20" placeholder="" style="max-width:160px;">
+          <input type="text" class="jnl-ctrl" id="inp-cre-account-cd" maxlength="20" placeholder="" style="max-width:120px;">
+          <span id="inp-cre-account-name" style="font-size:11px;color:var(--sub);white-space:nowrap;"></span>
         </div>
         <div class="jnl-input-row">
           <span class="jnl-lbl">貸方補助科目</span>
@@ -617,7 +618,7 @@ body.journal-page .precision-shell {
     var entry = d.entry;
     hojoSel.value = entry.hojo_cd || '';
     document.getElementById('inp-jnl-amont').value      = fmtInt(entry.journal_amont      || d.default_journal_amont        || '');
-    document.getElementById('inp-tax-amt').value        = fmtInt(entry.consumption_tax    || d.default_consumption_tax || '');
+    document.getElementById('inp-tax-amt').value        = fmtInt(entry.journal_tax       || d.default_consumption_tax || '');
     document.getElementById('inp-tax-kbn').value        = entry.journal_tax_kbn    || d.default_tax_kbn              || '';
     document.getElementById('inp-tax-rate').value       = entry.journal_tax_rate   || d.default_tax_rate             || '';
     document.getElementById('inp-jnl-amont-fx').value  = fmtDec2(entry.journal_amont_fx   || d.default_journal_amont_fx     || '');
@@ -625,6 +626,8 @@ body.journal-page .precision-shell {
     document.getElementById('inp-fx-rate').value       = entry.journal_fx_rate    || d.default_fx_rate              || '';
     document.getElementById('inp-jnl-desc-deb').value  = entry.journal_discription_deb  || d.default_discription_deb     || '';
     document.getElementById('inp-cre-account-cd').value = entry.account_cd_cre    || d.default_account_cd_cre       || '';
+    var creAcdName = (entry.account_cd_cre ? entry.account_cd_cre_name : '') || d.default_account_cd_cre_name || '';
+    setText('inp-cre-account-name', creAcdName);
     document.getElementById('inp-cre-sub-cd').value    = entry.account_sub_cd_cre || d.default_account_sub_cd_cre   || '';
     document.getElementById('inp-cre-amount').value    = fmtInt(entry.journal_amount_cre || d.default_journal_amount_cre   || '');
     document.getElementById('inp-cre-amont-fx').value  = fmtDec2(entry.journal_amont_fx_cre || d.default_journal_amont_fx_cre || '');

@@ -5352,6 +5352,16 @@ def journal_detail_api(request, pk):
         ) if doc.pay_kbn else None
         _def_cre_acd = _pay_c3 or ''
 
+    # 貸方科目名
+    _def_cre_acd_name = ''
+    if _def_cre_acd:
+        _def_cre_acd_name = M_Account.objects.filter(account_cd=_def_cre_acd).values_list('account_name', flat=True).first() or ''
+
+    # 保存済み貸方科目名
+    _saved_cre_acd_name = ''
+    if content.account_cd_cre:
+        _saved_cre_acd_name = M_Account.objects.filter(account_cd=content.account_cd_cre).values_list('account_name', flat=True).first() or ''
+
     # 貸方補助科目コード
     if _def_cre_acd == '11120':
         _def_cre_sub = '1'
@@ -5418,7 +5428,7 @@ def journal_detail_api(request, pk):
         'entry': {
             'hojo_cd':               content.hojo_cd or '',
             'journal_amont':         str(content.journal_amont or ''),
-            'consumption_tax':       str(content.consumption_tax or ''),
+            'journal_tax':           str(content.journal_tax or ''),
             'journal_tax_kbn':       content.journal_tax_kbn or '',
             'journal_tax_rate':      content.journal_tax_rate or '',
             'journal_amont_fx':      str(content.journal_amont_fx or ''),
@@ -5426,6 +5436,7 @@ def journal_detail_api(request, pk):
             'journal_fx_rate':       content.journal_fx_rate or '',
             'journal_discription_deb': content.journal_discription_deb or '',
             'account_cd_cre':        content.account_cd_cre or '',
+            'account_cd_cre_name':   _saved_cre_acd_name,
             'account_sub_cd_cre':    content.account_sub_cd_cre or '',
             'journal_amount_cre':    str(content.journal_amount_cre or ''),
             'journal_amont_fx_cre':  str(content.journal_amont_fx_cre or ''),
@@ -5455,6 +5466,7 @@ def journal_detail_api(request, pk):
         'default_journal_tax_fx':       _dec_str(_def_tax_fx),
         'default_discription_deb':      _def_desc_deb,
         'default_account_cd_cre':       _def_cre_acd,
+        'default_account_cd_cre_name':  _def_cre_acd_name,
         'default_account_sub_cd_cre':   _def_cre_sub,
         'default_journal_amount_cre':   _dec_str(_def_cre_amt),
         'default_journal_amont_fx_cre': _dec_str(_def_cre_amont_fx),
@@ -5491,16 +5503,25 @@ def journal_save(request, pk):
         return None
 
     content.journal_amont       = _parse_decimal('journal_amont')
-    content.consumption_tax     = _parse_decimal('consumption_tax')
+    content.journal_tax         = _parse_decimal('consumption_tax')
     content.journal_amont_fx    = _parse_decimal('journal_amont_fx')
     content.journal_tax_fx      = _parse_decimal('journal_tax_fx')
     content.journal_amount_cre  = _parse_decimal('journal_amount_cre')
     content.journal_amont_fx_cre = _parse_decimal('journal_amont_fx_cre')
 
-    content.journal_done = bool(content.hojo_cd or content.consumption_tax or content.journal_amont)
+    content.journal_done = bool(
+        content.journal_amont is not None and
+        content.journal_tax is not None and
+        content.journal_tax_kbn and
+        content.journal_tax_rate and
+        content.journal_discription_deb and
+        content.account_cd_cre and
+        content.journal_amount_cre is not None and
+        content.journal_discription_cre
+    )
 
     content.save(update_fields=[
-        'hojo_cd', 'journal_amont', 'consumption_tax',
+        'hojo_cd', 'journal_amont', 'journal_tax',
         'journal_tax_kbn', 'journal_tax_rate',
         'journal_amont_fx', 'journal_tax_fx',
         'journal_fx_rate', 'journal_discription_deb',
