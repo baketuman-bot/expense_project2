@@ -973,3 +973,32 @@ class CanDoKeiriEditAssetTest(TestCase):
         result = _can_do_keiri_edit(user, doc)
         self.assertTrue(result)
         mock_is_keiri_approver.assert_called_once_with(user, doc)
+
+
+class AssetsSyncQueueModelTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='sync_queue_user', man_number='SYNCQ001',
+            user_name='同期テスト担当', password='pass123',
+        )
+
+    def test_create_queue_entry_with_payload(self):
+        from expenses.models import T_AssetsSyncQueue
+        entry = T_AssetsSyncQueue.objects.create(
+            asset_no='1234567890123',
+            operation='update',
+            payload={'asset_name1': '新資産名'},
+            created_by=self.user,
+        )
+        self.assertEqual(entry.status, 'pending')
+        self.assertEqual(
+            T_AssetsSyncQueue.objects.get(pk=entry.pk).payload,
+            {'asset_name1': '新資産名'},
+        )
+
+    def test_choices_labels(self):
+        from expenses.models import T_AssetsSyncQueue
+        self.assertEqual(dict(T_AssetsSyncQueue.STATUS_CHOICES).get('pending'), '未送信')
+        self.assertEqual(dict(T_AssetsSyncQueue.OPERATION_CHOICES).get('insert'), '新規登録')

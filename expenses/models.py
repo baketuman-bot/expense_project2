@@ -1107,6 +1107,34 @@ class T_Assets(models.Model):
         ordering = ['asset_no']
 
 
+# 固定資産同期キュー（Web編集 → 本物MDBへのPush待ち）
+class T_AssetsSyncQueue(models.Model):
+    OPERATION_CHOICES = [('insert', '新規登録'), ('update', '更新')]
+    STATUS_CHOICES = [('pending', '未送信'), ('done', '送信済'), ('error', 'エラー')]
+
+    queue_id = models.AutoField("キューID", primary_key=True)
+    asset_no = models.CharField("資産NO", max_length=13)
+    operation = models.CharField("操作", max_length=10, choices=OPERATION_CHOICES)
+    payload = models.JSONField("変更内容")
+    status = models.CharField("状態", max_length=10, choices=STATUS_CHOICES, default='pending')
+    error_msg = models.CharField("エラー内容", max_length=500, blank=True, default='')
+    created_by = models.ForeignKey(
+        M_User, to_field='man_number', db_column='created_by',
+        on_delete=models.PROTECT, verbose_name="登録者",
+    )
+    created_at = models.DateTimeField("登録日時", auto_now_add=True)
+    processed_at = models.DateTimeField("処理日時", null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.asset_no} ({self.get_operation_display()}/{self.get_status_display()})"
+
+    class Meta:
+        db_table = 't_assets_sync_queue'
+        verbose_name = '固定資産同期キュー'
+        verbose_name_plural = '固定資産同期キュー'
+        ordering = ['-created_at']
+
+
 # 換算為替レートマスタ
 class M_ExchangeRate(models.Model):
     keijo_ym      = models.CharField("計上年月", max_length=6)
