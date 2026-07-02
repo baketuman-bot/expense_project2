@@ -544,6 +544,25 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 ### サイドバー
 - 固定資産セクションに「固定資産台帳」メニューリンクを表示（DBアイコン付き）
 
+### MDB双方向同期（同期キュー）
+
+固定資産台帳の編集・新規登録は、Access MDB（`fpack` 固定資産管理ソフトの基幹データ）との手動同期を前提にしている。
+
+```
+[Django (WSL)] ──表示/編集──> MySQL T_ASSETS（即時反映）
+      │                        + T_AssetsSyncQueue（書込キュー）
+      │
+[Windows側 同期スクリプト] ← 手動実行（デスクトップ sync_assets.bat）
+      ├─ ① Push: キュー(pending) → 本物MDB tbl固定資産 へ UPDATE/INSERT
+      └─ ② Pull: 本物MDB v_assets → MySQL T_ASSETS へ upsert
+```
+
+- **編集・新規登録・同期キュー一覧の権限**: `has_role('accountant')` または `has_role('admin')` のユーザーのみ（`views_assets_register._can_manage_assets()`）。閲覧（一覧・CSV）は従来通り全ログインユーザー。
+- **読み取り専用8フィールド**（マスタ結合由来、Push対象外）: `account_name`, `bumon_name`, `accounting_bumon_cd`, `structure_name`, `detail_name`, `location_name`, `city_cd`, `city_name`。編集フォームで disabled 表示。
+- **T_AssetsSyncQueue**: 変更フィールドのみ `payload`（JSON）に記録し `status='pending'` で登録。日付は `'YYYY-MM-DD HH:MM:SS'` 文字列、金額は文字列化してJSON化する。
+- **URL**: `/assets/register/new/`（新規登録）、`/assets/register/<asset_no>/edit/`（編集）、`/assets/register/queue/`（同期キュー一覧）
+- **Windows側同期スクリプト**: `deploy/windows_sync/sync_assets.py`。デスクトップの `sync_assets.bat` を手動実行（スケジューラ登録・Webからの起動ボタンはなし）。列マッピングは `expenses/management/commands/import_assets.py` の `ACCESS_COLUMNS` を踏襲。セットアップ手順は `deploy/windows_sync/README.md` 参照。
+
 ## 管理者設定 (Admin Panel)
 
 サイドバーに「管理者設定」セクション。全ユーザーに表示。
