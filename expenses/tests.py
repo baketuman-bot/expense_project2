@@ -1138,3 +1138,53 @@ class AssetsRegisterEditSaveTest(TestCase):
         )
         self.assertTrue(T_Assets.objects.filter(pk=self.asset.asset_no).exists())
         self.assertFalse(T_Assets.objects.filter(pk='HACKED0001').exists())
+
+
+class AssetsRegisterCreateTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import M_UserRole
+        User = get_user_model()
+        self.accountant = User.objects.create_user(
+            username='ast_create_accountant', man_number='ASTCREATE001',
+            user_name='経理担当3', password='pass123',
+        )
+        M_UserRole.objects.create(man_number=self.accountant, role='accountant')
+        self.client = Client()
+        self.client.force_login(self.accountant)
+
+    def test_create_new_asset_creates_record_and_insert_queue_entry(self):
+        from expenses.models import T_Assets, T_AssetsSyncQueue
+        response = self.client.post('/assets/register/new/', {
+            'asset_no': 'ASTNEW00001',
+            'asset_name1': '新規資産テスト',
+            'quantity': '2',
+        })
+        self.assertEqual(response.status_code, 302)
+        obj = T_Assets.objects.get(pk='ASTNEW00001')
+        self.assertEqual(obj.asset_name1, '新規資産テスト')
+
+        entry = T_AssetsSyncQueue.objects.get(asset_no='ASTNEW00001')
+        self.assertEqual(entry.operation, 'insert')
+        self.assertEqual(entry.payload.get('asset_name1'), '新規資産テスト')
+
+    def test_duplicate_asset_no_shows_error(self):
+        from expenses.models import T_Assets
+        T_Assets.objects.create(asset_no='ASTDUP0001', asset_name1='既存資産')
+        response = self.client.post('/assets/register/new/', {
+            'asset_no': 'ASTDUP0001',
+            'asset_name1': '重複登録テスト',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '既に登録されています')
+
+    def test_plain_user_gets_403(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        plain_user = User.objects.create_user(
+            username='ast_create_plain', man_number='ASTCREATE002',
+            user_name='一般ユーザー2', password='pass123',
+        )
+        self.client.force_login(plain_user)
+        response = self.client.get('/assets/register/new/')
+        self.assertEqual(response.status_code, 403)

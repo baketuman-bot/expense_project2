@@ -279,7 +279,44 @@ def assets_register_edit(request, asset_no):
 
 @login_required
 def assets_register_create(request):
-    raise NotImplementedError
+    """固定資産台帳 新規登録（accountant/admin ロール限定）"""
+    if not _can_manage_assets(request.user):
+        raise PermissionDenied()
+
+    if request.method == 'POST':
+        form = get_asset_register_form(data=request.POST, is_edit=False)
+        if form.is_valid():
+            asset_no = form.cleaned_data['asset_no']
+            duplicate = (
+                T_Assets.objects.filter(pk=asset_no).exists()
+                or T_AssetsSyncQueue.objects.filter(
+                    asset_no=asset_no, operation='insert', status='pending',
+                ).exists()
+            )
+            if duplicate:
+                form.add_error('asset_no', 'この資産NOは既に登録されています。')
+            else:
+                obj = form.save()
+                payload = {
+                    name: _serialize_payload_value(form.cleaned_data.get(name))
+                    for name in ASSET_EDITABLE_FIELDS
+                    if form.cleaned_data.get(name) not in (None, '')
+                }
+                T_AssetsSyncQueue.objects.create(
+                    asset_no=obj.asset_no,
+                    operation='insert',
+                    payload=payload,
+                    created_by=request.user,
+                )
+                return redirect('expenses:assets_register_list')
+    else:
+        form = get_asset_register_form(is_edit=False)
+
+    return render(request, 'expenses/assets_register_form.html', {
+        'form': form,
+        'form_sections': _build_asset_form_sections(form),
+        'is_create': True,
+    })
 
 
 @login_required
