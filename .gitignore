@@ -45,3 +45,6 @@ htmlcov/
 
 # git worktree作業ディレクトリ
 .worktrees/
+
+deploy/windows_sync/config.ini
+deploy/windows_sync/sync_assets.log
