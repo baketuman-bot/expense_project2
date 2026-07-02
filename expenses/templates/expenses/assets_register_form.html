@@ -1,0 +1,71 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}{% if is_create %}固定資産 新規登録{% else %}固定資産 編集{% endif %} | {% endblock %}
+
+{% block content %}
+<div class="mt-4">
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-database"></i></span>
+            {% if is_create %}固定資産 新規登録{% else %}固定資産 編集（{{ asset_no }}）{% endif %}
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:assets_register_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> 一覧へ戻る
+            </a>
+        </div>
+    </div>
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for section_title, fields in form_sections %}
+        <div class="card mb-3">
+            <div class="card-header tint-primary">
+                <strong>{{ section_title }}</strong>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% for field in fields %}
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1" for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% for e in field.errors %}
+                        <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" class="btn btn-primary px-4">
+                <i class="fas fa-save me-1"></i>{% if is_create %}登録{% else %}保存{% endif %}
+            </button>
+            <a href="{% url 'expenses:assets_register_list' %}" class="btn btn-outline-secondary">
+                キャンセル
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.initAmountFields) { window.initAmountFields(document); }
+    if (window.bindFormSubmitStrip) {
+        document.querySelectorAll('form').forEach(window.bindFormSubmitStrip);
+    }
+});
+</script>
+{% endblock %}

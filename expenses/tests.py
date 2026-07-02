@@ -1044,3 +1044,97 @@ class AssetRegisterFormTest(TestCase):
         self.assertEqual(len(ASSET_EDITABLE_FIELDS), 59)
         self.assertNotIn('asset_no', ASSET_EDITABLE_FIELDS)
         self.assertNotIn('account_name', ASSET_EDITABLE_FIELDS)
+
+
+class AssetsRegisterEditPermissionTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import T_Assets, M_UserRole
+        User = get_user_model()
+        self.accountant = User.objects.create_user(
+            username='ast_edit_accountant', man_number='ASTEDIT001',
+            user_name='経理担当', password='pass123',
+        )
+        M_UserRole.objects.create(man_number=self.accountant, role='accountant')
+        self.plain_user = User.objects.create_user(
+            username='ast_edit_plain', man_number='ASTEDIT002',
+            user_name='一般ユーザー', password='pass123',
+        )
+        self.asset = T_Assets.objects.create(
+            asset_no='ASTEDIT0001', asset_name1='テスト資産編集前',
+            account_name='工具器具', bumon_cd='001',
+        )
+        self.client = Client()
+
+    def test_plain_user_gets_403(self):
+        self.client.force_login(self.plain_user)
+        response = self.client.get(f'/assets/register/{self.asset.asset_no}/edit/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_accountant_can_view_edit_form(self):
+        self.client.force_login(self.accountant)
+        response = self.client.get(f'/assets/register/{self.asset.asset_no}/edit/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'テスト資産編集前')
+
+    def test_readonly_field_rendered_disabled(self):
+        self.client.force_login(self.accountant)
+        response = self.client.get(f'/assets/register/{self.asset.asset_no}/edit/')
+        self.assertIn('disabled', response.content.decode('utf-8'))
+
+
+class AssetsRegisterEditSaveTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import T_Assets, M_UserRole
+        User = get_user_model()
+        self.accountant = User.objects.create_user(
+            username='ast_save_accountant', man_number='ASTSAVE001',
+            user_name='経理担当2', password='pass123',
+        )
+        M_UserRole.objects.create(man_number=self.accountant, role='accountant')
+        self.asset = T_Assets.objects.create(
+            asset_no='ASTSAVE0001', asset_name1='変更前資産名', quantity=1,
+        )
+        self.client = Client()
+        self.client.force_login(self.accountant)
+
+    def _post_data(self, **overrides):
+        data = {'asset_name1': '変更前資産名', 'quantity': '1'}
+        data.update(overrides)
+        return data
+
+    def test_changed_field_updates_asset_and_creates_queue_entry(self):
+        from expenses.models import T_Assets, T_AssetsSyncQueue
+        response = self.client.post(
+            f'/assets/register/{self.asset.asset_no}/edit/',
+            self._post_data(asset_name1='変更後資産名'),
+        )
+        self.assertEqual(response.status_code, 302)
+        updated = T_Assets.objects.get(pk=self.asset.asset_no)
+        self.assertEqual(updated.asset_name1, '変更後資産名')
+
+        entry = T_AssetsSyncQueue.objects.get(asset_no=self.asset.asset_no)
+        self.assertEqual(entry.operation, 'update')
+        self.assertEqual(entry.status, 'pending')
+        self.assertEqual(entry.payload, {'asset_name1': '変更後資産名'})
+        self.assertEqual(entry.created_by, self.accountant)
+
+    def test_no_change_creates_no_queue_entry(self):
+        from expenses.models import T_AssetsSyncQueue
+        self.client.post(
+            f'/assets/register/{self.asset.asset_no}/edit/',
+            self._post_data(),
+        )
+        self.assertFalse(
+            T_AssetsSyncQueue.objects.filter(asset_no=self.asset.asset_no).exists()
+        )
+
+    def test_asset_no_cannot_be_changed_via_post(self):
+        from expenses.models import T_Assets
+        self.client.post(
+            f'/assets/register/{self.asset.asset_no}/edit/',
+            self._post_data(asset_no='HACKED0001'),
+        )
+        self.assertTrue(T_Assets.objects.filter(pk=self.asset.asset_no).exists())
+        self.assertFalse(T_Assets.objects.filter(pk='HACKED0001').exists())

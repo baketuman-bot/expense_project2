@@ -4,7 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.views.decorators.http import require_POST
 from django.conf import settings
-from .views_assets_register import assets_register_list, assets_register_csv  # noqa: F401
+from .views_assets_register import (
+    assets_register_list, assets_register_csv,
+    assets_register_edit, assets_register_create, assets_sync_queue_list,
+)  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,

@@ -1,14 +1,18 @@
 # views_assets_register.py
 # 固定資産台帳（T_ASSETS）ビュー群 — views.py から import して使用
 import csv as csv_module
+from datetime import datetime
+from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import StreamingHttpResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 
-from .models import T_Assets
+from .models import T_Assets, T_AssetsSyncQueue
+from .forms import get_asset_register_form, ASSET_SECTIONS, ASSET_EDITABLE_FIELDS
 
 
 # ── 検索ヘルパー ─────────────────────────────────────────────────────────────
@@ -208,3 +212,76 @@ def assets_register_csv(request):
     response = StreamingHttpResponse(rows(), content_type='text/csv; charset=utf-8-sig')
     response['Content-Disposition'] = 'attachment; filename="assets_register.csv"'
     return response
+
+
+# ── 権限・共通ヘルパー ────────────────────────────────────────────────────────
+
+def _can_manage_assets(user):
+    """固定資産台帳の編集・新規登録・同期キュー閲覧が許可されているか判定する。"""
+    return user.has_role('accountant') or user.has_role('admin')
+
+
+def _serialize_payload_value(value):
+    """T_AssetsSyncQueue.payload に格納するためJSON化可能な値へ変換する。"""
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%d %H:%M:%S')
+    if isinstance(value, Decimal):
+        return str(value)
+    return value
+
+
+def _build_asset_form_sections(form):
+    """フォームをセクション単位の BoundField リストへ組み替える（テンプレート用）"""
+    return [(title, [form[name] for name in names]) for title, names in ASSET_SECTIONS]
+
+
+# ── 編集・新規登録 ────────────────────────────────────────────────────────────
+
+@login_required
+def assets_register_edit(request, asset_no):
+    """固定資産台帳 編集（accountant/admin ロール限定）"""
+    if not _can_manage_assets(request.user):
+        raise PermissionDenied()
+
+    obj = get_object_or_404(T_Assets, pk=asset_no)
+    original_values = {name: getattr(obj, name) for name in ASSET_EDITABLE_FIELDS}
+
+    if request.method == 'POST':
+        form = get_asset_register_form(data=request.POST, instance=obj, is_edit=True)
+        if form.is_valid():
+            diff = {}
+            for name in ASSET_EDITABLE_FIELDS:
+                new_val = form.cleaned_data.get(name)
+                if original_values[name] != new_val:
+                    diff[name] = _serialize_payload_value(new_val)
+                    setattr(obj, name, new_val)
+            if diff:
+                obj.save(update_fields=list(diff.keys()))
+                T_AssetsSyncQueue.objects.create(
+                    asset_no=obj.asset_no,
+                    operation='update',
+                    payload=diff,
+                    created_by=request.user,
+                )
+            return redirect('expenses:assets_register_list')
+    else:
+        form = get_asset_register_form(instance=obj, is_edit=True)
+
+    return render(request, 'expenses/assets_register_form.html', {
+        'form': form,
+        'form_sections': _build_asset_form_sections(form),
+        'is_create': False,
+        'asset_no': asset_no,
+    })
+
+
+# ── Task 4・5 で正式実装に置き換えるまでの一時スタブ（circular importを避けるため） ──
+
+@login_required
+def assets_register_create(request):
+    raise NotImplementedError
+
+
+@login_required
+def assets_sync_queue_list(request):
+    raise NotImplementedError

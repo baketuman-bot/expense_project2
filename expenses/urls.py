@@ -32,8 +32,11 @@ urlpatterns = [
     path("assets/list/", views.asset_list, name="asset_list"),
     path("assets/new/<int:document_type_id>/", views.expense_create, name="asset_create_by_type"),
     # 固定資産台帳（T_ASSETS）
-    path("assets/register/", views.assets_register_list, name="assets_register_list"),
+    path("assets/register/new/", views.assets_register_create, name="assets_register_create"),
+    path("assets/register/queue/", views.assets_sync_queue_list, name="assets_sync_queue_list"),
     path("assets/register/csv/", views.assets_register_csv, name="assets_register_csv"),
+    path("assets/register/<str:asset_no>/edit/", views.assets_register_edit, name="assets_register_edit"),
+    path("assets/register/", views.assets_register_list, name="assets_register_list"),
     # 改善要望
     path("feedback/", views.feedback_list, name="feedback_list"),
     path("feedback/new/", views.feedback_create, name="feedback_create"),
