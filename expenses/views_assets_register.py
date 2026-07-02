@@ -76,6 +76,12 @@ def assets_register_list(request):
     paginator = Paginator(qs, 50)
     page_obj  = paginator.get_page(request.GET.get('page'))
 
+    can_manage_assets = _can_manage_assets(request.user)
+    pending_sync_count = (
+        T_AssetsSyncQueue.objects.filter(status='pending').count()
+        if can_manage_assets else 0
+    )
+
     return render(request, 'expenses/assets_register_list.html', {
         'current':         'assets_register_list',
         'page_obj':        page_obj,
@@ -88,6 +94,8 @@ def assets_register_list(request):
         'date_to':         request.GET.get('date_to', ''),
         'bumon_choices':   list(bumon_choices),
         'account_choices': list(account_choices),
+        'can_manage_assets': can_manage_assets,
+        'pending_sync_count':  pending_sync_count,
     })
 
 

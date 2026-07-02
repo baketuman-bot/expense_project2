@@ -13,6 +13,17 @@
             固定資産台帳
         </h2>
         <div class="page-actions">
+            {% if can_manage_assets %}
+            <a href="{% url 'expenses:assets_register_create' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> 新規登録
+            </a>
+            <a href="{% url 'expenses:assets_sync_queue_list' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-sync-alt"></i> 同期キュー
+                {% if pending_sync_count %}
+                <span class="badge bg-danger ms-1">{{ pending_sync_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
             <a href="{% url 'expenses:assets_register_csv' %}?keyword={{ keyword|urlencode }}&bumon_cd={{ bumon_cd|urlencode }}&account_cd={{ account_cd|urlencode }}&disposal={{ disposal }}&date_from={{ date_from }}&date_to={{ date_to }}"
                class="btn btn-outline-primary btn-sm">
                 <i class="fas fa-download"></i> CSV出力
@@ -107,6 +118,7 @@
                         <th class="text-nowrap">取得日</th>
                         <th class="text-nowrap">設置場所</th>
                         <th class="text-nowrap">状態</th>
+                        {% if can_manage_assets %}<th class="text-nowrap">編集</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -136,6 +148,13 @@
                                 <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">有</span>
                             {% endif %}
                         </td>
+                        {% if can_manage_assets %}
+                        <td class="text-nowrap">
+                            <a href="{% url 'expenses:assets_register_edit' asset.asset_no %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>

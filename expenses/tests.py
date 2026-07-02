@@ -1235,3 +1235,41 @@ class AssetsSyncQueueListTest(TestCase):
         self.client.force_login(plain_user)
         response = self.client.get('/assets/register/queue/')
         self.assertEqual(response.status_code, 403)
+
+
+class AssetsRegisterListPageActionsTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import M_UserRole, T_AssetsSyncQueue
+        User = get_user_model()
+        self.accountant = User.objects.create_user(
+            username='ast_list_accountant', man_number='ASTLIST001',
+            user_name='経理担当5', password='pass123',
+        )
+        M_UserRole.objects.create(man_number=self.accountant, role='accountant')
+        self.plain_user = User.objects.create_user(
+            username='ast_list_plain', man_number='ASTLIST002',
+            user_name='一般ユーザー4', password='pass123',
+        )
+        T_AssetsSyncQueue.objects.create(
+            asset_no='ASTLISTQ01', operation='update',
+            payload={'asset_name1': 'x'}, status='pending',
+            created_by=self.accountant,
+        )
+        self.client = Client()
+
+    def test_accountant_sees_create_and_queue_buttons_with_badge(self):
+        self.client.force_login(self.accountant)
+        response = self.client.get('/assets/register/')
+        content = response.content.decode('utf-8')
+        self.assertIn('新規登録', content)
+        self.assertIn('同期キュー', content)
+        self.assertIn('/assets/register/new/', content)
+        self.assertIn('/assets/register/queue/', content)
+
+    def test_plain_user_does_not_see_manage_buttons(self):
+        self.client.force_login(self.plain_user)
+        response = self.client.get('/assets/register/')
+        content = response.content.decode('utf-8')
+        self.assertNotIn('/assets/register/new/', content)
+        self.assertNotIn('/assets/register/queue/', content)
