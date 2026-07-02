@@ -1002,3 +1002,45 @@ class AssetsSyncQueueModelTest(TestCase):
         from expenses.models import T_AssetsSyncQueue
         self.assertEqual(dict(T_AssetsSyncQueue.STATUS_CHOICES).get('pending'), '未送信')
         self.assertEqual(dict(T_AssetsSyncQueue.OPERATION_CHOICES).get('insert'), '新規登録')
+
+
+class AssetRegisterFormTest(TestCase):
+    def test_readonly_fields_are_disabled(self):
+        from expenses.forms import get_asset_register_form, ASSET_READONLY_FIELDS
+        form = get_asset_register_form(is_edit=False)
+        for name in ASSET_READONLY_FIELDS:
+            self.assertTrue(form.fields[name].disabled, name)
+
+    def test_edit_mode_disables_asset_no(self):
+        from expenses.forms import get_asset_register_form
+        from expenses.models import T_Assets
+        obj = T_Assets(asset_no='FORMTEST001', asset_name1='テスト資産')
+        form = get_asset_register_form(instance=obj, is_edit=True)
+        self.assertTrue(form.fields['asset_no'].disabled)
+
+    def test_create_mode_keeps_asset_no_editable(self):
+        from expenses.forms import get_asset_register_form
+        form = get_asset_register_form(is_edit=False)
+        self.assertFalse(form.fields['asset_no'].disabled)
+
+    def test_money_field_accepts_comma_input(self):
+        from decimal import Decimal
+        from expenses.forms import get_asset_register_form
+        from expenses.models import T_Assets
+        obj = T_Assets.objects.create(asset_no='FORMTEST002', asset_name1='テスト資産2')
+        form = get_asset_register_form(
+            data={'asset_name1': 'テスト資産2', 'acquisition_amount': '1,234,567'},
+            instance=obj, is_edit=True,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['acquisition_amount'], Decimal('1234567'))
+
+    def test_section_field_count_matches_68_columns(self):
+        from expenses.forms import ASSET_ALL_FIELDS
+        self.assertEqual(len(ASSET_ALL_FIELDS), 68)
+
+    def test_editable_fields_exclude_pk_and_readonly(self):
+        from expenses.forms import ASSET_EDITABLE_FIELDS
+        self.assertEqual(len(ASSET_EDITABLE_FIELDS), 59)
+        self.assertNotIn('asset_no', ASSET_EDITABLE_FIELDS)
+        self.assertNotIn('account_name', ASSET_EDITABLE_FIELDS)

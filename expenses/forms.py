@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import modelformset_factory, BaseModelFormSet
-from .models import T_Document, T_DocumentContent, M_Account, M_Item
+from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets
 
 
 def _get_item_choices(data_kbn, empty_label='選択してください', fallback=None):
@@ -810,3 +810,107 @@ AllowanceEditFormSet = modelformset_factory(
     validate_max=True,
     max_num=10,
 )
+
+
+# ── 固定資産台帳 編集・新規登録フォーム ─────────────────────────────────────
+# v_assets の68列（import_assets.py の ACCESS_COLUMNS と同一の並び）を
+# 「基本情報 / 取得・償却 / 設置場所 / 除却 / 管理情報」の5セクションに分類する。
+
+ASSET_READONLY_FIELDS = [
+    'account_name', 'bumon_name', 'accounting_bumon_cd', 'structure_name',
+    'detail_name', 'location_name', 'city_cd', 'city_name',
+]
+
+ASSET_MONEY_FIELDS = [
+    'acquisition_amount', 'beginning_amount', 'beginning_depreciation_diff', 'residual_amount',
+    'current_optional_depreciation', 'compression_reserve', 'beginning_adjustment', 'depreciation_limit',
+    'disposal_amount', 'special_depreciation_amount', 'extra_depreciation_amount',
+    'prev_year_book_amount', 'prev_year_assessed_amount', 'switch_book_amount', 'post_switch_annual_depreciation',
+]
+
+ASSET_DATE_FIELDS = [
+    'depreciation_start_date', 'acquisition_date', 'transfer_date', 'installation_date',
+    'disposal_date', 'registration_date', 'disposal_registration_date', 'transfer_registration_date',
+    'special_registration_date', 'depreciation_stop_start_date', 'depreciation_stop_end_date',
+    'straight_line_switch_date',
+]
+
+ASSET_SECTIONS = [
+    ('基本情報', [
+        'asset_no', 'account_cd', 'account_name', 'bumon_cd', 'bumon_name',
+        'accounting_bumon_cd', 'asset_name1', 'asset_name2', 'structure_cd',
+        'structure_name', 'detail_name', 'alloc_kbn', 'alloc_rate_cd', 'quantity', 'unit',
+    ]),
+    ('取得・償却', [
+        'useful_life', 'depreciation_start_date', 'acquisition_date', 'transfer_date',
+        'acquisition_amount', 'beginning_amount', 'beginning_depreciation_diff', 'residual_amount',
+        'current_optional_depreciation', 'current_optional_kbn', 'compression_reserve',
+        'beginning_adjustment', 'depreciation_limit', 'collateral_kbn', 'special_depreciation_kbn',
+        'extra_depreciation_kbn', 'special_depreciation_amount', 'extra_depreciation_amount',
+        'special_rate_input_kbn', 'special_rate_numerator', 'special_rate_denominator',
+        'straight_line_switch_date', 'switch_book_amount', 'post_switch_annual_depreciation',
+        'prev_year_book_amount', 'prev_year_assessed_amount', 'depreciation_stop_start_date',
+        'depreciation_stop_end_date',
+    ]),
+    ('設置場所', [
+        'location_cd', 'location_name', 'city_cd', 'city_name', 'tax_target_kbn', 'installation_date',
+    ]),
+    ('除却', [
+        'disposal_kbn', 'disposal_date', 'disposal_amount', 'disposal_registration_date',
+        'increase_reason', 'decrease_kbn', 'transfer_registration_date', 'special_registration_date',
+        'registration_date', 'source_asset_no', 'partial_expansion_asset_cd', 'supplier_cd',
+    ]),
+    ('管理情報', [
+        'ringi_no', 'manager', 'memo1', 'memo2', 'model_name', 'serial_no', 'physical_inventory_result',
+    ]),
+]
+
+ASSET_ALL_FIELDS = [name for _, names in ASSET_SECTIONS for name in names]
+
+# 同期キューへの差分payload対象（PKと読み取り専用8項目を除く59項目）
+ASSET_EDITABLE_FIELDS = [
+    name for name in ASSET_ALL_FIELDS
+    if name != 'asset_no' and name not in ASSET_READONLY_FIELDS
+]
+
+
+def get_asset_register_form(data=None, instance=None, is_edit=False):
+    """固定資産台帳の編集・新規登録フォームを生成する。
+    is_edit=True の場合は asset_no も disabled にする（PK変更不可）。"""
+    from django.forms import modelform_factory
+    FormClass = modelform_factory(T_Assets, fields=ASSET_ALL_FIELDS)
+    form = FormClass(data=data, instance=instance)
+
+    for name in ASSET_MONEY_FIELDS:
+        form.fields[name] = CommaDecimalField(
+            required=False, max_digits=18, decimal_places=4,
+            label=form.fields[name].label,
+            widget=forms.TextInput(attrs={
+                'class': 'form-control', 'inputmode': 'numeric',
+                'data-amount-input': '', 'autocomplete': 'off',
+            }),
+        )
+
+    for name in ASSET_DATE_FIELDS:
+        form.fields[name].widget = forms.DateInput(
+            attrs={'type': 'date', 'class': 'form-control'}, format='%Y-%m-%d',
+        )
+        form.fields[name].input_formats = ['%Y-%m-%d']
+
+    for name in ASSET_READONLY_FIELDS:
+        form.fields[name].disabled = True
+        form.fields[name].required = False
+
+    if is_edit:
+        form.fields['asset_no'].disabled = True
+
+    for name, field in form.fields.items():
+        if name in ASSET_MONEY_FIELDS or name in ASSET_DATE_FIELDS:
+            continue
+        w = field.widget
+        if isinstance(w, forms.Select):
+            w.attrs['class'] = (w.attrs.get('class', '') + ' form-select').strip()
+        elif not isinstance(w, forms.CheckboxInput):
+            w.attrs['class'] = (w.attrs.get('class', '') + ' form-control').strip()
+
+    return form
