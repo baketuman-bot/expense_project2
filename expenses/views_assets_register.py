@@ -285,6 +285,7 @@ def assets_register_create(request):
 
     if request.method == 'POST':
         form = get_asset_register_form(data=request.POST, is_edit=False)
+        form.validate_unique = lambda: None  # 独自の重複チェック（T_Assets + 未送信キュー）で判定するため、標準のPK一意性検証は無効化
         if form.is_valid():
             asset_no = form.cleaned_data['asset_no']
             duplicate = (
