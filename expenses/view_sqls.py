@@ -178,14 +178,41 @@ SELECT
   dc.settle_kbn,
   dc.consumption_tax,
   dc.consumption_kbn,
-  d.status_cd_id
+  d.status_cd_id,
+  s.status_name,
+  dc.hojo_cd,
+  asub.sub_account_name,
+  dc.journal_tax_kbn,
+  itax.content         AS journal_tax_kbn_name,
+  dc.journal_tax_rate,
+  dc.journal_fx_rate,
+  dc.journal_done,
+  dc.journal_at,
+  dc.journal_amont,
+  dc.journal_tax,
+  dc.journal_amont_fx,
+  dc.journal_tax_fx,
+  dc.journal_discription_deb,
+  dc.account_cd_cre,
+  aa.account_name      AS account_name_cre,
+  dc.account_sub_cd_cre,
+  dc.journal_amount_cre,
+  dc.journal_amont_fx_cre,
+  dc.journal_tori_cd_cre,
+  dc.journal_discription_cre
 FROM t_documentcontents dc
-LEFT JOIN t_documents      d  ON d.document_id       = dc.document_id
-LEFT JOIN m_document_types dt ON dt.document_type_id = d.document_type_id
-LEFT JOIN m_document_group g  ON g.menu_group        = dt.menu_group
-LEFT JOIN m_account        a  ON a.account_cd        = dc.account_id
-LEFT JOIN m_user           u  ON u.man_number        = d.man_number
-LEFT JOIN m_bumon          b  ON b.bumon_cd          = d.bumon_cd
+LEFT JOIN t_documents      d    ON d.document_id       = dc.document_id
+LEFT JOIN m_document_types dt   ON dt.document_type_id = d.document_type_id
+LEFT JOIN m_document_group g    ON g.menu_group        = dt.menu_group
+LEFT JOIN m_account        a    ON a.account_cd        = dc.account_id
+LEFT JOIN m_user           u    ON u.man_number        = d.man_number
+LEFT JOIN m_bumon          b    ON b.bumon_cd          = d.bumon_cd
+LEFT JOIN m_status         s    ON s.status_cd         = d.status_cd_id
+LEFT JOIN m_account_sub    asub ON asub.account_cd     = dc.account_id
+                                AND asub.sub_account_cd = dc.hojo_cd
+LEFT JOIN m_item           itax ON itax.key             = dc.journal_tax_kbn
+                                AND itax.data_kbn        = 'TAX_C'
+LEFT JOIN m_account        aa   ON aa.account_cd        = dc.account_cd_cre
 """
 
 _V_DOCUMENTS = """

@@ -676,6 +676,7 @@ class T_DocumentContent(models.Model):
     journal_tax_rate = models.CharField("仕訳税率",      max_length=10,  null=True, blank=True)
     journal_fx_rate  = models.CharField("換算レート",    max_length=20,  null=True, blank=True)
     journal_done     = models.BooleanField("仕訳入力済", default=False)
+    journal_at       = models.DateField("仕訳処理日", null=True, blank=True)
     # 仕訳借方フィールド
     journal_amont           = models.DecimalField("借方税抜金額",    max_digits=10, decimal_places=2, null=True, blank=True)
     journal_tax             = models.DecimalField("借方税額",        max_digits=10, decimal_places=2, null=True, blank=True)

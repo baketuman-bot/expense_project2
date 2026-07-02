@@ -4831,7 +4831,6 @@ def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
                               current_name, process_label, from_param, pay_kbn=None):
     """精算処理共通ビュー: pre_kbn → inpro_kbn への確定処理を共通化"""
     import datetime
-    from django.utils.timezone import localdate
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -4840,7 +4839,7 @@ def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
         try:
             settle_ymd = datetime.date.fromisoformat(settle_ymd_str)
         except (ValueError, TypeError):
-            settle_ymd = localdate()
+            settle_ymd = datetime.date.today()
 
         if selected_ids:
             if action == 'confirm':
@@ -4894,7 +4893,7 @@ def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
 
     return render(request, 'expenses/settlement_payment_process.html', {
         'rows': rows,
-        'today': localdate().isoformat(),
+        'today': datetime.date.today().isoformat(),
         'title': page_title,
         'icon': icon,
         'process_label': process_label,
@@ -5081,9 +5080,16 @@ def settlement_journal(request):
         .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS')
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
-    rows = [{'content': c, 'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn)} for c in contents]
+    rows = [
+        {
+            'content':     c,
+            'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn),
+            'journal_done': c.journal_done,
+        }
+        for c in contents
+    ]
     return render(request, 'expenses/settlement_journal.html', {
-        'rows': rows,
+        'rows':    rows,
         'current': 'settlement_journal',
     })
 
@@ -5099,22 +5105,19 @@ def journal_entry(request):
     except Exception:
         selected_ids = []
 
-    if not selected_ids:
-        return redirect('expenses:settlement_journal')
-
-    contents = list(
+    qs = (
         T_DocumentContent.objects
         .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
-        .filter(
-            document_detail_id__in=selected_ids,
-            settle_kbn__in=journal_kbns,
-            document__status_cd_id='FNS',
-        )
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS')
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
+    if selected_ids:
+        qs = qs.filter(document_detail_id__in=selected_ids)
+
+    contents = list(qs)
 
     if not contents:
-        return redirect('expenses:settlement_journal')
+        return redirect('expenses:settlement_menu')
 
     total = len(contents)
     done  = sum(1 for c in contents if c.journal_done)
@@ -5138,19 +5141,29 @@ def journal_entry(request):
             'applicant':    str(c.document.man_number) if c.document.man_number else '',
             'amount':       c.amount,
             'purpose':      c.purpose or '',
+            'settle_kbn':   c.settle_kbn or '',
             'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn or ''),
             'journal_done': c.journal_done,
             'warn':         acd5.startswith('??'),
         })
 
+    # フィルター用: 実際に存在する支払い方法の一覧（表示順は _JOURNAL_KBN_LABEL 順）
+    existing_kbns = {r['settle_kbn'] for r in rows}
+    settle_filter_options = [
+        {'kbn': kbn, 'label': label}
+        for kbn, label in _JOURNAL_KBN_LABEL.items()
+        if kbn in existing_kbns
+    ]
+
     return render(request, 'expenses/settlement_journal_entry.html', {
-        'rows':        rows,
-        'total':       total,
-        'done':        done,
-        'todo':        total - done,
-        'warn':        warn,
-        'tax_options': tax_options,
-        'current':     'settlement_journal',
+        'rows':                  rows,
+        'total':                 total,
+        'done':                  done,
+        'todo':                  total - done,
+        'warn':                  warn,
+        'tax_options':           tax_options,
+        'settle_filter_options': settle_filter_options,
+        'current':               'settlement_journal',
     })
 
 
@@ -5540,12 +5553,21 @@ def journal_csv(request):
     import csv as _csv
 
     journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
-    contents = (
+
+    raw_ids = request.GET.get('ids', '')
+    try:
+        selected_ids = [int(x) for x in raw_ids.split(',') if x.strip().isdigit()]
+    except Exception:
+        selected_ids = []
+
+    qs = (
         T_DocumentContent.objects
         .select_related('document__bumon_cd', 'account')
-        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS')
-        .order_by('document__document_type_id', 'document__document_id', 'date')
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=True)
     )
+    if selected_ids:
+        qs = qs.filter(document_detail_id__in=selected_ids)
+    contents = qs.order_by('document__document_type_id', 'document__document_id', 'date')
 
     # 補助科目名を一括取得 (account_cd, sub_account_cd) → name
     _hojo_name_map = {

@@ -21,11 +21,12 @@
   <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
     <span class="text-muted small">{{ rows|length }} 件</span>
     <a href="#" id="select-all" class="small">全選択</a>
+    <a href="#" id="deselect-done" class="small">入力済のみ選択</a>
     <a href="#" id="deselect-all" class="small">全解除</a>
 
     <div class="ms-auto d-flex gap-2">
-      <button type="button" class="btn btn-primary btn-sm" id="btn-open-entry">
-        <i class="fas fa-edit me-1"></i>仕訳作成
+      <button type="button" class="btn btn-primary btn-sm" id="btn-open-csv">
+        <i class="fas fa-file-csv me-1"></i>CSV出力
       </button>
     </div>
   </div>
@@ -76,7 +77,8 @@
               <input type="checkbox"
                      class="form-check-input journal-check"
                      value="{{ c.document_detail_id }}"
-                     {% if c.journal_done %}checked{% endif %}>
+                     data-done="{{ row.journal_done|yesno:'true,false' }}"
+                     {% if row.journal_done %}checked{% endif %}>
             </td>
           </tr>
           {% endwith %}
@@ -87,8 +89,8 @@
   </div>
 
   <div class="mt-2 d-flex justify-content-end gap-2">
-    <button type="button" class="btn btn-primary btn-sm" id="btn-open-entry-bottom">
-      <i class="fas fa-edit me-1"></i>仕訳作成
+    <button type="button" class="btn btn-primary btn-sm" id="btn-open-csv-bottom">
+      <i class="fas fa-file-csv me-1"></i>CSV出力
     </button>
   </div>
 
@@ -105,7 +107,7 @@
 
 <script>
 (function () {
-  var ENTRY_URL = "{% url 'expenses:journal_entry' %}";
+  var CSV_URL = "{% url 'expenses:journal_csv' %}";
 
   function getChecks() {
     return document.querySelectorAll('.journal-check');
@@ -117,23 +119,27 @@
     return ids;
   }
 
-  function openEntry() {
+  function openCsv() {
     var ids = checkedIds();
     if (ids.length === 0) {
       alert('対象行を1件以上選択してください。');
       return;
     }
-    window.location.href = ENTRY_URL + '?ids=' + ids.join(',');
+    window.location.href = CSV_URL + '?ids=' + ids.join(',');
   }
 
-  ['btn-open-entry', 'btn-open-entry-bottom'].forEach(function (id) {
+  ['btn-open-csv', 'btn-open-csv-bottom'].forEach(function (id) {
     var el = document.getElementById(id);
-    if (el) el.addEventListener('click', openEntry);
+    if (el) el.addEventListener('click', openCsv);
   });
 
   document.getElementById('select-all') && document.getElementById('select-all').addEventListener('click', function (e) {
     e.preventDefault();
     getChecks().forEach(function (c) { c.checked = true; });
+  });
+  document.getElementById('deselect-done') && document.getElementById('deselect-done').addEventListener('click', function (e) {
+    e.preventDefault();
+    getChecks().forEach(function (c) { c.checked = c.dataset.done === 'true'; });
   });
   document.getElementById('deselect-all') && document.getElementById('deselect-all').addEventListener('click', function (e) {
     e.preventDefault();

@@ -278,10 +278,7 @@ body.journal-page .precision-shell {
     <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
       <i class="fas fa-arrow-left me-1"></i>精算処理メニューへ
     </a>
-    <a href="{% url 'expenses:settlement_journal' %}" class="btn btn-sm btn-outline-secondary">
-      <i class="fas fa-list me-1"></i>仕訳作成一覧へ
-    </a>
-    <a href="{% url 'expenses:journal_csv' %}" class="btn btn-sm btn-primary">
+    <a href="{% url 'expenses:settlement_journal' %}" class="btn btn-sm btn-primary" id="btn-csv">
       <i class="fas fa-file-csv me-1"></i>CSV出力
     </a>
   </div>
@@ -307,13 +304,24 @@ body.journal-page .precision-shell {
 
   <!-- 左: 明細一覧 -->
   <div class="jnl-pane">
-    <div class="jnl-pane-hd"><i class="fas fa-list-ul"></i> 明細一覧 <span style="font-weight:400;color:var(--sub);">{{ total }}件</span></div>
+    <div class="jnl-pane-hd"><i class="fas fa-list-ul"></i> 明細一覧 <span style="font-weight:400;color:var(--sub);" id="jnl-list-count">{{ total }}件</span></div>
+    {% if settle_filter_options %}
+    <div style="padding:6px 10px;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0;">
+      <select id="jnl-filter-kbn" class="jnl-ctrl" style="width:100%;font-size:11px;height:26px;">
+        <option value="">すべての支払い方法</option>
+        {% for opt in settle_filter_options %}
+        <option value="{{ opt.kbn }}">{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
     <div class="jnl-pane-body">
       <ul class="jnl-list" id="jnl-list">
         {% for r in rows %}
         <li class="jnl-item {% if r.journal_done %}done{% elif r.warn %}warn{% endif %} {% if forloop.first %}active{% endif %}"
             id="jnl-item-{{ r.pk }}"
             data-pk="{{ r.pk }}"
+            data-settle-kbn="{{ r.settle_kbn }}"
             onclick="jnlSelect({{ r.pk }})">
           <span class="jnl-item-no">{{ r.document_id }}</span>
           <div style="min-width:0;">
@@ -795,11 +803,40 @@ body.journal-page .precision-shell {
     }
   }
 
+  /* ── フィルター ── */
+  var currentFilter = '';
+
+  function applyFilter(kbn) {
+    currentFilter = kbn;
+    var items = document.querySelectorAll('.jnl-item');
+    var visible = 0;
+    items.forEach(function (el) {
+      var match = !kbn || el.dataset.settleKbn === kbn;
+      el.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    var countEl = document.getElementById('jnl-list-count');
+    if (countEl) countEl.textContent = visible + '件';
+  }
+
+  var filterSel = document.getElementById('jnl-filter-kbn');
+  if (filterSel) {
+    filterSel.addEventListener('change', function () {
+      applyFilter(this.value);
+      /* フィルター後、現在選択中アイテムが非表示になったら最初の表示アイテムへ移動 */
+      var curItem = document.getElementById('jnl-item-' + currentPk);
+      if (curItem && curItem.style.display === 'none') {
+        var first = document.querySelector('.jnl-item:not([style*="display: none"]):not([style*="display:none"])');
+        if (first) jnlSelect(parseInt(first.dataset.pk));
+      }
+    });
+  }
+
   /* ── ナビゲーション ── */
   function pkList() {
-    return Array.from(document.querySelectorAll('.jnl-item')).map(function (el) {
-      return parseInt(el.dataset.pk);
-    });
+    return Array.from(document.querySelectorAll('.jnl-item'))
+      .filter(function (el) { return el.style.display !== 'none'; })
+      .map(function (el) { return parseInt(el.dataset.pk); });
   }
 
   window.jnlGoPrev = function () {
@@ -831,7 +868,6 @@ body.journal-page .precision-shell {
   window.jnlNextTodo = function () {
     var next = nextTodoPk(currentPk);
     if (next) { jnlSelect(next); return; }
-    /* 未入力がなければ先頭から探す */
     var all  = pkList();
     for (var i = 0; i < all.length; i++) {
       var el = document.getElementById('jnl-item-' + all[i]);
@@ -843,7 +879,6 @@ body.journal-page .precision-shell {
   window.jnlPrevTodo = function () {
     var prev = prevTodoPk(currentPk);
     if (prev) { jnlSelect(prev); return; }
-    /* 末尾から逆方向に循環 */
     var all = pkList();
     for (var i = all.length - 1; i >= 0; i--) {
       var el = document.getElementById('jnl-item-' + all[i]);
