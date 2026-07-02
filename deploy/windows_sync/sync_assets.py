@@ -275,6 +275,10 @@ def run_push(mdb_conn, mysql_conn, retry_errors, dry_run):
         if ok:
             success += 1
             if not dry_run:
+                # MySQLのキュー状態を確定させる前にMDB側の書き込みを確定させる。
+                # 途中でクラッシュしても「MySQLはdoneだがMDBは未反映」という
+                # 不整合が起きないようにするため。
+                mdb_conn.commit()
                 with mysql_conn.cursor() as cur:
                     cur.execute(
                         "UPDATE t_assets_sync_queue SET status='done', processed_at=NOW(), error_msg='' "
@@ -291,8 +295,6 @@ def run_push(mdb_conn, mysql_conn, retry_errors, dry_run):
                     )
         if not dry_run:
             mysql_conn.commit()
-    if not dry_run:
-        mdb_conn.commit()
     logger.info('Push完了: 成功 %d件 / 失敗 %d件', success, failure)
     return success, failure
 
