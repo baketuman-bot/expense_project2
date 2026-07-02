@@ -1188,3 +1188,50 @@ class AssetsRegisterCreateTest(TestCase):
         self.client.force_login(plain_user)
         response = self.client.get('/assets/register/new/')
         self.assertEqual(response.status_code, 403)
+
+
+class AssetsSyncQueueListTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import M_UserRole, T_AssetsSyncQueue
+        User = get_user_model()
+        self.accountant = User.objects.create_user(
+            username='ast_queue_accountant', man_number='ASTQUEUE001',
+            user_name='経理担当4', password='pass123',
+        )
+        M_UserRole.objects.create(man_number=self.accountant, role='accountant')
+        T_AssetsSyncQueue.objects.create(
+            asset_no='ASTQ0001', operation='update',
+            payload={'asset_name1': 'テスト'}, status='pending',
+            created_by=self.accountant,
+        )
+        T_AssetsSyncQueue.objects.create(
+            asset_no='ASTQ0002', operation='insert',
+            payload={'asset_name1': 'テスト2'}, status='error',
+            error_msg='MDB側に資産NOが存在しません',
+            created_by=self.accountant,
+        )
+        self.client = Client()
+        self.client.force_login(self.accountant)
+
+    def test_list_shows_all_entries(self):
+        response = self.client.get('/assets/register/queue/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ASTQ0001')
+        self.assertContains(response, 'ASTQ0002')
+
+    def test_filter_by_status(self):
+        response = self.client.get('/assets/register/queue/?status=error')
+        self.assertContains(response, 'ASTQ0002')
+        self.assertNotContains(response, 'ASTQ0001')
+
+    def test_plain_user_gets_403(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        plain_user = User.objects.create_user(
+            username='ast_queue_plain', man_number='ASTQUEUE002',
+            user_name='一般ユーザー3', password='pass123',
+        )
+        self.client.force_login(plain_user)
+        response = self.client.get('/assets/register/queue/')
+        self.assertEqual(response.status_code, 403)

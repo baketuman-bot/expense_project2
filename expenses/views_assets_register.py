@@ -322,4 +322,23 @@ def assets_register_create(request):
 
 @login_required
 def assets_sync_queue_list(request):
-    raise NotImplementedError
+    """固定資産台帳 同期キュー一覧（accountant/admin ロール限定）"""
+    if not _can_manage_assets(request.user):
+        raise PermissionDenied()
+
+    status_filter = request.GET.get('status', '').strip()
+    qs = T_AssetsSyncQueue.objects.select_related('created_by').order_by('-created_at')
+    if status_filter in dict(T_AssetsSyncQueue.STATUS_CHOICES):
+        qs = qs.filter(status=status_filter)
+
+    paginator = Paginator(qs, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'expenses/assets_sync_queue_list.html', {
+        'page_obj': page_obj,
+        'total_count': paginator.count,
+        'status_filter': status_filter,
+        'status_choices': T_AssetsSyncQueue.STATUS_CHOICES,
+        'pending_count': T_AssetsSyncQueue.objects.filter(status='pending').count(),
+        'error_count': T_AssetsSyncQueue.objects.filter(status='error').count(),
+    })
