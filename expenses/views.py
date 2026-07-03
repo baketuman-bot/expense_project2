@@ -7,7 +7,7 @@ from django.conf import settings
 from .views_assets_register import (
     assets_register_list, assets_register_csv,
     assets_register_edit, assets_register_create, assets_sync_queue_list,
-    assets_sync_info,
+    assets_sync_info, api_asset_lookup,
 )  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
@@ -94,17 +94,21 @@ def _asset_form_context(doc_type):
     """カテゴリが 'assets' の DocType に適用するフォーム表示制御コンテキストを返す。"""
     mg = getattr(doc_type, 'menu_group', None)
     mg_code = getattr(mg, 'menu_group', None)
+    is_asset_move = bool(doc_type) and getattr(doc_type, 'document_type_id', None) == 7
     if doc_type and mg and getattr(mg, 'category', None) == 'assets':
         return {
             'hide_currency': True,
             'hide_pay_kbn': True,
-            'purpose_label': '固定資産名',
+            'purpose_label': '固定資産移動件名' if is_asset_move else '固定資産名',
             'receipt_label': '資産画像',
             'detail_section_title': '固定資産明細',
             'hide_detail_fields': True,
             'reorder_sections': True,
             'info_first': False,
             'hide_receipt_fields': False,
+            'bumon_label': '申請部門' if is_asset_move else '負担部門',
+            'hide_ringi_no': is_asset_move,
+            'hide_detail_total_bar': is_asset_move,
         }
     return {
         'hide_currency': False,
@@ -116,6 +120,9 @@ def _asset_form_context(doc_type):
         'reorder_sections': False,
         'info_first': True,
         'hide_receipt_fields': mg_code == 'LON',
+        'bumon_label': '負担部門',
+        'hide_ringi_no': False,
+        'hide_detail_total_bar': False,
     }
 
 

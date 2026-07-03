@@ -524,9 +524,11 @@
 </div>
 <!-- 固定アクションバー -->
 <div class="form-action-bar" id="formActionBar">
+    {% if not hide_detail_total_bar %}
     <div class="form-action-bar-total">
         明細合計: <span class="bar-total-amount" id="barTotalAmount">¥0</span>
     </div>
+    {% endif %}
     <div class="form-action-bar-buttons">
         {% if is_edit_mode %}
             {% if is_keiri_edit %}
@@ -555,13 +557,15 @@
 <script>
 (function() {
     function calcBarTotal() {
+        var barTotalEl = document.getElementById('barTotalAmount');
+        if (!barTotalEl) return;
         var total = 0;
         document.querySelectorAll('[data-amount-input]').forEach(function(el) {
             var v = parseFloat((el.value || '').replace(/,/g, ''));
             if (!isNaN(v)) total += v;
         });
         var formatted = '¥' + Math.round(total).toLocaleString('ja-JP');
-        document.getElementById('barTotalAmount').textContent = formatted;
+        barTotalEl.textContent = formatted;
     }
     document.addEventListener('input', function(e) {
         if (e.target && e.target.hasAttribute('data-amount-input')) {
@@ -1245,6 +1249,48 @@ document.addEventListener('DOMContentLoaded', function(){
     });
 })();
 // ======= calc_formula 計算エンジン エンド =======
+
+// ======= 対象資産情報 資産番号オートフィル =======
+(function() {
+    var assetNoInput = document.getElementById('id_dyn_asset_no');
+    if (!assetNoInput) return;
+
+    var msgEl = document.createElement('div');
+    msgEl.className = 'form-text text-danger small';
+    msgEl.style.display = 'none';
+    assetNoInput.insertAdjacentElement('afterend', msgEl);
+
+    function clearLabelFields() {
+        document.querySelectorAll('[id^="id_dyn_"].bg-light').forEach(function(el) {
+            el.textContent = '-';
+        });
+    }
+
+    assetNoInput.addEventListener('blur', function() {
+        var assetNo = assetNoInput.value.trim();
+        msgEl.style.display = 'none';
+        if (!assetNo) {
+            clearLabelFields();
+            return;
+        }
+        fetch('/api/asset_lookup/?asset_no=' + encodeURIComponent(assetNo))
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.found) {
+                    Object.keys(data.fields).forEach(function(name) {
+                        var el = document.getElementById('id_dyn_' + name);
+                        if (el) el.textContent = data.fields[name] || '-';
+                    });
+                } else {
+                    clearLabelFields();
+                    msgEl.textContent = '資産番号が見つかりません。';
+                    msgEl.style.display = 'block';
+                }
+            })
+            .catch(function() {});
+    });
+})();
+// ======= 資産番号オートフィル エンド =======
 
 // ======= 下書き自動保存（localStorage） =======
 (function(){

@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .models import T_Assets, T_AssetsSyncQueue
@@ -370,3 +370,47 @@ def assets_sync_info(request):
         'pending_count': T_AssetsSyncQueue.objects.filter(status='pending').count(),
         'error_count': T_AssetsSyncQueue.objects.filter(status='error').count(),
     })
+
+
+# ── 資産番号オートフィル API ──────────────────────────────────────────────────
+
+_ASSET_LOOKUP_DATE_FORMATS = {
+    'depreciation_start_date': '%Y/%m',
+}
+
+
+def _format_asset_lookup_value(field_name, value):
+    """資産番号オートフィル用に T_Assets の値を表示用文字列へ整形する。"""
+    if value is None:
+        return ''
+    if isinstance(value, datetime):
+        fmt = _ASSET_LOOKUP_DATE_FORMATS.get(field_name, '%Y/%m/%d')
+        return value.strftime(fmt)
+    if isinstance(value, Decimal):
+        normalized = value.normalize()
+        if normalized == normalized.to_integral_value():
+            return f'{int(normalized):,}'
+        return f'{normalized:,.2f}'
+    return str(value)
+
+
+@login_required
+def api_asset_lookup(request):
+    """資産番号から T_Assets の値を取得し、フィールド名をキーにしたJSONを返す。
+
+    固定資産系フォームの「対象資産情報」オートフィル（資産番号入力→他ラベル反映）用。
+    """
+    asset_no = (request.GET.get('asset_no') or '').strip()
+    if not asset_no:
+        return JsonResponse({'found': False})
+
+    asset = T_Assets.objects.filter(pk=asset_no).first()
+    if not asset:
+        return JsonResponse({'found': False})
+
+    fields = {
+        f.name: _format_asset_lookup_value(f.name, getattr(asset, f.name))
+        for f in T_Assets._meta.concrete_fields
+        if f.name != 'asset_no'
+    }
+    return JsonResponse({'found': True, 'fields': fields})

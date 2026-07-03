@@ -27,6 +27,8 @@ urlpatterns = [
     # API: モバイル QR アップロード
     path("api/generate_mobile_qr/", views.generate_mobile_upload_qr, name="generate_mobile_qr"),
     path("api/check_mobile_uploads/", views.check_mobile_uploads, name="check_mobile_uploads"),
+    # API: 固定資産番号オートフィル
+    path("api/asset_lookup/", views.api_asset_lookup, name="api_asset_lookup"),
     # 固定資産
     path("assets/", views.asset_home, name="asset_home"),
     path("assets/list/", views.asset_list, name="asset_list"),

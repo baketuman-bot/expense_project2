@@ -8,7 +8,7 @@
         <div class="row">
             <div class="col-md-4">
                 <div class="form-group">
-                    <label for="bumon_cd">負担部門</label>
+                    <label for="bumon_cd">{{ bumon_label|default:"負担部門" }}</label>
                     <select class="form-select form-select-sm{% if error_message and '負担部門' in error_message %} is-invalid{% endif %}" id="bumon_cd" name="bumon_cd">
                         <option value="">選択してください</option>
                         {% with presel_bumon=request.POST.bumon_cd|default:copy_from_bumon_cd|default:current_bumon_cd %}
@@ -19,7 +19,7 @@
                         {% endfor %}
                         {% endwith %}
                     </select>
-                    <div id="bumon_cd_error" class="invalid-feedback {% if error_message and '負担部門' in error_message %}d-block{% endif %}">負担部門を選択してください。</div>
+                    <div id="bumon_cd_error" class="invalid-feedback {% if error_message and '負担部門' in error_message %}d-block{% endif %}">{{ bumon_label|default:"負担部門" }}を選択してください。</div>
                 </div>
             </div>
             {% if hide_currency %}
@@ -73,6 +73,7 @@
                 </div>
             </div>
         </div>
+        {% if not hide_ringi_no %}
         <div class="row mt-3">
             <div class="col-md-4">
                 <div class="form-group">
@@ -81,5 +82,6 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 </div>
