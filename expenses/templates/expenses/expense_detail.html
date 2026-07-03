@@ -19,6 +19,11 @@
                     申請詳細
                 </h2>
                 <div class="page-actions">
+                    {% if is_asset %}
+                    <a href="{% url 'expenses:asset_home' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-arrow-left"></i> 固定資産TOPに戻る
+                    </a>
+                    {% endif %}
                     {% if can_keiri_edit %}
                     <a href="{% url 'expenses:keiri_approval_edit' expense.document_id %}{% if from_page %}?from={{ from_page }}{% endif %}" class="btn btn-warning btn-sm">
                         <i class="fas fa-edit me-1"></i>データ修正

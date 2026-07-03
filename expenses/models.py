@@ -1107,6 +1107,35 @@ class T_Assets(models.Model):
         ordering = ['asset_no']
 
 
+# 少額資産台帳
+class T_AssetsLowValue(models.Model):
+    """少額資産テーブル"""
+
+    low_value_asset_no             = models.CharField("小額資産番号",         max_length=13, primary_key=True)
+    maker_name                     = models.CharField("メーカー名",           max_length=50, null=True, blank=True)
+    item_name                      = models.CharField("品名",                 max_length=100, null=True, blank=True)
+    model_no                       = models.CharField("品番",                 max_length=50, null=True, blank=True)
+    serial_no                      = models.CharField("製造番号",             max_length=50, null=True, blank=True)
+    purpose                        = models.CharField("用途",                 max_length=100, null=True, blank=True)
+    acquisition_price              = models.DecimalField("取得価格",          max_digits=18, decimal_places=4, null=True, blank=True)
+    acquisition_date               = models.DateTimeField("年月日",           null=True, blank=True)
+    bumon_cd                       = models.CharField("部門コード",           max_length=10, null=True, blank=True)
+    bumon_name                     = models.CharField("部門名",               max_length=50, null=True, blank=True)
+    location_cd                    = models.CharField("設置場所コード",       max_length=10, null=True, blank=True)
+    location_name                  = models.CharField("設置場所名",           max_length=50, null=True, blank=True)
+    cre_date                       = models.DateTimeField("作成日",           auto_now_add=True)
+    up_date                        = models.DateTimeField("更新日",           auto_now=True)
+
+    def __str__(self):
+        return f"{self.low_value_asset_no} {self.item_name}"
+
+    class Meta:
+        db_table = 't_assets_low_value'
+        verbose_name = '少額資産'
+        verbose_name_plural = '少額資産'
+        ordering = ['low_value_asset_no']
+
+
 # 固定資産同期キュー（Web編集 → 本物MDBへのPush待ち）
 class T_AssetsSyncQueue(models.Model):
     OPERATION_CHOICES = [('insert', '新規登録'), ('update', '更新')]

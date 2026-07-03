@@ -40,6 +40,9 @@ urlpatterns = [
     path("assets/register/csv/", views.assets_register_csv, name="assets_register_csv"),
     path("assets/register/<str:asset_no>/edit/", views.assets_register_edit, name="assets_register_edit"),
     path("assets/register/", views.assets_register_list, name="assets_register_list"),
+    # 少額資産台帳（T_AssetsLowValue）
+    path("assets/low_value/csv/", views.assets_low_value_csv, name="assets_low_value_csv"),
+    path("assets/low_value/", views.assets_low_value_list, name="assets_low_value_list"),
     # 改善要望
     path("feedback/", views.feedback_list, name="feedback_list"),
     path("feedback/new/", views.feedback_create, name="feedback_create"),

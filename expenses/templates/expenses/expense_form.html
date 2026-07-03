@@ -30,9 +30,25 @@
             <span class="pt-ico"><i class="fas fa-edit"></i></span>
             {% if is_keiri_edit %}経費データ修正（経理）{% else %}経費申請編集{% endif %}
         </h2>
+        {% if reorder_sections %}
+        <div class="page-actions">
+            <a href="{% url 'expenses:asset_home' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-arrow-left"></i> 固定資産TOPに戻る
+            </a>
+        </div>
+        {% endif %}
     </div>
     {% else %}
-    <h2 class="mb-4">{{ current_doc_type_name|default:"経費申請" }}</h2>
+    <div class="page-head mb-4">
+        <h2 class="page-title mb-0">{{ current_doc_type_name|default:"経費申請" }}</h2>
+        {% if reorder_sections %}
+        <div class="page-actions">
+            <a href="{% url 'expenses:asset_home' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-arrow-left"></i> 固定資産TOPに戻る
+            </a>
+        </div>
+        {% endif %}
+    </div>
     {% endif %}
 
     {% if latest_return_action %}

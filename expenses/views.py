@@ -9,6 +9,9 @@ from .views_assets_register import (
     assets_register_edit, assets_register_create, assets_sync_queue_list,
     assets_sync_info, api_asset_lookup,
 )  # noqa: F401
+from .views_assets_low_value import (
+    assets_low_value_list, assets_low_value_csv,
+)  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
@@ -94,21 +97,30 @@ def _asset_form_context(doc_type):
     """カテゴリが 'assets' の DocType に適用するフォーム表示制御コンテキストを返す。"""
     mg = getattr(doc_type, 'menu_group', None)
     mg_code = getattr(mg, 'menu_group', None)
-    is_asset_move = bool(doc_type) and getattr(doc_type, 'document_type_id', None) == 7
+    doc_type_id = getattr(doc_type, 'document_type_id', None) if doc_type else None
+    is_asset_move = doc_type_id == 7        # 固定資産移動報告書
+    is_asset_disposal = doc_type_id == 8    # 固定資産廃棄報告書
+    is_asset_specialized = is_asset_move or is_asset_disposal
+    if is_asset_move:
+        purpose_label = '固定資産移動件名'
+    elif is_asset_disposal:
+        purpose_label = '固定資産廃棄件名'
+    else:
+        purpose_label = '固定資産名'
     if doc_type and mg and getattr(mg, 'category', None) == 'assets':
         return {
             'hide_currency': True,
             'hide_pay_kbn': True,
-            'purpose_label': '固定資産移動件名' if is_asset_move else '固定資産名',
+            'purpose_label': purpose_label,
             'receipt_label': '資産画像',
             'detail_section_title': '固定資産明細',
             'hide_detail_fields': True,
             'reorder_sections': True,
             'info_first': False,
             'hide_receipt_fields': False,
-            'bumon_label': '申請部門' if is_asset_move else '負担部門',
+            'bumon_label': '申請部門' if is_asset_specialized else '負担部門',
             'hide_ringi_no': is_asset_move,
-            'hide_detail_total_bar': is_asset_move,
+            'hide_detail_total_bar': is_asset_specialized,
         }
     return {
         'hide_currency': False,
