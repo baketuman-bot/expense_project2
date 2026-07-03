@@ -560,8 +560,9 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 - **編集・新規登録・同期キュー一覧の権限**: `has_role('accountant')` または `has_role('admin')` のユーザーのみ（`views_assets_register._can_manage_assets()`）。閲覧（一覧・CSV）は従来通り全ログインユーザー。
 - **読み取り専用8フィールド**（マスタ結合由来、Push対象外）: `account_name`, `bumon_name`, `accounting_bumon_cd`, `structure_name`, `detail_name`, `location_name`, `city_cd`, `city_name`。編集フォームで disabled 表示。
 - **T_AssetsSyncQueue**: 変更フィールドのみ `payload`（JSON）に記録し `status='pending'` で登録。日付は `'YYYY-MM-DD HH:MM:SS'` 文字列、金額は文字列化してJSON化する。
-- **URL**: `/assets/register/new/`（新規登録）、`/assets/register/<asset_no>/edit/`（編集）、`/assets/register/queue/`（同期キュー一覧）
+- **URL**: `/assets/register/new/`（新規登録）、`/assets/register/<asset_no>/edit/`（編集）、`/assets/register/queue/`（同期キュー一覧）、`/assets/register/sync/`（同期の仕組み・注意事項の案内ページ）
 - **Windows側同期スクリプト**: `deploy/windows_sync/sync_assets.py`。デスクトップの `sync_assets.bat` を手動実行（スケジューラ登録・Webからの起動ボタンはなし）。列マッピングは `expenses/management/commands/import_assets.py` の `ACCESS_COLUMNS` を踏襲。セットアップ手順は `deploy/windows_sync/README.md` 参照。
+- **同期案内ページ (`assets_sync_info`)**: サイドバー「固定資産」セクションに `MDB同期について`（`can_manage_assets` ロール限定で表示）。仕組み図・実行手順・注意事項を表示するのみで、**Webからbatファイルを起動する機能は持たない**（起動は上記の通りWindows機での手動実行のみ）。同期キュー未送信/エラー件数バッジと `assets_sync_queue_list` へのリンクを含む。
 
 ## 管理者設定 (Admin Panel)
 

@@ -34,6 +34,7 @@ urlpatterns = [
     # 固定資産台帳（T_ASSETS）
     path("assets/register/new/", views.assets_register_create, name="assets_register_create"),
     path("assets/register/queue/", views.assets_sync_queue_list, name="assets_sync_queue_list"),
+    path("assets/register/sync/", views.assets_sync_info, name="assets_sync_info"),
     path("assets/register/csv/", views.assets_register_csv, name="assets_register_csv"),
     path("assets/register/<str:asset_no>/edit/", views.assets_register_edit, name="assets_register_edit"),
     path("assets/register/", views.assets_register_list, name="assets_register_list"),

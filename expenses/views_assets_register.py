@@ -353,3 +353,20 @@ def assets_sync_queue_list(request):
         'pending_count': T_AssetsSyncQueue.objects.filter(status='pending').count(),
         'error_count': T_AssetsSyncQueue.objects.filter(status='error').count(),
     })
+
+
+@login_required
+def assets_sync_info(request):
+    """固定資産台帳 MDB同期の案内（仕組み・注意事項）。accountant/admin ロール限定。
+
+    sync_assets.bat は fpack が稼働する Windows 機のデスクトップから手動実行する
+    スタンドアロンスクリプトであり、Web（Django）からは起動できない。このページは
+    その手順・仕組み・注意事項を案内するのみで、実行のトリガーは持たない。
+    """
+    if not _can_manage_assets(request.user):
+        raise PermissionDenied()
+
+    return render(request, 'expenses/assets_sync_info.html', {
+        'pending_count': T_AssetsSyncQueue.objects.filter(status='pending').count(),
+        'error_count': T_AssetsSyncQueue.objects.filter(status='error').count(),
+    })

@@ -7,6 +7,7 @@ from django.conf import settings
 from .views_assets_register import (
     assets_register_list, assets_register_csv,
     assets_register_edit, assets_register_create, assets_sync_queue_list,
+    assets_sync_info,
 )  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,

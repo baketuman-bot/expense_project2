@@ -1,0 +1,110 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}固定資産 MDB同期について | {% endblock %}
+
+{% block content %}
+<div class="mt-4">
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-sync-alt"></i></span>
+            固定資産 MDB同期について
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:assets_sync_queue_list' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-list"></i> 同期キューを見る
+                {% if pending_count %}
+                <span class="badge bg-danger ms-1">{{ pending_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'expenses:assets_register_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> 台帳へ戻る
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+        <i class="fas fa-triangle-exclamation mt-1"></i>
+        <div>
+            この同期は<strong>Web画面から起動することはできません</strong>。
+            実際の同期処理は、<code>fpack</code>（固定資産管理ソフト）が稼働している Windows 機のデスクトップにある
+            <code>sync_assets.bat</code> を、担当者が手動でダブルクリックして実行します。
+            このページは仕組みと注意事項の案内のみを目的としています。
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">
+            現在の未送信キュー {{ pending_count }} 件
+        </span>
+        {% if error_count %}
+        <span class="badge bg-danger">エラー {{ error_count }} 件</span>
+        {% endif %}
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header tint-primary">
+            <strong>仕組み</strong>
+        </div>
+        <div class="card-body">
+            <p class="mb-2">
+                固定資産台帳（Web）と Access MDB（<code>FDATA001.MDB</code> / <code>fpack</code> の基幹データ）は、
+                リアルタイムには繋がっていません。以下の手動トリガー式の片方向処理を、担当者が
+                <code>sync_assets.bat</code> を実行するたびに順番に行います。
+            </p>
+            <pre class="bg-light p-3 rounded small mb-2" style="white-space:pre; overflow-x:auto;">[Django (Web)] ──表示/編集──&gt; MySQL T_ASSETS（即時反映）
+      │                        + 同期キュー（変更内容を記録）
+      │
+[Windows側 sync_assets.bat] ← 担当者が手動実行
+      ├─ ① Push: キュー(未送信) → 本物MDB tbl固定資産 へ UPDATE/INSERT
+      └─ ② Pull: 本物MDB v_assets → MySQL T_ASSETS へ upsert</pre>
+            <ul class="mb-0">
+                <li>Web画面で編集・新規登録すると、<strong>MySQL側にはすぐ反映</strong>されますが、変更されたフィールドだけが
+                    「同期キュー」に未送信（pending）として記録されます。MDB本体にはこの時点ではまだ書き込まれません。</li>
+                <li><strong>① Push</strong>: 未送信キューを1件ずつ本物のMDBへ反映します。成功した行から順に「送信済」になります。</li>
+                <li><strong>② Pull</strong>: MDB側の最新データをMySQLへ取り込みます。ただし、
+                    まだ未送信・エラーのキューが残っている資産NOは、Web側の変更を上書きしないためPullの対象から除外されます。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header tint-neutral">
+            <strong>実行手順</strong>
+        </div>
+        <div class="card-body">
+            <ol class="mb-0">
+                <li><code>fpack</code> が稼働している Windows 機にログインする。</li>
+                <li>デスクトップの <code>sync_assets.bat</code> をダブルクリックする。</li>
+                <li>通常実行は Push → Pull の順に自動で行われます。処理結果（成功/失敗件数）はコンソールと
+                    <code>sync_assets.log</code> に記録されます。</li>
+                <li>エラー状態のキューを再送信したい場合はコマンドプロンプトから
+                    <code>python sync_assets.py --retry-errors</code> を実行してください。</li>
+                <li>書き込みを行わず内容だけ確認したい場合は
+                    <code>python sync_assets.py --dry-run</code> を実行してください。</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="card accent-warning mb-3">
+        <div class="card-header tint-warning">
+            <strong>注意事項</strong>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li><strong>同期中は <code>fpack</code> 側でデータを編集しない</strong>でください。Pushの途中でMDBが更新されると
+                    整合性が崩れるおそれがあります。</li>
+                <li>MDBへの書き込み前に自動でバックアップが作成されますが、<strong>スクリプトを止める・強制終了するなど
+                    異常終了させない</strong>でください。Push処理はMDBへのコミット後にキューを「送信済」にするため、
+                    処理を中断すると MySQL とMDBの状態がズレる可能性があります。</li>
+                <li>同期は<strong>手動実行のみ</strong>です（スケジューラ登録なし・Webからの自動起動なし）。
+                    Web側で編集した内容は、次回 <code>sync_assets.bat</code> を実行するまでMDBには反映されません。</li>
+                <li>読み取り専用フィールド（部門名・科目名など、マスタ結合由来の8項目）はWeb編集フォームで入力できず、
+                    Push対象にもなりません。</li>
+                <li>エラーになったキューは自動では消えません。<a href="{% url 'expenses:assets_sync_queue_list' %}">同期キュー一覧</a>
+                    でエラー内容を確認し、必要に応じて <code>--retry-errors</code> で再送信してください。</li>
+                <li>セットアップ手順・接続情報の詳細は <code>deploy/windows_sync/README.md</code> を参照してください。</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

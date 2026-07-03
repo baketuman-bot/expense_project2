@@ -59,8 +59,15 @@ def sidebar_context(request):
     except Exception:
         pass
 
+    can_manage_assets = False
+    try:
+        can_manage_assets = request.user.has_role('accountant') or request.user.has_role('admin')
+    except Exception:
+        pass
+
     return {
         'sidebar_expense_groups': sidebar_groups,
         'pending_approval_count': pending_approval_count,
         'settlement_pending_count': settlement_pending_count,
+        'can_manage_assets': can_manage_assets,
     }

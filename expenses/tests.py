@@ -1273,3 +1273,43 @@ class AssetsRegisterListPageActionsTest(TestCase):
         content = response.content.decode('utf-8')
         self.assertNotIn('/assets/register/new/', content)
         self.assertNotIn('/assets/register/queue/', content)
+
+
+class AssetsSyncInfoTest(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from expenses.models import M_UserRole
+        User = get_user_model()
+        self.accountant = User.objects.create_user(
+            username='ast_syncinfo_accountant', man_number='ASTSYNCINFO001',
+            user_name='経理担当6', password='pass123',
+        )
+        M_UserRole.objects.create(man_number=self.accountant, role='accountant')
+        self.plain_user = User.objects.create_user(
+            username='ast_syncinfo_plain', man_number='ASTSYNCINFO002',
+            user_name='一般ユーザー5', password='pass123',
+        )
+        self.client = Client()
+
+    def test_accountant_can_view_sync_info_page(self):
+        self.client.force_login(self.accountant)
+        response = self.client.get('/assets/register/sync/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'sync_assets.bat')
+
+    def test_plain_user_gets_403(self):
+        self.client.force_login(self.plain_user)
+        response = self.client.get('/assets/register/sync/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_accountant_sees_sidebar_link(self):
+        self.client.force_login(self.accountant)
+        response = self.client.get('/assets/register/')
+        self.assertContains(response, 'MDB同期について')
+        self.assertContains(response, '/assets/register/sync/')
+
+    def test_plain_user_does_not_see_sidebar_link(self):
+        self.client.force_login(self.plain_user)
+        response = self.client.get('/assets/register/')
+        content = response.content.decode('utf-8')
+        self.assertNotIn('/assets/register/sync/', content)
