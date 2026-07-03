@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -264,13 +265,14 @@ def assets_register_edit(request, asset_no):
                     diff[name] = _serialize_payload_value(new_val)
                     setattr(obj, name, new_val)
             if diff:
-                obj.save(update_fields=list(diff.keys()))
-                T_AssetsSyncQueue.objects.create(
-                    asset_no=obj.asset_no,
-                    operation='update',
-                    payload=diff,
-                    created_by=request.user,
-                )
+                with transaction.atomic():
+                    obj.save(update_fields=list(diff.keys()))
+                    T_AssetsSyncQueue.objects.create(
+                        asset_no=obj.asset_no,
+                        operation='update',
+                        payload=diff,
+                        created_by=request.user,
+                    )
             return redirect('expenses:assets_register_list')
     else:
         form = get_asset_register_form(instance=obj, is_edit=True)
@@ -305,18 +307,19 @@ def assets_register_create(request):
             if duplicate:
                 form.add_error('asset_no', 'この資産NOは既に登録されています。')
             else:
-                obj = form.save()
-                payload = {
-                    name: _serialize_payload_value(form.cleaned_data.get(name))
-                    for name in ASSET_EDITABLE_FIELDS
-                    if form.cleaned_data.get(name) not in (None, '')
-                }
-                T_AssetsSyncQueue.objects.create(
-                    asset_no=obj.asset_no,
-                    operation='insert',
-                    payload=payload,
-                    created_by=request.user,
-                )
+                with transaction.atomic():
+                    obj = form.save()
+                    payload = {
+                        name: _serialize_payload_value(form.cleaned_data.get(name))
+                        for name in ASSET_EDITABLE_FIELDS
+                        if form.cleaned_data.get(name) not in (None, '')
+                    }
+                    T_AssetsSyncQueue.objects.create(
+                        asset_no=obj.asset_no,
+                        operation='insert',
+                        payload=payload,
+                        created_by=request.user,
+                    )
                 return redirect('expenses:assets_register_list')
     else:
         form = get_asset_register_form(is_edit=False)
