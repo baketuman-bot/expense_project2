@@ -196,6 +196,7 @@ SELECT
   dc.account_cd_cre,
   aa.account_name      AS account_name_cre,
   dc.account_sub_cd_cre,
+  asub_cre.sub_account_name AS sub_account_name_cre,
   dc.journal_amount_cre,
   dc.journal_amont_fx_cre,
   dc.journal_tori_cd_cre,
@@ -213,6 +214,79 @@ LEFT JOIN m_account_sub    asub ON asub.account_cd     = dc.account_id
 LEFT JOIN m_item           itax ON itax.key             = dc.journal_tax_kbn
                                 AND itax.data_kbn        = 'TAX_C'
 LEFT JOIN m_account        aa   ON aa.account_cd        = dc.account_cd_cre
+LEFT JOIN m_account_sub    asub_cre ON asub_cre.account_cd     = dc.account_cd_cre
+                                    AND asub_cre.sub_account_cd = dc.account_sub_cd_cre
+"""
+
+_V_JOURNALDOCUMENTS = """
+CREATE OR REPLACE VIEW v_journaldocuments AS
+SELECT
+  '*'                        AS denpyo_kubun,
+  vdc.document_id,
+  vdc.document_detail_id,
+  vdc.document_title,
+  vdc.applicant_man_number,
+  vdc.applicant_name,
+  vdc.date,
+  vdc.bumon_cd,
+  vdc.bumon_name,
+  CASE
+    WHEN CHAR_LENGTH(vdc.account_cd) >= 5 THEN vdc.account_cd
+    WHEN CHAR_LENGTH(vdc.account_cd) = 4 THEN CONCAT('8', vdc.account_cd)
+    WHEN CHAR_LENGTH(vdc.account_cd) = 3 THEN CONCAT(
+      CASE
+        WHEN vdc.bumon_cd IN (
+          '11000','12000','13000','19100','19400','21000','21101','21102','21200','21210',
+          '21300','22102','23000','23101','23102','23200','25101','25102','25200','25301',
+          '29200','29210','29220','29400','29410','29500','31000','31100','31300','61100',
+          '73200','73300','73600','90100','90110','90120','90200','90210','90220'
+        ) THEN '83'
+        WHEN vdc.bumon_cd IN (
+          '11400','11430','19700','21410','29100','29300','29320','29610','29620','29630',
+          '29640','29650','29660','29700','29800','91000','91030','91050','91110','91120',
+          '91300','91500','91600','91700','91710','91900','92000','92020','92030','92040',
+          '92100','92110','92120','92130','92140','92200','92210','92400','92410','92500',
+          '92600','92700','92900','93200','93400','97400'
+        ) THEN '84'
+        ELSE '??'
+      END,
+      vdc.account_cd
+    )
+    ELSE vdc.account_cd
+  END                        AS account_cd,
+  vdc.account_name,
+  vdc.hojo_cd,
+  vdc.sub_account_name,
+  vdc.journal_amont,
+  vdc.journal_tax,
+  vdc.journal_tax_kbn,
+  vdc.journal_tax_kbn_name,
+  vdc.journal_tax_rate,
+  vdc.tsuka_cd,
+  vdc.journal_fx_rate,
+  vdc.journal_amont_fx,
+  vdc.journal_tax_fx,
+  vdc.journal_discription_deb,
+  '99000'                    AS bumon_cd_cre,
+  'BS共通'                   AS bumon_name_cre,
+  CASE
+    WHEN CHAR_LENGTH(vdc.account_cd_cre) >= 5 THEN vdc.account_cd_cre
+    WHEN CHAR_LENGTH(vdc.account_cd_cre) = 4 THEN CONCAT('8', vdc.account_cd_cre)
+    WHEN CHAR_LENGTH(vdc.account_cd_cre) = 3 THEN CONCAT('??', vdc.account_cd_cre)
+    ELSE vdc.account_cd_cre
+  END                        AS account_cd_cre,
+  vdc.account_name_cre,
+  vdc.account_sub_cd_cre,
+  vdc.sub_account_name_cre   AS account_sub_account_cre,
+  vdc.journal_amount_cre,
+  0                          AS journal_tax_cre,
+  vdc.tsuka_cd                AS tsuka_cd_cre,
+  vdc.journal_fx_rate         AS journal_fx_rate_cre,
+  vdc.journal_amont_fx_cre,
+  0                          AS journal_tax_fx_cre,
+  vdc.journal_tori_cd_cre,
+  vdc.journal_discription_cre
+FROM v_documentcontents vdc
 """
 
 _V_DOCUMENTS = """
@@ -351,6 +425,7 @@ ALL_VIEWS = {
     'v_workflow_steps':      _V_WORKFLOW_STEPS,
     'v_document_approvers':  _V_DOCUMENT_APPROVERS,
     'v_documentcontents':    _V_DOCUMENTCONTENTS,
+    'v_journaldocuments':    _V_JOURNALDOCUMENTS,
     'v_documents':           _V_DOCUMENTS,
     'v_feedback':            _V_FEEDBACK,
     'v_workflow_actions':    _V_WORKFLOW_ACTIONS,

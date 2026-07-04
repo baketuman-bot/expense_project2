@@ -185,6 +185,20 @@ body.journal-page .precision-shell {
 .jnl-ctrl:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
 .jnl-ctrl-auto { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
 .jnl-ctrl-hl   { background: #fffbeb; border-color: #f59e0b; }
+.jnl-ctrl-err  { background: #fef2f2; border-color: #dc2626; }
+
+/* 未確定理由の表示エリア */
+.jnl-missing-box {
+  padding: 6px 12px;
+  background: #fef2f2;
+  border-top: 1px solid #fecaca;
+  font-size: 11px;
+  color: #b91c1c;
+  max-height: 120px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.jnl-missing-box ul { margin: 2px 0 0 0; padding-left: 18px; }
 
 .jnl-form-nav {
   padding: 9px 12px;
@@ -484,6 +498,9 @@ body.journal-page .precision-shell {
 
     </div><!-- /pane-body -->
 
+    <!-- 未確定理由の表示 -->
+    <div id="jnl-missing-box" class="jnl-missing-box" style="display:none;"></div>
+
     <!-- 保存ナビ -->
     <div class="jnl-form-nav">
       <button class="btn btn-sm btn-outline-secondary" onclick="jnlGoPrev()">
@@ -579,6 +596,7 @@ body.journal-page .precision-shell {
   };
 
   function populateForm(pk, d) {
+    clearMissing();
     /* 参照テーブル */
     var ref = d.ref;
     setText('ref-applicant',   ref.applicant);
@@ -747,6 +765,49 @@ body.journal-page .precision-shell {
     if (img) img.style.transform = 'scale(' + zoomLevel + ')';
   };
 
+  /* ── 未確定理由の表示 ── */
+  /* サーバー(journal_save)の missing[].field と入力欄IDの対応 */
+  var MISSING_FIELD_INPUT = {
+    journal_amont:           'inp-jnl-amont',
+    consumption_tax:         'inp-tax-amt',
+    journal_tax_kbn:         'inp-tax-kbn',
+    journal_tax_rate:        'inp-tax-rate',
+    journal_discription_deb: 'inp-jnl-desc-deb',
+    account_cd_cre:          'inp-cre-account-cd',
+    journal_amount_cre:      'inp-cre-amount',
+    journal_discription_cre: 'inp-cre-desc',
+  };
+
+  function clearMissing() {
+    var box = document.getElementById('jnl-missing-box');
+    box.style.display = 'none';
+    box.innerHTML = '';
+    Object.keys(MISSING_FIELD_INPUT).forEach(function (key) {
+      var el = document.getElementById(MISSING_FIELD_INPUT[key]);
+      if (el) el.classList.remove('jnl-ctrl-err');
+    });
+  }
+
+  function showMissing(missing) {
+    var box = document.getElementById('jnl-missing-box');
+    box.innerHTML = '';
+    var head = document.createElement('div');
+    head.style.fontWeight = '700';
+    head.innerHTML = '<i class="fas fa-exclamation-circle"></i> ';
+    head.appendChild(document.createTextNode('保存しましたが「済」になりません。次の項目を確認してください:'));
+    box.appendChild(head);
+    var ul = document.createElement('ul');
+    missing.forEach(function (m) {
+      var li = document.createElement('li');
+      li.textContent = m.label + '：' + m.reason;
+      ul.appendChild(li);
+      var el = document.getElementById(MISSING_FIELD_INPUT[m.field]);
+      if (el) el.classList.add('jnl-ctrl-err');
+    });
+    box.appendChild(ul);
+    box.style.display = '';
+  }
+
   /* ── 保存 ── */
   window.jnlSave = function (andNext) {
     if (!currentPk) return;
@@ -777,6 +838,12 @@ body.journal-page .precision-shell {
       .then(function (d) {
         if (!d.ok) { alert('保存に失敗しました。'); return; }
         updateListItem(currentPk, d.journal_done);
+        clearMissing();
+        if (!d.journal_done && d.missing && d.missing.length) {
+          /* 未確定の理由を表示し、次へは進まない */
+          showMissing(d.missing);
+          return;
+        }
         if (andNext) {
           jnlNextTodo();
         }

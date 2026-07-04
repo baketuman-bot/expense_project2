@@ -5529,13 +5529,16 @@ def journal_save(request, pk):
     content.journal_tori_cd_cre  = request.POST.get('journal_tori_cd_cre', '').strip() or None
     content.journal_discription_cre = request.POST.get('journal_discription_cre', '').strip() or None
 
+    # 数値として解釈できなかった入力値を記録（未確定理由の表示に使う）
+    invalid_numbers = {}
+
     def _parse_decimal(key):
         v = request.POST.get(key, '').strip()
         if v:
             try:
                 return Decimal(v)
             except Exception:
-                pass
+                invalid_numbers[key] = v
         return None
 
     content.journal_amont       = _parse_decimal('journal_amont')
@@ -5545,16 +5548,27 @@ def journal_save(request, pk):
     content.journal_amount_cre  = _parse_decimal('journal_amount_cre')
     content.journal_amont_fx_cre = _parse_decimal('journal_amont_fx_cre')
 
-    content.journal_done = bool(
-        content.journal_amont is not None and
-        content.journal_tax is not None and
-        content.journal_tax_kbn and
-        content.journal_tax_rate and
-        content.journal_discription_deb and
-        content.account_cd_cre and
-        content.journal_amount_cre is not None and
-        content.journal_discription_cre
-    )
+    # journal_done の必須項目チェック。不足項目は理由付きでレスポンスに含める
+    required_checks = [
+        ('journal_amont',           '税抜金額（借方）', content.journal_amont is not None),
+        ('consumption_tax',         '消費税（借方）',   content.journal_tax is not None),
+        ('journal_tax_kbn',         '税区分',           bool(content.journal_tax_kbn)),
+        ('journal_tax_rate',        '税率',             bool(content.journal_tax_rate)),
+        ('journal_discription_deb', '借方適用',         bool(content.journal_discription_deb)),
+        ('account_cd_cre',          '貸方科目',         bool(content.account_cd_cre)),
+        ('journal_amount_cre',      '貸方税抜金額',     content.journal_amount_cre is not None),
+        ('journal_discription_cre', '貸方摘要',         bool(content.journal_discription_cre)),
+    ]
+    missing = []
+    for key, label, filled in required_checks:
+        if not filled:
+            if key in invalid_numbers:
+                reason = '「%s」を数値として解釈できません' % invalid_numbers[key]
+            else:
+                reason = '未入力'
+            missing.append({'field': key, 'label': label, 'reason': reason})
+
+    content.journal_done = not missing
 
     content.save(update_fields=[
         'hojo_cd', 'journal_amont', 'journal_tax',
@@ -5567,13 +5581,18 @@ def journal_save(request, pk):
         'journal_done',
     ])
 
-    return JsonResponse({'ok': True, 'journal_done': content.journal_done})
+    return JsonResponse({'ok': True, 'journal_done': content.journal_done, 'missing': missing})
 
 
 @login_required
 def journal_csv(request):
-    """仕訳CSV出力: 会計システム取込形式でストリーミングダウンロード"""
-    import csv as _csv
+    """仕訳Excel出力: v_journaldocuments を参照してダウンロード（コード列は先頭ゼロ保持のため文字列で出力）"""
+    from django.db import connection
+    from django.http import HttpResponse
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
 
     journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
 
@@ -5585,62 +5604,88 @@ def journal_csv(request):
 
     qs = (
         T_DocumentContent.objects
-        .select_related('document__bumon_cd', 'account')
         .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=True)
     )
     if selected_ids:
         qs = qs.filter(document_detail_id__in=selected_ids)
-    contents = qs.order_by('document__document_type_id', 'document__document_id', 'date')
-
-    # 補助科目名を一括取得 (account_cd, sub_account_cd) → name
-    _hojo_name_map = {
-        (str(h['account_cd']), str(h['sub_account_cd'])): h['sub_account_name']
-        for h in M_AccountSub.objects.values('account_cd', 'sub_account_cd', 'sub_account_name')
-    }
-
-    class _Echo:
-        def write(self, value):
-            return value
-
-    def _rows():
-        writer = _csv.writer(_Echo())
-        yield writer.writerow([
-            '伝票区切', '伝票日付', '部門ｺｰﾄﾞ', '部門名',
-            '科目ｺｰﾄﾞ', '科目名', '補助科目ｺｰﾄﾞ', '補助科目名',
-            '税抜金額', '税金額', '税区分', '税率',
-            '外貨ｺｰﾄﾞ', '換算ﾚｰﾄ', '外貨金額', '摘要（品名）',
-        ])
-        for c in contents:
-            bumon_cd  = str(c.document.bumon_cd_id or '').strip()
-            raw_acd   = str(c.account_id or '').strip()
-            acd5      = _build_account_cd_5(raw_acd, bumon_cd)
-            hojo_cd   = c.hojo_cd or ''
-            hojo_name = _hojo_name_map.get((raw_acd, hojo_cd), '') if hojo_cd else ''
-            yield writer.writerow([
-                '*',
-                c.date.strftime('%Y-%m-%d') if c.date else '',
-                bumon_cd,
-                c.document.bumon_cd.bumon_name if c.document.bumon_cd else '',
-                acd5,
-                c.account.account_name if c.account else '',
-                hojo_cd,
-                hojo_name,
-                str(c.amount or ''),
-                str(c.consumption_tax or ''),
-                c.journal_tax_kbn or '',
-                c.journal_tax_rate or '',
-                c.document.tsuka_cd or '',
-                c.journal_fx_rate or '',
-                str(c.amount or ''),
-                c.purpose or '',
-            ])
-
-    from django.http import StreamingHttpResponse
-    response = StreamingHttpResponse(
-        _rows(),
-        content_type='text/csv; charset=utf-8-sig',
+    detail_ids = list(
+        qs.order_by('document__document_type_id', 'document__document_id', 'date')
+          .values_list('document_detail_id', flat=True)
     )
-    response['Content-Disposition'] = 'attachment; filename="仕訳取込.csv"'
+
+    HEADERS = [
+        '伝票区切', '申請番号', '申請明細番号', '申請名称', '申請者No', '申請者',
+        '伝票日付', '部門ｺｰﾄﾞ', '部門名', '科目ｺｰﾄﾞ', '科目名',
+        '補助科目ｺｰﾄﾞ', '補助科目名', '税抜金額', '税金額', '税区分', '税区分名', '税率',
+        '外貨ｺｰﾄﾞ', '換算ﾚｰﾄ', '外貨金額', '外貨税額', '摘要',
+        '部門ｺｰﾄﾞ(貸方)', '部門名(貸方)', '科目ｺｰﾄﾞ(貸方)', '科目名(貸方)',
+        '補助科目ｺｰﾄﾞ(貸方)', '補助科目名(貸方)', '税抜金額(貸方)', '税金額(貸方)',
+        '外貨ｺｰﾄﾞ(貸方)', '換算ﾚｰﾄ(貸方)', '外貨金額(貸方)', '外貨税額(貸方)',
+        '取引先コード(貸方)', '摘要（貸方）',
+    ]
+    COLUMNS = [
+        'denpyo_kubun', 'document_id', 'document_detail_id', 'document_title',
+        'applicant_man_number', 'applicant_name', 'date', 'bumon_cd', 'bumon_name',
+        'account_cd', 'account_name', 'hojo_cd', 'sub_account_name',
+        'journal_amont', 'journal_tax', 'journal_tax_kbn', 'journal_tax_kbn_name', 'journal_tax_rate',
+        'tsuka_cd', 'journal_fx_rate', 'journal_amont_fx', 'journal_tax_fx', 'journal_discription_deb',
+        'bumon_cd_cre', 'bumon_name_cre', 'account_cd_cre', 'account_name_cre',
+        'account_sub_cd_cre', 'account_sub_account_cre', 'journal_amount_cre', 'journal_tax_cre',
+        'tsuka_cd_cre', 'journal_fx_rate_cre', 'journal_amont_fx_cre', 'journal_tax_fx_cre',
+        'journal_tori_cd_cre', 'journal_discription_cre',
+    ]
+    # 先頭ゼロを持ちうるコード系の列は文字列（テキスト書式）で出力する
+    TEXT_COLUMNS = {
+        'denpyo_kubun', 'applicant_man_number', 'bumon_cd', 'account_cd', 'hojo_cd',
+        'journal_tax_kbn', 'tsuka_cd', 'bumon_cd_cre', 'account_cd_cre',
+        'account_sub_cd_cre', 'tsuka_cd_cre', 'journal_tori_cd_cre',
+    }
+    text_flags = [col in TEXT_COLUMNS for col in COLUMNS]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '仕訳取込'
+    ws.append(HEADERS)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    if detail_ids:
+        placeholders = ','.join(['%s'] * len(detail_ids))
+        sql = (
+            f"SELECT {', '.join(COLUMNS)} FROM v_journaldocuments "
+            f"WHERE document_detail_id IN ({placeholders}) "
+            f"ORDER BY document_id, document_detail_id"
+        )
+        with connection.cursor() as cur:
+            cur.execute(sql, detail_ids)
+            for row in cur.fetchall():
+                values = []
+                for is_text, v in zip(text_flags, row):
+                    if v is None:
+                        values.append('')
+                    elif is_text:
+                        values.append(str(v))
+                    else:
+                        values.append(v)
+                ws.append(values)
+
+        for col_idx, is_text in enumerate(text_flags, start=1):
+            if is_text:
+                for row_idx in range(2, ws.max_row + 1):
+                    ws.cell(row=row_idx, column=col_idx).number_format = '@'
+
+    for col_idx, header in enumerate(HEADERS, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = max(10, len(header) + 2)
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="仕訳取込.xlsx"'
     return response
 
 
