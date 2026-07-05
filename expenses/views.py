@@ -7,7 +7,7 @@ from django.conf import settings
 from .views_assets_register import (
     assets_register_list, assets_register_csv,
     assets_register_edit, assets_register_create, assets_sync_queue_list,
-    assets_sync_info, api_asset_lookup,
+    assets_sync_info, api_asset_lookup, asset_lookup_fields,
 )  # noqa: F401
 from .views_assets_low_value import (
     assets_low_value_list, assets_low_value_csv,
@@ -32,6 +32,7 @@ from .utils import (
     OR_APPROVAL_SCOPES, OR_APPROVAL_SCOPE_LABELS, OR_APPROVAL_SCOPE_SHORT_LABELS,
 )
 from django.utils import timezone
+from decimal import Decimal, InvalidOperation
 import uuid
 import logging
 from django.db import transaction
@@ -135,6 +136,48 @@ def _asset_form_context(doc_type):
         'bumon_label': '負担部門',
         'hide_ringi_no': False,
         'hide_detail_total_bar': False,
+    }
+
+
+def _is_valid_others_approver(applicant, step_id, man_number):
+    """others スコープの承認者選択を検証する。
+
+    候補は approver_candidates API（部門選択＋役職条件）で動的に取得されるため、
+    steps_with_candidates の候補リスト（roles__role='others' → 通常0人）とは照合できない。
+    API と同じ条件（申請者以外・役職 post_order が step.approver_post 以下）で判定する。
+    """
+    from .models import M_WorkflowStep
+    try:
+        step = M_WorkflowStep.objects.select_related('approver_post').get(pk=step_id)
+        user = M_User.objects.select_related('post_cd').get(man_number=man_number)
+    except Exception:
+        return False
+    if user.pk == applicant.pk:
+        return False
+    if step.approver_post:
+        if not user.post_cd:
+            return False
+        return user.post_cd.post_order <= step.approver_post.post_order
+    return True
+
+
+def _asset_detail_context(expense):
+    """固定資産系申請の詳細・承認画面向け表示コンテキストを返す。
+
+    bumon_label:   部門行のラベル（移動・廃棄=申請部門 / 取得=負担部門 / 経費系=負担部門）
+    purpose_label: 件名のラベル（固定資産名 / 固定資産移動件名 / 固定資産廃棄件名）
+    asset_subject: 件名の実データ（先頭明細の purpose）。固定資産以外は None
+    """
+    doc_type = getattr(expense, 'document_type', None)
+    form_ctx = _asset_form_context(doc_type)
+    asset_subject = None
+    if _is_asset_doc_type(doc_type):
+        first = expense.contents.order_by('document_detail_id').first()
+        asset_subject = getattr(first, 'purpose', None)
+    return {
+        'bumon_label':   form_ctx['bumon_label'],
+        'purpose_label': form_ctx['purpose_label'],
+        'asset_subject': asset_subject,
     }
 
 
@@ -252,14 +295,28 @@ def _build_dynamic_fields_display(expense):
         }
         amount_total = float(expense.contents.aggregate(total=Sum('amount'))['total'] or 0)
 
+        # 固定資産系: 保存済み asset_no から T_Assets を参照し、ラベル型フィールドの
+        # 表示値を補完する（フォームの資産番号オートフィルと同じ整形ロジック）。
+        # ラベル値はフォームからPOSTされず content に保存されないため、表示時に解決する。
+        asset_fields = {}
+        if _is_asset_doc_type(doc_type) and stored.get('asset_no'):
+            try:
+                asset_fields = asset_lookup_fields(stored.get('asset_no')) or {}
+            except Exception:
+                asset_fields = {}
+
         for d in defs:
             raw_type = (d.field_type or '').strip().lower()
             label = d.field_name_view or d.field_name
             is_label = (raw_type == 'label')
             if is_label:
+                if d.calc_formula:
+                    label_value = _eval_calc_formula(d.calc_formula, amount_total, dyn_values)
+                else:
+                    label_value = asset_fields.get(d.field_name) or '-'
                 flat.append({
                     'label':           label,
-                    'value':           _eval_calc_formula(d.calc_formula or '', amount_total, dyn_values),
+                    'value':           label_value,
                     'row_break':       d.row_break,
                     'section_header':  d.section_header or '',
                     'is_label':        True,
@@ -538,7 +595,7 @@ def home(request):
 def expense_list(request):
     qs = T_Document.objects.filter(
         man_number=request.user,
-        document_type__menu_group__category='expense',
+        document_type__menu_group__category__in=['expense', 'assets'],
     ).select_related(
         'status_cd', 'document_type', 'bumon_cd'
     ).prefetch_related('contents').order_by("-created_at")
@@ -769,6 +826,7 @@ def expense_detail(request, pk):
         "can_keiri_edit": _can_do_keiri_edit(request.user, expense),
         "tax_label_map": _item_label_map('TAX'),
         "coc_label_map": _item_label_map('COC'),
+        **_asset_detail_context(expense),
     })
 
 @login_required
@@ -2535,7 +2593,12 @@ def expense_create(request, document_type_id=None):
                                     continue
 
                             valid_man_numbers = {c['man_number'] for c in s['candidates']}
-                            if selected and selected in valid_man_numbers:
+                            _sel_valid = selected and (
+                                selected in valid_man_numbers
+                                or (s.get('allowed_bumon_scope') == 'others'
+                                    and _is_valid_others_approver(request.user, step_id, selected))
+                            )
+                            if _sel_valid:
                                 try:
                                     step_obj = M_WorkflowStep.objects.get(pk=step_id)
                                     approver_user = M_User.objects.get(man_number=selected)
@@ -2651,10 +2714,17 @@ def expense_create(request, document_type_id=None):
                                     approver_errors.append(f"ステップ{ s['step_order'] }の承認者を選択してください。")
                                     continue
 
-                                valid_man_numbers = {c['man_number'] for c in s['candidates']}
-                                if selected not in valid_man_numbers:
-                                    approver_errors.append(f"ステップ{ s['step_order'] }の承認者が不正です。")
-                                    continue
+                                # others スコープ: 候補は approver_candidates API で動的取得のため
+                                # 候補リスト照合ではなく役職条件・申請者除外で検証する
+                                if s.get('allowed_bumon_scope') == 'others':
+                                    if not _is_valid_others_approver(request.user, step_id, selected):
+                                        approver_errors.append(f"ステップ{ s['step_order'] }の承認者が不正です。")
+                                        continue
+                                else:
+                                    valid_man_numbers = {c['man_number'] for c in s['candidates']}
+                                    if selected not in valid_man_numbers:
+                                        approver_errors.append(f"ステップ{ s['step_order'] }の承認者が不正です。")
+                                        continue
 
                                 # 生成
                                 step_obj = M_WorkflowStep.objects.get(pk=step_id)
@@ -3543,6 +3613,7 @@ def approval_detail(request, pk):
         "edit_histories": edit_histories,
         "tax_label_map": _item_label_map('TAX'),
         "coc_label_map": _item_label_map('COC'),
+        **_asset_detail_context(expense),
     })
 
 
@@ -4201,6 +4272,7 @@ def settings_approval_detail(request, pk):
         'travel_route_subtotal': travel_route_subtotal,
         'tax_label_map': _item_label_map('TAX'),
         'coc_label_map': _item_label_map('COC'),
+        **_asset_detail_context(expense),
     })
 
 
@@ -5095,12 +5167,12 @@ def _build_account_cd_5(account_cd, bumon_cd):
 
 @login_required
 def settlement_journal(request):
-    """仕訳作成: INPRO ステータスの明細一覧から対象を選んで仕訳入力画面へ"""
+    """仕訳出力: 仕訳入力済み(journal_done=1)の明細一覧から対象を選んでExcel出力する"""
     journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
     contents = (
         T_DocumentContent.objects
         .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
-        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS')
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=True)
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
     rows = [
@@ -5432,14 +5504,16 @@ def journal_detail_api(request, pk):
     else:
         _def_cre_tori = ''
 
-    # 貸方摘要: M/D purpose shiharaisaki (スペース連結、50文字上限)
+    # 貸方摘要: M/D(申請日) purpose shiharaisaki user_name (スペース連結、50文字上限)
     _cre_parts = []
-    if content.date:
-        _cre_parts.append(f'{content.date.month}/{content.date.day}')
+    if doc.created_at:
+        _cre_parts.append(f'{doc.created_at.month}/{doc.created_at.day}')
     if content.purpose:
         _cre_parts.append(content.purpose)
     if content.shiharaisaki:
         _cre_parts.append(content.shiharaisaki)
+    if doc.man_number and doc.man_number.user_name:
+        _cre_parts.append(doc.man_number.user_name)
     _def_desc_cre = ' '.join(_cre_parts)[:50]
 
     return JsonResponse({
@@ -5536,8 +5610,8 @@ def journal_save(request, pk):
         v = request.POST.get(key, '').strip()
         if v:
             try:
-                return Decimal(v)
-            except Exception:
+                return Decimal(v.replace(',', ''))
+            except InvalidOperation:
                 invalid_numbers[key] = v
         return None
 
@@ -5582,6 +5656,55 @@ def journal_save(request, pk):
     ])
 
     return JsonResponse({'ok': True, 'journal_done': content.journal_done, 'missing': missing})
+
+
+# --- 仕訳Excel出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
+_JNL_IDX_DENPYO   = 0    # denpyo_kubun (伝票区切)
+_JNL_IDX_DOC_ID   = 1    # document_id (申請番号)
+_JNL_CRE_ALL_IDX  = tuple(range(23, 37))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
+_JNL_CRE_KEY_IDX  = (23, 25, 27, 31, 32, 35)      # 集約キー: 部門・科目・補助科目・外貨・換算レート・取引先(貸方)
+_JNL_CRE_SUM_IDX  = {29, 30, 33, 34}              # 合算列: 税抜・税・外貨金額・外貨税額(貸方)
+
+
+def _aggregate_journal_credit_rows(rows):
+    """伝票(document_id)単位で貸方列を集約し、伝票内の先頭行から詰め直す。
+
+    - 伝票区切: 出力全体の先頭行のみ '*'（申請書が複数あっても1出力に1つ）
+    - 貸方: 部門・科目・補助科目・外貨・換算レート・取引先が同じ行を1つに合算。
+      摘要（貸方）はキーに含めず、グループ先頭行の値を使う
+    - 貸方グループ数が明細行数を超えた場合は借方側が空の行を追加する
+    """
+    from itertools import groupby
+
+    out = []
+    for _doc_id, grp in groupby(rows, key=lambda r: r[_JNL_IDX_DOC_ID]):
+        block = list(grp)
+
+        # 貸方の集約（出現順を保持）
+        agg = {}
+        for r in block:
+            if not any(r[i] not in (None, '') for i in _JNL_CRE_ALL_IDX):
+                continue
+            key = tuple(r[i] for i in _JNL_CRE_KEY_IDX)
+            entry = agg.get(key)
+            if entry is None:
+                agg[key] = [r[i] for i in _JNL_CRE_ALL_IDX]
+            else:
+                for pos, i in enumerate(_JNL_CRE_ALL_IDX):
+                    if i in _JNL_CRE_SUM_IDX and r[i] is not None:
+                        entry[pos] = (entry[pos] or Decimal('0')) + r[i]
+        cre_list = list(agg.values())
+
+        # 借方行に集約済み貸方を先頭から割り当てて出力
+        n_cols = len(block[0])
+        for i in range(max(len(block), len(cre_list))):
+            row = list(block[i]) if i < len(block) else [None] * n_cols
+            row[_JNL_IDX_DENPYO] = '*' if not out else ''
+            cre = cre_list[i] if i < len(cre_list) else None
+            for pos, ci in enumerate(_JNL_CRE_ALL_IDX):
+                row[ci] = cre[pos] if cre else None
+            out.append(row)
+    return out
 
 
 @login_required
@@ -5658,16 +5781,18 @@ def journal_csv(request):
         )
         with connection.cursor() as cur:
             cur.execute(sql, detail_ids)
-            for row in cur.fetchall():
-                values = []
-                for is_text, v in zip(text_flags, row):
-                    if v is None:
-                        values.append('')
-                    elif is_text:
-                        values.append(str(v))
-                    else:
-                        values.append(v)
-                ws.append(values)
+            raw_rows = cur.fetchall()
+
+        for row in _aggregate_journal_credit_rows(raw_rows):
+            values = []
+            for is_text, v in zip(text_flags, row):
+                if v is None:
+                    values.append('')
+                elif is_text:
+                    values.append(str(v))
+                else:
+                    values.append(v)
+            ws.append(values)
 
         for col_idx, is_text in enumerate(text_flags, start=1):
             if is_text:

@@ -394,23 +394,32 @@ def _format_asset_lookup_value(field_name, value):
     return str(value)
 
 
+def asset_lookup_fields(asset_no):
+    """資産番号から T_Assets の表示用値 dict（フィールド名→整形済み文字列）を返す。
+
+    見つからない・未指定の場合は None。フォームのオートフィル API と
+    詳細・承認画面のラベル表示（views._build_dynamic_fields_display）で共用する。
+    """
+    asset_no = (asset_no or '').strip()
+    if not asset_no:
+        return None
+    asset = T_Assets.objects.filter(pk=asset_no).first()
+    if not asset:
+        return None
+    return {
+        f.name: _format_asset_lookup_value(f.name, getattr(asset, f.name))
+        for f in T_Assets._meta.concrete_fields
+        if f.name != 'asset_no'
+    }
+
+
 @login_required
 def api_asset_lookup(request):
     """資産番号から T_Assets の値を取得し、フィールド名をキーにしたJSONを返す。
 
     固定資産系フォームの「対象資産情報」オートフィル（資産番号入力→他ラベル反映）用。
     """
-    asset_no = (request.GET.get('asset_no') or '').strip()
-    if not asset_no:
+    fields = asset_lookup_fields(request.GET.get('asset_no'))
+    if fields is None:
         return JsonResponse({'found': False})
-
-    asset = T_Assets.objects.filter(pk=asset_no).first()
-    if not asset:
-        return JsonResponse({'found': False})
-
-    fields = {
-        f.name: _format_asset_lookup_value(f.name, getattr(asset, f.name))
-        for f in T_Assets._meta.concrete_fields
-        if f.name != 'asset_no'
-    }
     return JsonResponse({'found': True, 'fields': fields})

@@ -54,9 +54,10 @@
                 <div class="card-body p-0">
                     <table class="info-table">
                         <tbody>
+                            {% if is_asset %}<tr><th>{{ purpose_label|default:"件名" }}</th><td colspan="3" class="fw-bold">{{ asset_subject|default:"-" }}</td></tr>{% endif %}
                             <tr><th>申請者</th><td colspan="3">{{ expense.applicant.user_name }}</td></tr>
                             <tr><th>申請日時</th><td colspan="3">{{ expense.created_at|date:"Y年m月d日 H:i" }}</td></tr>
-                            <tr><th>負担部門</th><td colspan="3">{{ expense.bumon_cd.bumon_name|default:"-" }}</td></tr>
+                            <tr><th>{{ bumon_label|default:"負担部門" }}</th><td colspan="3">{{ expense.bumon_cd.bumon_name|default:"-" }}</td></tr>
                             {% if not is_asset %}<tr><th>通貨</th><td colspan="3">{% if expense.tsuka_cd %}{{ expense.tsuka_cd }}{% if currency_name %}（{{ currency_name }}）{% endif %}{% else %}-{% endif %}</td></tr>{% endif %}
                             <tr><th>備考</th><td colspan="3">{{ expense.memo|default:"-" }}</td></tr>
                             {% if expense.ringi_no %}<tr><th>稟議No</th><td colspan="3">{{ expense.ringi_no }}</td></tr>{% endif %}

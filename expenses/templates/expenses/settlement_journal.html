@@ -1,6 +1,6 @@
 {% extends "expenses/base.html" %}
 
-{% block title %}仕訳作成 — {% endblock %}
+{% block title %}仕訳出力 — {% endblock %}
 
 {% block content %}
 <div class="mt-4" style="max-width:1200px;">
@@ -8,7 +8,7 @@
   <div class="page-head mb-3">
     <h2 class="page-title mb-0">
       <span class="pt-ico"><i class="fas fa-book"></i></span>
-      仕訳作成
+      仕訳出力
     </h2>
     <div class="page-actions">
       <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
@@ -98,7 +98,7 @@
   <div class="card">
     <div class="card-body text-center text-muted py-5">
       <i class="fas fa-check-circle fa-2x mb-2 d-block" style="color:var(--primary);"></i>
-      仕訳作成の対象データはありません。
+      仕訳出力の対象データはありません。
     </div>
   </div>
   {% endif %}

@@ -1282,7 +1282,7 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
 
-    assetNoInput.addEventListener('blur', function() {
+    function lookupAsset() {
         var assetNo = assetNoInput.value.trim();
         msgEl.style.display = 'none';
         if (!assetNo) {
@@ -1304,7 +1304,14 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             })
             .catch(function() {});
-    });
+    }
+
+    assetNoInput.addEventListener('blur', lookupAsset);
+
+    /* 再編集・コピー時: 資産番号が保存値で埋まっている場合はロード時にラベルへ反映 */
+    if (assetNoInput.value.trim()) {
+        lookupAsset();
+    }
 })();
 // ======= 資産番号オートフィル エンド =======
 
