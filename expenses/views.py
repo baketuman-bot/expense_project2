@@ -4848,6 +4848,7 @@ def settlement_menu(request):
         'payroll':     base_qs.filter(settle_kbn='SAL_PRE').count(),
         'auto_debit':  base_qs.filter(settle_kbn='AUT_PRE').count(),
         'journal':     base_qs.filter(settle_kbn__in=journal_kbns).count(),
+        'journal_done': base_qs.filter(settle_kbn__in=journal_kbns, journal_done=True).count(),
     }
     return render(request, 'expenses/settlement_menu.html', {
         'current': 'settlement_menu',
