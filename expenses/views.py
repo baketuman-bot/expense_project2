@@ -5586,13 +5586,60 @@ def journal_detail_api(request, pk):
     })
 
 
+def _journal_group_totals(parent):
+    """元行＋分割行の借方(税抜+税)合計と、元行の税込金額(円換算)を比較する。
+
+    parent.splits は分割行除外マネージャの影響で使えないため all_objects で取得する。
+    """
+    splits = list(
+        T_DocumentContent.all_objects
+        .filter(split_from=parent)
+        .order_by('document_detail_id')
+    )
+    group_total = Decimal('0')
+    for r in [parent] + splits:
+        group_total += (r.journal_amont or Decimal('0')) + (r.journal_tax or Decimal('0'))
+
+    expected = None
+    if parent.amount is not None:
+        # 税込金額: 外税(kbn=1)は amount+消費税、内税は amount そのもの
+        base = parent.amount + (parent.consumption_tax or Decimal('0')) \
+            if parent.consumption_kbn == 1 else parent.amount
+        # 外貨は換算レートで円換算（レート未入力なら比較不能として None のまま）
+        tsuka = (parent.document.tsuka_cd or '').strip()
+        if tsuka and tsuka != '00':
+            try:
+                fx = Decimal(str(parent.journal_fx_rate or '').replace(',', ''))
+                expected = (base * fx).quantize(Decimal('1'))
+            except InvalidOperation:
+                expected = None
+        else:
+            expected = base.quantize(Decimal('1'))
+
+    has_split = bool(splits)
+    mismatch = bool(has_split and expected is not None and group_total != expected)
+    return {
+        'has_split':   has_split,
+        'group_total': str(group_total),
+        'expected':    str(expected) if expected is not None else '',
+        'mismatch':    mismatch,
+    }
+
+
 @login_required
 def journal_save(request, pk):
     """AJAX POST: 明細1件の仕訳入力値を保存する"""
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
 
-    content = get_object_or_404(T_DocumentContent, pk=pk)
+    content = get_object_or_404(T_DocumentContent.all_objects, pk=pk)
+    is_split = content.split_from_id is not None
+
+    # 分割行のみ借方科目の変更を受け付ける（元行は申請どおり固定）
+    if is_split:
+        acd = request.POST.get('account_cd', '').strip()
+        if acd and M_Account.objects.filter(account_cd=acd).exists():
+            content.account_id = acd
 
     content.hojo_cd              = request.POST.get('hojo_cd', '').strip() or None
     content.journal_tax_kbn      = request.POST.get('journal_tax_kbn', '').strip() or None
@@ -5623,6 +5670,15 @@ def journal_save(request, pk):
     content.journal_amount_cre  = _parse_decimal('journal_amount_cre')
     content.journal_amont_fx_cre = _parse_decimal('journal_amont_fx_cre')
 
+    if is_split:
+        # 貸方は元行に税込全額を残すため、分割行では常に空にする
+        content.account_cd_cre          = None
+        content.account_sub_cd_cre      = None
+        content.journal_tori_cd_cre     = None
+        content.journal_discription_cre = None
+        content.journal_amount_cre      = None
+        content.journal_amont_fx_cre    = None
+
     # journal_done の必須項目チェック。不足項目は理由付きでレスポンスに含める
     required_checks = [
         ('journal_amont',           '税抜金額（借方）', content.journal_amont is not None),
@@ -5630,10 +5686,13 @@ def journal_save(request, pk):
         ('journal_tax_kbn',         '税区分',           bool(content.journal_tax_kbn)),
         ('journal_tax_rate',        '税率',             bool(content.journal_tax_rate)),
         ('journal_discription_deb', '借方適用',         bool(content.journal_discription_deb)),
-        ('account_cd_cre',          '貸方科目',         bool(content.account_cd_cre)),
-        ('journal_amount_cre',      '貸方税抜金額',     content.journal_amount_cre is not None),
-        ('journal_discription_cre', '貸方摘要',         bool(content.journal_discription_cre)),
     ]
+    if not is_split:
+        required_checks += [
+            ('account_cd_cre',          '貸方科目',         bool(content.account_cd_cre)),
+            ('journal_amount_cre',      '貸方税抜金額',     content.journal_amount_cre is not None),
+            ('journal_discription_cre', '貸方摘要',         bool(content.journal_discription_cre)),
+        ]
     missing = []
     for key, label, filled in required_checks:
         if not filled:
@@ -5645,7 +5704,7 @@ def journal_save(request, pk):
 
     content.journal_done = not missing
 
-    content.save(update_fields=[
+    update_fields = [
         'hojo_cd', 'journal_amont', 'journal_tax',
         'journal_tax_kbn', 'journal_tax_rate',
         'journal_amont_fx', 'journal_tax_fx',
@@ -5654,9 +5713,18 @@ def journal_save(request, pk):
         'journal_amount_cre', 'journal_amont_fx_cre',
         'journal_tori_cd_cre', 'journal_discription_cre',
         'journal_done',
-    ])
+    ]
+    if is_split:
+        update_fields.append('account')
+    content.save(update_fields=update_fields)
 
-    return JsonResponse({'ok': True, 'journal_done': content.journal_done, 'missing': missing})
+    group_parent = content.split_from if is_split else content
+    return JsonResponse({
+        'ok': True,
+        'journal_done': content.journal_done,
+        'missing': missing,
+        'group': _journal_group_totals(group_parent),
+    })
 
 
 # 分割行にコピーするフィールド（amount / consumption_tax は申請データのため元行にのみ残す）

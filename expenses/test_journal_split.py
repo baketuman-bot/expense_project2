@@ -154,3 +154,68 @@ class JournalSplitApiTest(JournalSplitFixtureMixin, TestCase):
         res = self.client.post(f'/settings/settlement/journal/{self.parent.pk}/delete/')
         self.assertEqual(res.status_code, 400)
         self.assertTrue(T_DocumentContent.all_objects.filter(pk=self.parent.pk).exists())
+
+
+class JournalSaveSplitTest(JournalSplitFixtureMixin, TestCase):
+    """journal_save の分割行対応テスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.split = self._create_split()
+
+    def _post(self, pk, **extra):
+        data = {
+            'journal_amont':           '3000',
+            'consumption_tax':         '300',
+            'journal_tax_kbn':         '312',
+            'journal_tax_rate':        '10%',
+            'journal_discription_deb': 'テスト適用',
+        }
+        data.update(extra)
+        return self.client.post(f'/settings/settlement/journal/{pk}/save/', data)
+
+    def test_split_row_done_without_credit(self):
+        """分割行は貸方なしで journal_done=True になる"""
+        res = self._post(self.split.pk)
+        self.assertTrue(res.json()['journal_done'])
+
+    def test_parent_still_requires_credit(self):
+        """元行は従来どおり貸方必須"""
+        res = self._post(self.parent.pk)
+        self.assertFalse(res.json()['journal_done'])
+        fields = {m['field'] for m in res.json()['missing']}
+        self.assertIn('account_cd_cre', fields)
+
+    def test_split_account_cd_updated(self):
+        """分割行のみ借方科目を変更できる"""
+        self._post(self.split.pk, account_cd='671')
+        s = T_DocumentContent.all_objects.get(pk=self.split.pk)
+        self.assertEqual(s.account_id, '671')
+
+    def test_parent_account_cd_ignored(self):
+        """元行への account_cd POST は無視される"""
+        self._post(self.parent.pk, account_cd='671')
+        p = T_DocumentContent.all_objects.get(pk=self.parent.pk)
+        self.assertEqual(p.account_id, '670')
+
+    def test_credit_posted_to_split_is_ignored(self):
+        """分割行に貸方値をPOSTしても保存されない"""
+        self._post(self.split.pk, account_cd_cre='41400', journal_amount_cre='999',
+                   journal_discription_cre='貸方摘要')
+        s = T_DocumentContent.all_objects.get(pk=self.split.pk)
+        self.assertIsNone(s.account_cd_cre)
+        self.assertIsNone(s.journal_amount_cre)
+        self.assertIsNone(s.journal_discription_cre)
+
+    def test_group_mismatch_flag(self):
+        """元行+分割行の借方合計 ≠ 税込金額のとき mismatch=True。
+        フィクスチャは内税・税込11,000円なので期待値は11,000"""
+        # 元行 7,000+700 / 分割 3,000+300 → 合計 11,000 → 一致
+        self._post(self.parent.pk, journal_amont='7000', consumption_tax='700',
+                   account_cd_cre='41400', journal_amount_cre='7700',
+                   journal_discription_cre='摘要')
+        res = self._post(self.split.pk)
+        self.assertFalse(res.json()['group']['mismatch'])
+        # 分割を 4,000+400 に変更 → 合計 12,100 → 不一致
+        res = self._post(self.split.pk, journal_amont='4000', consumption_tax='400')
+        self.assertTrue(res.json()['group']['mismatch'])
