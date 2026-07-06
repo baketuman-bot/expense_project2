@@ -640,6 +640,17 @@ def attachment_thumbnail_upload_path(instance, filename):
     return f'receipts/documents/{instance.detail.document.document_id}/attachments/thumbnails/{ts}_{name}_thumb.jpg'
 
 
+class DocumentContentManager(models.Manager):
+    """仕訳分割行（split_from が設定された行）を除外するデフォルトマネージャ。
+
+    逆参照（doc.contents）にもこのフィルタが継承されるため、
+    申請詳細・合計計算・CSV出力等の申請側コードには分割行が現れない。
+    分割行を含めて扱う仕訳系ビューは all_objects を使うこと。
+    """
+    def get_queryset(self):
+        return super().get_queryset().filter(split_from__isnull=True)
+
+
 # ドキュメント明細
 class T_DocumentContent(models.Model):
     document_detail_id = models.AutoField("明細ID", primary_key=True, db_column='document_detail_id')
@@ -690,6 +701,20 @@ class T_DocumentContent(models.Model):
     journal_amont_fx_cre    = models.DecimalField("貸方税抜外貨",    max_digits=10, decimal_places=2, null=True, blank=True)
     journal_tori_cd_cre     = models.CharField("貸方取引先コード",   max_length=10,  null=True, blank=True)
     journal_discription_cre = models.CharField("貸方摘要",          max_length=50,  null=True, blank=True)
+
+    # 仕訳分割: 元明細への自己参照（NULL=通常明細、非NULL=仕訳入力で作られた分割行）
+    split_from = models.ForeignKey(
+        'self',
+        verbose_name="分割元明細",
+        null=True, blank=True,
+        on_delete=models.CASCADE,
+        db_column='split_from_id',
+        related_name='splits',
+        db_comment='仕訳分割の元明細ID（NULL=通常明細）',
+    )
+
+    objects     = DocumentContentManager()  # 分割行を除外（申請側の既定）
+    all_objects = models.Manager()          # 全件（仕訳系ビュー専用）
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
 
