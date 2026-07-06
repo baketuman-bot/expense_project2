@@ -21,7 +21,7 @@
 
 ## 1. データモデル
 
-### 1-1. フィールド追加（migration 0088）
+### 1-1. フィールド追加（migration 0097）
 
 ```python
 class T_DocumentContent(models.Model):
@@ -153,7 +153,7 @@ class T_DocumentContent(models.Model):
 | 箇所 | 変更 |
 |---|---|
 | `models.py` | `split_from` 追加・マネージャ2本化 |
-| migration 0088 | `AddField` のみ（非破壊） |
+| migration 0097 | `AddField` のみ（非破壊） |
 | `views.py` | 仕訳系5ビューを `all_objects` 化、`journal_split` / `journal_split_delete` 新設、`journal_save` の必須チェック分岐＋科目更新、`journal_csv` の ORDER BY 変更 |
 | `urls.py` | ルート2本追加 |
 | `settlement_journal_entry.html` | 分割・削除ボタン、分割行表示、右ペインの科目選択／貸方非表示、合計警告 |

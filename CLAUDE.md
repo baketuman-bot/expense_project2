@@ -606,6 +606,19 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
   - 未精算: 黄バッジ表示
 - **モデルフィールド**: `T_Document.is_settled`（BooleanField）・`T_Document.settled_at`（DateTimeField）
 
+### 仕訳明細の分割（split_from）
+
+仕訳入力画面で1明細を複数の勘定科目・税区分に分割できる。
+
+- `T_DocumentContent.split_from`: 自己参照FK（NULL=通常明細、非NULL=分割行）。migration 0097
+- **デフォルトマネージャ `objects` は分割行を除外**（`split_from__isnull=True`）。申請側の画面・CSV・合計は無改修で分割行が見えない。仕訳系ビューは `all_objects` を使う
+- **注意: `parent.splits.all()` は逆参照にもデフォルトマネージャのフィルタが継承されるため常に空。** 分割行の取得は `T_DocumentContent.all_objects.filter(split_from=parent)` を使うこと
+- 分割行は `amount`/`consumption_tax` が NULL（申請金額は元行に不変）。仕訳金額は手入力
+- 分割行のみ借方科目変更可（`journal_save` の POST `account_cd`）。貸方は元行に税込全額を残し、分割行の貸方は常に空・必須チェック対象外
+- API: `POST /settings/settlement/journal/<pk>/split/`（作成）、`POST .../delete/`（分割行のみ削除可）
+- 合計チェック: `_journal_group_totals()` が元行+分割行の借方合計と元行税込金額を比較し `mismatch` を返す（警告表示のみ、保存はブロックしない）
+- `v_documentcontents` / `v_journaldocuments` に `split_from_id` 列あり（migration 0098）。Excel出力は元行直後に分割行を並べる
+
 ### マスタ設定 (`/settings/master/`)
 
 - `M_Item.data_kbn='MST'` のレコードでメニューを生成
