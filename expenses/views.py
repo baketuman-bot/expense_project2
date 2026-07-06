@@ -5170,20 +5170,37 @@ def _build_account_cd_5(account_cd, bumon_cd):
 def settlement_journal(request):
     """仕訳出力: 仕訳入力済み(journal_done=1)の明細一覧から対象を選んでExcel出力する"""
     journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
-    contents = (
+    parents = list(
         T_DocumentContent.objects
         .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
         .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=True)
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
-    rows = [
-        {
-            'content':     c,
-            'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn),
-            'journal_done': c.journal_done,
-        }
-        for c in contents
-    ]
+
+    # 分割行を取得（journal_done は問わず取得し、未入力があるグループは除外する）
+    splits_map = {}
+    split_qs = (
+        T_DocumentContent.all_objects
+        .filter(split_from_id__in=[p.document_detail_id for p in parents])
+        .select_related('document', 'document__document_type', 'account')
+        .order_by('document_detail_id')
+    )
+    for s in split_qs:
+        splits_map.setdefault(s.split_from_id, []).append(s)
+
+    rows = []
+    for p in parents:
+        splits = splits_map.get(p.document_detail_id, [])
+        if any(not s.journal_done for s in splits):
+            continue   # 分割行が未入力 → グループごと出力対象外
+        for c in [p] + splits:
+            rows.append({
+                'content':      c,
+                'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn),
+                'journal_done': c.journal_done,
+                'is_split':     c.split_from_id is not None,
+                'parent_pk':    c.split_from_id,
+            })
     return render(request, 'expenses/settlement_journal.html', {
         'rows':    rows,
         'current': 'settlement_journal',

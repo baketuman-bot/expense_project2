@@ -366,3 +366,28 @@ class JournalCsvSplitTest(JournalSplitFixtureMixin, TestCase):
         data = self._load_rows(res)
         # 列10 = 科目名。分割行は変更後の科目（交際費）
         self.assertEqual(data[1][10], '交際費')
+
+
+class SettlementJournalListSplitTest(JournalSplitFixtureMixin, TestCase):
+    """仕訳出力一覧の分割行対応テスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.parent.journal_done = True
+        self.parent.save()
+
+    def test_done_split_follows_parent(self):
+        split = self._create_split(journal_done=True)
+        res = self.client.get('/settings/settlement/journal/')
+        rows = res.context['rows']
+        pks = [r['content'].pk for r in rows]
+        self.assertEqual(pks.index(split.pk), pks.index(self.parent.pk) + 1)
+        by_pk = {r['content'].pk: r for r in rows}
+        self.assertTrue(by_pk[split.pk]['is_split'])
+
+    def test_group_with_undone_split_excluded(self):
+        """分割行が未入力のグループは（不完全な仕訳のため）一覧に出さない"""
+        self._create_split(journal_done=False)
+        res = self.client.get('/settings/settlement/journal/')
+        pks = [r['content'].pk for r in res.context['rows']]
+        self.assertNotIn(self.parent.pk, pks)

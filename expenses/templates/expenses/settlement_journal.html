@@ -59,11 +59,13 @@
             </td>
             <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
             <td class="text-nowrap">{{ c.date|date:"Y/m/d" }}</td>
-            <td>{{ c.document.title }}</td>
+            <td>{% if row.is_split %}<span style="color:var(--primary);font-weight:700;">↳ 分割</span> {% endif %}{{ c.document.title }}</td>
             <td>{{ c.shiharaisaki|default:"-" }}</td>
             <td>{{ c.purpose|default:"-" }}</td>
             <td class="text-end text-nowrap">
-              {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
+              {% if row.is_split %}
+                {% if c.journal_amont %}{{ c.journal_amont|floatformat:"0" }}{% else %}-{% endif %}
+              {% elif c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
             </td>
             <td class="text-nowrap">{{ row.settle_label }}</td>
             <td class="text-nowrap">
@@ -78,6 +80,8 @@
                      class="form-check-input journal-check"
                      value="{{ c.document_detail_id }}"
                      data-done="{{ row.journal_done|yesno:'true,false' }}"
+                     data-parent="{{ row.parent_pk|default_if_none:'' }}"
+                     {% if row.is_split %}disabled{% endif %}
                      {% if row.journal_done %}checked{% endif %}>
             </td>
           </tr>
@@ -119,6 +123,23 @@
     return ids;
   }
 
+  /* 分割行のチェックを元行と連動させる（分割行は disabled、選択は常に元行経由） */
+  function syncSplitChecks() {
+    var state = {};
+    getChecks().forEach(function (c) {
+      if (!c.dataset.parent) state[c.value] = c.checked;
+    });
+    getChecks().forEach(function (c) {
+      if (c.dataset.parent && c.dataset.parent in state) {
+        c.checked = state[c.dataset.parent];
+      }
+    });
+  }
+
+  getChecks().forEach(function (c) {
+    if (!c.dataset.parent) c.addEventListener('change', syncSplitChecks);
+  });
+
   function openCsv() {
     var ids = checkedIds();
     if (ids.length === 0) {
@@ -136,14 +157,17 @@
   document.getElementById('select-all') && document.getElementById('select-all').addEventListener('click', function (e) {
     e.preventDefault();
     getChecks().forEach(function (c) { c.checked = true; });
+    syncSplitChecks();
   });
   document.getElementById('deselect-done') && document.getElementById('deselect-done').addEventListener('click', function (e) {
     e.preventDefault();
     getChecks().forEach(function (c) { c.checked = c.dataset.done === 'true'; });
+    syncSplitChecks();
   });
   document.getElementById('deselect-all') && document.getElementById('deselect-all').addEventListener('click', function (e) {
     e.preventDefault();
     getChecks().forEach(function (c) { c.checked = false; });
+    syncSplitChecks();
   });
 })();
 </script>
