@@ -5883,11 +5883,14 @@ def journal_csv(request):
         selected_ids = []
 
     qs = (
-        T_DocumentContent.objects
+        T_DocumentContent.all_objects
         .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=True)
     )
     if selected_ids:
-        qs = qs.filter(document_detail_id__in=selected_ids)
+        # 元行のidだけ指定された場合でも、その分割行を自動的に含める
+        qs = qs.filter(
+            Q(document_detail_id__in=selected_ids) | Q(split_from_id__in=selected_ids)
+        )
     detail_ids = list(
         qs.order_by('document__document_type_id', 'document__document_id', 'date')
           .values_list('document_detail_id', flat=True)
@@ -5934,7 +5937,7 @@ def journal_csv(request):
         sql = (
             f"SELECT {', '.join(COLUMNS)} FROM v_journaldocuments "
             f"WHERE document_detail_id IN ({placeholders}) "
-            f"ORDER BY document_id, document_detail_id"
+            f"ORDER BY document_id, COALESCE(split_from_id, document_detail_id), document_detail_id"
         )
         with connection.cursor() as cur:
             cur.execute(sql, detail_ids)

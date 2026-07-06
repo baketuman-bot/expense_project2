@@ -317,3 +317,52 @@ class JournalEntryTemplateSplitTest(JournalSplitFixtureMixin, TestCase):
         self.assertIn('inp-account-cd', html)     # 借方科目セレクト
         self.assertIn('jnl-cre-section', html)    # 貸方セクションのラッパ
         self.assertIn('↳ 分割', html)             # 分割行のインジケータ
+
+
+class JournalCsvSplitTest(JournalSplitFixtureMixin, TestCase):
+    """journal_csv（Excel出力）の分割行対応テスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        # 元行: 入力済み（借方+貸方）
+        self.parent.journal_amont = Decimal('7000')
+        self.parent.journal_tax = Decimal('700')
+        self.parent.journal_tax_kbn = '312'
+        self.parent.journal_tax_rate = '10%'
+        self.parent.journal_discription_deb = '元行適用'
+        self.parent.account_cd_cre = '41400'
+        self.parent.journal_amount_cre = Decimal('11000')
+        self.parent.journal_discription_cre = '貸方摘要'
+        self.parent.journal_done = True
+        self.parent.save()
+        # 分割行: 入力済み（借方のみ・科目変更あり）
+        self.split = self._create_split(
+            account=self.account2,
+            journal_amont=Decimal('3000'), journal_tax=Decimal('300'),
+            journal_tax_kbn='312', journal_tax_rate='10%',
+            journal_discription_deb='分割適用', journal_done=True,
+        )
+
+    def _load_rows(self, res):
+        from io import BytesIO
+        import openpyxl
+        wb = openpyxl.load_workbook(BytesIO(res.content))
+        ws = wb.active
+        return list(ws.iter_rows(min_row=2, values_only=True))
+
+    def test_split_row_included_after_parent(self):
+        """元行のidだけ指定しても分割行が直後に出力される"""
+        res = self.client.get(
+            f'/settings/settlement/journal/csv/?ids={self.parent.pk}')
+        self.assertEqual(res.status_code, 200)
+        data = self._load_rows(res)
+        # 列2 = 申請明細番号（document_detail_id）
+        detail_ids = [row[2] for row in data]
+        self.assertEqual(detail_ids, [self.parent.pk, self.split.pk])
+
+    def test_split_row_uses_own_account(self):
+        res = self.client.get(
+            f'/settings/settlement/journal/csv/?ids={self.parent.pk},{self.split.pk}')
+        data = self._load_rows(res)
+        # 列10 = 科目名。分割行は変更後の科目（交際費）
+        self.assertEqual(data[1][10], '交際費')
