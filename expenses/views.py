@@ -5268,11 +5268,13 @@ def journal_detail_api(request, pk):
     """AJAX: 明細1件の参照データ・仕訳入力値・添付URL・補助科目候補をJSON返却"""
     import os as _os
     content = get_object_or_404(
-        T_DocumentContent.objects.select_related(
-            'document', 'document__man_number', 'document__bumon_cd', 'account'
+        T_DocumentContent.all_objects.select_related(
+            'document', 'document__man_number', 'document__bumon_cd', 'account',
+            'split_from',
         ),
         pk=pk,
     )
+    base = content.split_from or content   # 申請金額・添付は元行を参照する
     doc     = content.document
     bumon_cd = str(doc.bumon_cd_id or '').strip()
     raw_acd  = str(content.account_id or '').strip()
@@ -5285,7 +5287,7 @@ def journal_detail_api(request, pk):
     att_is_pdf        = False
     att_thumbnail_url = None
     try:
-        att = content.attachments.first()
+        att = base.attachments.first()
         if att and att.file:
             ext      = _os.path.splitext(att.file.name)[1].lower()
             att_name = _os.path.basename(att.file.name)
@@ -5305,9 +5307,10 @@ def journal_detail_api(request, pk):
     except Exception:
         pass
 
-    # 補助科目候補（同じ科目コードに紐づくもの）
+    # 補助科目候補（?account_cd= が来たらその科目で検索 — 分割行の科目変更時に使用）
+    hojo_acd = request.GET.get('account_cd', '').strip() or raw_acd
     hojo_options = list(
-        M_AccountSub.objects.filter(account_cd=raw_acd)
+        M_AccountSub.objects.filter(account_cd=hojo_acd)
         .order_by('sub_account_cd')
         .values('sub_account_cd', 'sub_account_name')
     )
@@ -5365,9 +5368,9 @@ def journal_detail_api(request, pk):
     elif content.consumption_kbn == 0 and _amt and _tax:
         # 税込処理: tax / (amount - tax)
         try:
-            base = float(_amt) - float(_tax)
-            if base != 0:
-                rate_pct = round(float(_tax) / base, 2) * 100
+            _tax_base = float(_amt) - float(_tax)
+            if _tax_base != 0:
+                rate_pct = round(float(_tax) / _tax_base, 2) * 100
                 rate_int = round(rate_pct)
                 if rate_int == 10:
                     default_tax_rate = '10%'
@@ -5526,12 +5529,12 @@ def journal_detail_api(request, pk):
             'bumon_name':         doc.bumon_cd.bumon_name if doc.bumon_cd else '',
             'account_cd':         acd5,
             'account_name':       content.account.account_name if content.account else '',
-            'amount':             str(content.amount or ''),
+            'amount':             str(base.amount or ''),
             'tsuka_cd':           doc.tsuka_cd or '',
             'tsuka_name':         tsuka_name,
             'purpose':            content.purpose or '',
             'shiharaisaki':       content.shiharaisaki or '',
-            'consumption_tax':    str(content.consumption_tax or ''),
+            'consumption_tax':    str(base.consumption_tax or ''),
             'consumption_kbn':    str(content.consumption_kbn) if content.consumption_kbn is not None else '',
             'consumption_kbn_name': c_kbn_name,
             'tekikaku_cd':        tekikaku_display,
@@ -5583,6 +5586,10 @@ def journal_detail_api(request, pk):
         'default_journal_amont_fx_cre': _dec_str(_def_cre_amont_fx),
         'default_journal_tori_cd_cre':  _def_cre_tori,
         'default_discription_cre':      _def_desc_cre,
+        'is_split':        content.split_from_id is not None,
+        'parent_pk':       content.split_from_id,
+        'account_cd_raw':  raw_acd,
+        'group':           _journal_group_totals(base),
     })
 
 

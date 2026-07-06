@@ -219,3 +219,50 @@ class JournalSaveSplitTest(JournalSplitFixtureMixin, TestCase):
         # 分割を 4,000+400 に変更 → 合計 12,100 → 不一致
         res = self._post(self.split.pk, journal_amont='4000', consumption_tax='400')
         self.assertTrue(res.json()['group']['mismatch'])
+
+
+class JournalDetailApiSplitTest(JournalSplitFixtureMixin, TestCase):
+    """journal_detail_api の分割行対応テスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.split = self._create_split()
+
+    def test_split_detail_flags(self):
+        res = self.client.get(f'/settings/settlement/journal/{self.split.pk}/')
+        self.assertEqual(res.status_code, 200)
+        d = res.json()
+        self.assertTrue(d['is_split'])
+        self.assertEqual(d['parent_pk'], self.parent.pk)
+        self.assertEqual(d['account_cd_raw'], '670')
+
+    def test_split_ref_amount_comes_from_parent(self):
+        """分割行の参照エリアには元行の申請金額を表示する"""
+        res = self.client.get(f'/settings/settlement/journal/{self.split.pk}/')
+        d = res.json()
+        self.assertTrue(d['ref']['amount'].startswith('11000'))
+        self.assertTrue(d['ref']['consumption_tax'].startswith('1000'))
+
+    def test_split_manual_defaults_are_empty(self):
+        """分割行の手入力エリアデフォルトは空（金額は手入力前提）"""
+        res = self.client.get(f'/settings/settlement/journal/{self.split.pk}/')
+        d = res.json()
+        self.assertEqual(d['default_journal_amont'], '')
+
+    def test_parent_detail_is_not_split(self):
+        res = self.client.get(f'/settings/settlement/journal/{self.parent.pk}/')
+        d = res.json()
+        self.assertFalse(d['is_split'])
+        self.assertTrue(d['group']['has_split'])
+
+    def test_hojo_options_account_cd_override(self):
+        """?account_cd= で補助科目候補の科目を切り替えられる"""
+        from expenses.models import M_AccountSub
+        M_AccountSub.objects.get_or_create(
+            account_cd='671', sub_account_cd='01',
+            defaults={'sub_account_name': 'テスト補助'},
+        )
+        res = self.client.get(
+            f'/settings/settlement/journal/{self.split.pk}/?account_cd=671')
+        d = res.json()
+        self.assertEqual(d['hojo_options'][0]['cd'], '01')
