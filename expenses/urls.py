@@ -77,6 +77,8 @@ urlpatterns = [
     path("settings/settlement/journal/csv/",            views.journal_csv,         name="journal_csv"),
     path("settings/settlement/journal/<int:pk>/",       views.journal_detail_api,  name="journal_detail_api"),
     path("settings/settlement/journal/<int:pk>/save/",  views.journal_save,        name="journal_save"),
+    path("settings/settlement/journal/<int:pk>/split/",  views.journal_split,        name="journal_split"),
+    path("settings/settlement/journal/<int:pk>/delete/", views.journal_split_delete, name="journal_split_delete"),
     # マスタ設定
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),

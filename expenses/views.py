@@ -5659,6 +5659,63 @@ def journal_save(request, pk):
     return JsonResponse({'ok': True, 'journal_done': content.journal_done, 'missing': missing})
 
 
+# 分割行にコピーするフィールド（amount / consumption_tax は申請データのため元行にのみ残す）
+_SPLIT_COPY_FIELDS = [
+    'document', 'date', 'account', 'tekikaku_cd', 'shiharaisaki', 'purpose',
+    'corpo_card', 'corpo_card_no', 'settle_kbn', 'consumption_kbn',
+]
+
+
+@login_required
+def journal_split(request, pk):
+    """AJAX POST: 明細1件から仕訳分割行を作成する（元行のみ指定可）"""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
+
+    parent = get_object_or_404(T_DocumentContent.all_objects, pk=pk)
+    if parent.split_from_id is not None:
+        return JsonResponse(
+            {'ok': False, 'error': '分割行をさらに分割することはできません'}, status=400)
+
+    split = T_DocumentContent(split_from=parent)
+    for f in _SPLIT_COPY_FIELDS:
+        setattr(split, f, getattr(parent, f))
+    split.save()
+
+    return JsonResponse({
+        'ok': True,
+        'row': {
+            'pk':           split.document_detail_id,
+            'parent_pk':    parent.document_detail_id,
+            'document_id':  parent.document_id,
+            'account_name': split.account.account_name if split.account else '',
+            'date':         split.date.strftime('%Y-%m-%d') if split.date else '',
+            'applicant':    str(parent.document.man_number) if parent.document.man_number else '',
+            'purpose':      split.purpose or '',
+            'settle_kbn':   split.settle_kbn or '',
+            'settle_label': _JOURNAL_KBN_LABEL.get(split.settle_kbn, split.settle_kbn or ''),
+        },
+    })
+
+
+@login_required
+def journal_split_delete(request, pk):
+    """AJAX POST: 仕訳分割行を削除する。
+
+    split_from が NULL の行（=申請明細そのもの）は絶対に削除しない。
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
+
+    content = get_object_or_404(T_DocumentContent.all_objects, pk=pk)
+    if content.split_from_id is None:
+        return JsonResponse(
+            {'ok': False, 'error': '申請明細は削除できません（分割行のみ削除可）'}, status=400)
+
+    content.delete()
+    return JsonResponse({'ok': True})
+
+
 # --- 仕訳Excel出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
 _JNL_IDX_DENPYO   = 0    # denpyo_kubun (伝票区切)
 _JNL_IDX_DOC_ID   = 1    # document_id (申請番号)

@@ -113,3 +113,44 @@ class ViewSqlSplitFromTest(TestCase):
     def test_v_journaldocuments_has_split_from(self):
         from expenses.view_sqls import _V_JOURNALDOCUMENTS
         self.assertIn('vdc.split_from_id', _V_JOURNALDOCUMENTS)
+
+
+class JournalSplitApiTest(JournalSplitFixtureMixin, TestCase):
+    """分割作成・削除APIのテスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_split_creates_row(self):
+        res = self.client.post(f'/settings/settlement/journal/{self.parent.pk}/split/')
+        self.assertEqual(res.status_code, 200)
+        d = res.json()
+        self.assertTrue(d['ok'])
+        split = T_DocumentContent.all_objects.get(pk=d['row']['pk'])
+        self.assertEqual(split.split_from_id, self.parent.pk)
+        self.assertEqual(split.settle_kbn, 'CAS_INPRO')
+        self.assertEqual(split.account_id, '670')
+        self.assertIsNone(split.amount)            # 申請金額はコピーしない
+        self.assertIsNone(split.consumption_tax)   # 消費税もコピーしない
+        self.assertFalse(split.journal_done)
+        self.assertEqual(d['row']['parent_pk'], self.parent.pk)
+
+    def test_split_of_split_returns_400(self):
+        split = self._create_split()
+        res = self.client.post(f'/settings/settlement/journal/{split.pk}/split/')
+        self.assertEqual(res.status_code, 400)
+
+    def test_split_requires_post(self):
+        res = self.client.get(f'/settings/settlement/journal/{self.parent.pk}/split/')
+        self.assertEqual(res.status_code, 405)
+
+    def test_delete_split_row(self):
+        split = self._create_split()
+        res = self.client.post(f'/settings/settlement/journal/{split.pk}/delete/')
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(T_DocumentContent.all_objects.filter(pk=split.pk).exists())
+
+    def test_delete_parent_returns_400_and_keeps_row(self):
+        res = self.client.post(f'/settings/settlement/journal/{self.parent.pk}/delete/')
+        self.assertEqual(res.status_code, 400)
+        self.assertTrue(T_DocumentContent.all_objects.filter(pk=self.parent.pk).exists())
