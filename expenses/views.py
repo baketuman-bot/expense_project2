@@ -5166,6 +5166,55 @@ def _build_account_cd_5(account_cd, bumon_cd):
     return cd
 
 
+def _filter_complete_journal_groups(contents):
+    """元行・分割行が混在するリストを受け取り、
+    「元行が journal_done=True かつ、その全分割行も journal_done=True」
+    である完全なグループの行だけを返す。
+
+    - 分割行を持たない元行はそのまま含める。
+    - 元行が対象集合に含まれない（未入力等で除外されている）場合、
+      その分割行だけが残っていても除外する。
+    - 分割行が1つでも未入力(journal_done=False)なら、元行・分割行とも除外する。
+
+    contents に含まれない行の journal_done 状態も DB から独立して判定するため、
+    呼び出し側の事前フィルタ内容に依存しない。
+    """
+    contents = list(contents)
+    if not contents:
+        return contents
+
+    root_ids = {
+        c.split_from_id if c.split_from_id is not None else c.document_detail_id
+        for c in contents
+    }
+
+    parents_by_id = {
+        p.document_detail_id: p
+        for p in T_DocumentContent.all_objects.filter(
+            document_detail_id__in=root_ids, split_from_id__isnull=True,
+        )
+    }
+    splits_map = {}
+    for s in T_DocumentContent.all_objects.filter(split_from_id__in=root_ids):
+        splits_map.setdefault(s.split_from_id, []).append(s)
+
+    complete_root_ids = set()
+    for rid in root_ids:
+        parent = parents_by_id.get(rid)
+        if parent is None or not parent.journal_done:
+            continue   # 元行が対象外（未入力 or 不在）→ グループ不完全
+        splits = splits_map.get(rid, [])
+        if any(not s.journal_done for s in splits):
+            continue   # 分割行に未入力あり → グループ不完全
+        complete_root_ids.add(rid)
+
+    return [
+        c for c in contents
+        if (c.split_from_id if c.split_from_id is not None else c.document_detail_id)
+        in complete_root_ids
+    ]
+
+
 @login_required
 def settlement_journal(request):
     """仕訳出力: 仕訳入力済み(journal_done=1)の明細一覧から対象を選んでExcel出力する"""
@@ -5908,10 +5957,14 @@ def journal_csv(request):
         qs = qs.filter(
             Q(document_detail_id__in=selected_ids) | Q(split_from_id__in=selected_ids)
         )
-    detail_ids = list(
+    contents = list(
         qs.order_by('document__document_type_id', 'document__document_id', 'date')
-          .values_list('document_detail_id', flat=True)
+          .only('document_detail_id', 'split_from')
     )
+    # 未入力(journal_done=False)の分割行を含むグループは貸借不一致の伝票に
+    # なり得るため、グループごと出力対象から除外する（一覧ビューと同じガード）
+    contents = _filter_complete_journal_groups(contents)
+    detail_ids = [c.document_detail_id for c in contents]
 
     HEADERS = [
         '伝票区切', '申請番号', '申請明細番号', '申請名称', '申請者No', '申請者',

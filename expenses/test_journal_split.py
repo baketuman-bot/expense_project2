@@ -367,6 +367,16 @@ class JournalCsvSplitTest(JournalSplitFixtureMixin, TestCase):
         # 列10 = 科目名。分割行は変更後の科目（交際費）
         self.assertEqual(data[1][10], '交際費')
 
+    def test_incomplete_group_excluded_from_csv(self):
+        """未入力の分割行を含むグループは ids なしの全件出力から除外される"""
+        # 既存 setUp: parent=done, split=done。さらに未入力の分割行を追加する
+        self._create_split(journal_done=False)
+        res = self.client.get('/settings/settlement/journal/csv/')
+        data = self._load_rows(res)
+        detail_ids = [row[2] for row in data]
+        self.assertNotIn(self.parent.pk, detail_ids)
+        self.assertNotIn(self.split.pk, detail_ids)
+
 
 class SettlementJournalListSplitTest(JournalSplitFixtureMixin, TestCase):
     """仕訳出力一覧の分割行対応テスト"""
