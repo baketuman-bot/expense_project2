@@ -79,6 +79,10 @@ urlpatterns = [
     path("settings/settlement/journal/<int:pk>/save/",  views.journal_save,        name="journal_save"),
     path("settings/settlement/journal/<int:pk>/split/",  views.journal_split,        name="journal_split"),
     path("settings/settlement/journal/<int:pk>/delete/", views.journal_split_delete, name="journal_split_delete"),
+    # 債務管理（口座振込 LON_INPRO 対象。仕訳処理と同じUIを共有）
+    path("settings/settlement/debt/",       views.settlement_debt, name="settlement_debt"),
+    path("settings/settlement/debt/entry/", views.debt_entry,      name="debt_entry"),
+    path("settings/settlement/debt/csv/",   views.debt_csv,        name="debt_csv"),
     # マスタ設定
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),

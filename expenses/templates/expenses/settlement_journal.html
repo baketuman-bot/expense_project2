@@ -1,6 +1,6 @@
 {% extends "expenses/base.html" %}
 
-{% block title %}仕訳出力 — {% endblock %}
+{% block title %}{{ page_title }} — {% endblock %}
 
 {% block content %}
 <div class="mt-4" style="max-width:1200px;">
@@ -8,7 +8,7 @@
   <div class="page-head mb-3">
     <h2 class="page-title mb-0">
       <span class="pt-ico"><i class="fas fa-book"></i></span>
-      仕訳出力
+      {{ page_title }}
     </h2>
     <div class="page-actions">
       <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
@@ -53,7 +53,7 @@
           {% with c=row.content %}
           <tr class="{% if c.journal_done %}table-success{% endif %}">
             <td class="text-nowrap">
-              <a href="{% url 'expenses:expense_detail' c.document_id %}?from=settlement_journal">
+              <a href="{% url 'expenses:expense_detail' c.document_id %}?from={{ from_param }}">
                 {{ c.document_id }}
               </a>
             </td>
@@ -102,7 +102,7 @@
   <div class="card">
     <div class="card-body text-center text-muted py-5">
       <i class="fas fa-check-circle fa-2x mb-2 d-block" style="color:var(--primary);"></i>
-      仕訳出力の対象データはありません。
+      {{ page_title }}の対象データはありません。
     </div>
   </div>
   {% endif %}
@@ -111,7 +111,7 @@
 
 <script>
 (function () {
-  var CSV_URL = "{% url 'expenses:journal_csv' %}";
+  var CSV_URL = "{{ csv_url }}";
 
   function getChecks() {
     return document.querySelectorAll('.journal-check');

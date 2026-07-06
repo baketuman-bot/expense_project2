@@ -1,7 +1,7 @@
 {% extends "expenses/base.html" %}
 {% load static %}
 
-{% block title %}仕訳入力 — {% endblock %}
+{% block title %}{{ page_title }} — {% endblock %}
 {% block body_class %}journal-page{% endblock %}
 
 {% block extra_css %}
@@ -298,13 +298,13 @@ body.journal-page .precision-shell {
 <!-- ページヘッダ -->
 <div class="jnl-page-head">
   <span class="pt-ico"><i class="fas fa-book"></i></span>
-  <h2 class="jnl-page-title">仕訳作成</h2>
+  <h2 class="jnl-page-title">{{ page_title }}</h2>
   <div class="jnl-page-actions">
     <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
       <i class="fas fa-arrow-left me-1"></i>精算処理メニューへ
     </a>
-    <a href="{% url 'expenses:settlement_journal' %}" class="btn btn-sm btn-primary" id="btn-csv">
-      <i class="fas fa-file-csv me-1"></i>仕訳出力
+    <a href="{{ output_url }}" class="btn btn-sm btn-primary" id="btn-csv">
+      <i class="fas fa-file-csv me-1"></i>{{ output_title }}
     </a>
   </div>
 </div>
@@ -574,7 +574,7 @@ body.journal-page .precision-shell {
   <div class="card">
     <div class="card-body text-center text-muted py-5">
       <i class="fas fa-check-circle fa-2x mb-2 d-block" style="color:var(--primary);"></i>
-      仕訳作成の対象データはありません。
+      {{ page_title }}の対象データはありません。
     </div>
   </div>
 </div>
@@ -590,6 +590,7 @@ body.journal-page .precision-shell {
   var SAVE_URL_TPL   = "{% url 'expenses:journal_save' 0 %}".replace('/0/', '/{pk}/');
   var SPLIT_URL_TPL     = "{% url 'expenses:journal_split' 0 %}".replace('/0/', '/{pk}/');
   var SPLIT_DEL_URL_TPL = "{% url 'expenses:journal_split_delete' 0 %}".replace('/0/', '/{pk}/');
+  var FROM_PARAM        = '{{ from_param }}';
   var currentIsSplit    = false;
   var CSRF           = '{{ csrf_token }}';
   var currentPk      = null;
@@ -636,7 +637,7 @@ body.journal-page .precision-shell {
     /* 参照テーブル */
     var ref = d.ref;
     setText('ref-applicant',   ref.applicant);
-    var docLink = '<a href="/' + ref.document_id + '/?from=settlement_journal" style="color:var(--primary);font-size:11px;">#' + ref.document_id + ' →</a>';
+    var docLink = '<a href="/' + ref.document_id + '/?from=' + FROM_PARAM + '" style="color:var(--primary);font-size:11px;">#' + ref.document_id + ' →</a>';
     document.getElementById('ref-doc-id').innerHTML = docLink;
     setText('ref-date',        ref.date);
     setText('ref-bumon-cd',    ref.bumon_cd);

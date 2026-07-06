@@ -803,6 +803,9 @@ def expense_detail(request, pk):
         'settlement_cash_osaka':   reverse('expenses:settlement_cash_osaka'),
         'settlement_corp_card':    reverse('expenses:settlement_corp_card'),
         'settlement_payroll':      reverse('expenses:settlement_payroll'),
+        'settlement_transfer':     reverse('expenses:settlement_transfer'),
+        'settlement_journal':      reverse('expenses:settlement_journal'),
+        'settlement_debt':         reverse('expenses:settlement_debt'),
     }
     back_url = back_url_map.get(from_page, reverse('expenses:expense_list'))
 
@@ -4836,7 +4839,8 @@ def settings_data_view_csv(request, view_name):
 def settlement_menu(request):
     """精算処理メニュー: 6つの精算処理区分と処理待ち件数を表示する"""
     base_qs = T_DocumentContent.objects.filter(document__status_cd_id='FNS')
-    journal_kbns = ['CAS_INPRO', 'SAL_INPRO', 'COC_INPRO', 'LON_INPRO']
+    journal_kbns = _JOURNAL_MODES['journal']['kbns']
+    debt_kbns    = _JOURNAL_MODES['debt']['kbns']
     counts = {
         'classify':    base_qs.filter(settle_kbn__isnull=True).count(),
         'cash_hq':     base_qs.filter(settle_kbn='CAS_PRE', document__pay_kbn='03').count(),
@@ -4847,6 +4851,8 @@ def settlement_menu(request):
         'auto_debit':  base_qs.filter(settle_kbn='AUT_PRE').count(),
         'journal':     base_qs.filter(settle_kbn__in=journal_kbns).count(),
         'journal_done': base_qs.filter(settle_kbn__in=journal_kbns, journal_done=True).count(),
+        'debt':        base_qs.filter(settle_kbn__in=debt_kbns).count(),
+        'debt_done':   base_qs.filter(settle_kbn__in=debt_kbns, journal_done=True).count(),
     }
     return render(request, 'expenses/settlement_menu.html', {
         'current': 'settlement_menu',
@@ -5130,6 +5136,33 @@ _JOURNAL_KBN_LABEL = {
     'LON_INPRO': '前借証',
 }
 
+# 仕訳作成／債務管理データ作成で共有するモード設定。
+# 口座振込(LON_INPRO)は仕訳ではなく債務管理データとして扱う
+_JOURNAL_MODES = {
+    'journal': {
+        'kbns':         ['CAS_INPRO', 'SAL_INPRO', 'COC_INPRO'],
+        'entry_title':  '仕訳作成',
+        'output_title': '仕訳出力',
+        'output_url':   'expenses:settlement_journal',
+        'csv_url':      'expenses:journal_csv',
+        'from_param':   'settlement_journal',
+        'current':      'settlement_journal',
+        'sheet_title':  '仕訳取込',
+        'filename':     '仕訳取込.xlsx',
+    },
+    'debt': {
+        'kbns':         ['LON_INPRO'],
+        'entry_title':  '債務管理データ作成',
+        'output_title': '債務管理出力',
+        'output_url':   'expenses:settlement_debt',
+        'csv_url':      'expenses:debt_csv',
+        'from_param':   'settlement_debt',
+        'current':      'settlement_debt',
+        'sheet_title':  '債務管理取込',
+        'filename':     '債務管理取込.xlsx',
+    },
+}
+
 # 部門コード → 科目コード上2桁マッピング（3桁科目コードを5桁に変換するため）
 _BUMON_CS_KBN = {
     "11000":"83","11400":"84","11430":"84","12000":"83","13000":"83",
@@ -5215,10 +5248,9 @@ def _filter_complete_journal_groups(contents):
     ]
 
 
-@login_required
-def settlement_journal(request):
-    """仕訳出力: 仕訳入力済み(journal_done=1)の明細一覧から対象を選んでExcel出力する"""
-    journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
+def _journal_output_view(request, mode):
+    """仕訳出力/債務管理出力 共通: 入力済み(journal_done=1)の明細一覧から対象を選んでExcel出力する"""
+    journal_kbns = mode['kbns']
     parents = list(
         T_DocumentContent.objects
         .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
@@ -5251,15 +5283,29 @@ def settlement_journal(request):
                 'parent_pk':    c.split_from_id,
             })
     return render(request, 'expenses/settlement_journal.html', {
-        'rows':    rows,
-        'current': 'settlement_journal',
+        'rows':       rows,
+        'page_title': mode['output_title'],
+        'csv_url':    reverse(mode['csv_url']),
+        'from_param': mode['from_param'],
+        'current':    mode['current'],
     })
 
 
 @login_required
-def journal_entry(request):
-    """仕訳入力: 選択された明細IDの3ペインUI。?ids=1,2,3 で絞り込む"""
-    journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
+def settlement_journal(request):
+    """仕訳出力: CAS/SAL/COC_INPRO 対象"""
+    return _journal_output_view(request, _JOURNAL_MODES['journal'])
+
+
+@login_required
+def settlement_debt(request):
+    """債務管理出力: LON_INPRO(口座振込) 対象"""
+    return _journal_output_view(request, _JOURNAL_MODES['debt'])
+
+
+def _journal_entry_view(request, mode):
+    """仕訳作成/債務管理データ作成 共通: 選択された明細IDの3ペインUI。?ids=1,2,3 で絞り込む"""
+    journal_kbns = mode['kbns']
 
     raw_ids = request.GET.get('ids', '')
     try:
@@ -5349,8 +5395,24 @@ def journal_entry(request):
         'tax_options':           tax_options,
         'account_options':       account_options,
         'settle_filter_options': settle_filter_options,
-        'current':               'settlement_journal',
+        'page_title':            mode['entry_title'],
+        'output_title':          mode['output_title'],
+        'output_url':            reverse(mode['output_url']),
+        'from_param':            mode['from_param'],
+        'current':               mode['current'],
     })
+
+
+@login_required
+def journal_entry(request):
+    """仕訳入力: CAS/SAL/COC_INPRO 対象"""
+    return _journal_entry_view(request, _JOURNAL_MODES['journal'])
+
+
+@login_required
+def debt_entry(request):
+    """債務管理データ作成: LON_INPRO(口座振込) 対象"""
+    return _journal_entry_view(request, _JOURNAL_MODES['debt'])
 
 
 @login_required
@@ -5930,9 +5992,8 @@ def _aggregate_journal_credit_rows(rows):
     return out
 
 
-@login_required
-def journal_csv(request):
-    """仕訳Excel出力: v_journaldocuments を参照してダウンロード（コード列は先頭ゼロ保持のため文字列で出力）"""
+def _journal_csv_view(request, mode):
+    """仕訳/債務管理Excel出力 共通: v_journaldocuments を参照してダウンロード（コード列は先頭ゼロ保持のため文字列で出力）"""
     from django.db import connection
     from django.http import HttpResponse
     from io import BytesIO
@@ -5940,7 +6001,7 @@ def journal_csv(request):
     from openpyxl.styles import Font
     from openpyxl.utils import get_column_letter
 
-    journal_kbns = list(_JOURNAL_KBN_LABEL.keys())
+    journal_kbns = mode['kbns']
 
     raw_ids = request.GET.get('ids', '')
     try:
@@ -5997,7 +6058,7 @@ def journal_csv(request):
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = '仕訳取込'
+    ws.title = mode['sheet_title']
     ws.append(HEADERS)
     for cell in ws[1]:
         cell.font = Font(bold=True)
@@ -6040,8 +6101,20 @@ def journal_csv(request):
         buffer.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = 'attachment; filename="仕訳取込.xlsx"'
+    response['Content-Disposition'] = 'attachment; filename="%s"' % mode['filename']
     return response
+
+
+@login_required
+def journal_csv(request):
+    """仕訳Excel出力: CAS/SAL/COC_INPRO 対象"""
+    return _journal_csv_view(request, _JOURNAL_MODES['journal'])
+
+
+@login_required
+def debt_csv(request):
+    """債務管理Excel出力: LON_INPRO(口座振込) 対象"""
+    return _journal_csv_view(request, _JOURNAL_MODES['debt'])
 
 
 @login_required
