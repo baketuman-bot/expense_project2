@@ -7,7 +7,7 @@
 {% block extra_head %}{% endblock %}
 
 {% block content %}
-<div class="container form-has-action-bar">
+<div class="container">
     {% if is_edit_mode %}
     {% if is_keiri_edit %}
     <nav class="precision-breadcrumb mb-1" aria-label="パンくずリスト">
@@ -538,60 +538,6 @@
         </div>
     </div>
 </div>
-<!-- 固定アクションバー -->
-<div class="form-action-bar" id="formActionBar">
-    {% if not hide_detail_total_bar %}
-    <div class="form-action-bar-total">
-        明細合計: <span class="bar-total-amount" id="barTotalAmount">¥0</span>
-    </div>
-    {% endif %}
-    <div class="form-action-bar-buttons">
-        {% if is_edit_mode %}
-            {% if is_keiri_edit %}
-            <a href="{{ back_url }}" class="btn btn-secondary btn-sm">キャンセル</a>
-            <button type="submit" form="expense-main-form" class="btn btn-primary btn-sm" data-submit-lock
-                    onclick="document.getElementById('action-input').value='keiri_save'">
-                <i class="fas fa-save me-1"></i>修正を保存
-            </button>
-            {% else %}
-            <a href="{% url 'expenses:expense_detail' expense.expense_main_id %}" class="btn btn-secondary btn-sm">キャンセル</a>
-            <button type="submit" form="expense-main-form" class="btn btn-outline-primary btn-sm" data-submit-lock
-                    onclick="document.getElementById('action-input').value='save'">下書きを保存</button>
-            <button type="submit" form="expense-main-form" class="btn btn-primary btn-sm" data-submit-lock
-                    onclick="document.getElementById('action-input').value='submit'">申請する</button>
-            {% endif %}
-        {% else %}
-        <a href="{% url 'expenses:expense_list' %}" class="btn btn-secondary btn-sm">キャンセル</a>
-        <button type="submit" form="expense-main-form" class="btn btn-outline-primary btn-sm" data-submit-lock
-                onclick="document.getElementById('action-input').value='draft'">下書き保存</button>
-        <button type="submit" form="expense-main-form" class="btn btn-primary btn-sm" data-submit-lock
-                onclick="document.getElementById('action-input').value='submit'">申請する</button>
-        {% endif %}
-    </div>
-</div>
-
-<script>
-(function() {
-    function calcBarTotal() {
-        var barTotalEl = document.getElementById('barTotalAmount');
-        if (!barTotalEl) return;
-        var total = 0;
-        document.querySelectorAll('[data-amount-input]').forEach(function(el) {
-            var v = parseFloat((el.value || '').replace(/,/g, ''));
-            if (!isNaN(v)) total += v;
-        });
-        var formatted = '¥' + Math.round(total).toLocaleString('ja-JP');
-        barTotalEl.textContent = formatted;
-    }
-    document.addEventListener('input', function(e) {
-        if (e.target && e.target.hasAttribute('data-amount-input')) {
-            calcBarTotal();
-        }
-    });
-    calcBarTotal();
-})();
-</script>
-
 <div id="autosave-bar">下書きを自動保存しました</div>
 {% endblock %}
 

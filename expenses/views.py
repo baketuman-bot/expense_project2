@@ -121,7 +121,6 @@ def _asset_form_context(doc_type):
             'hide_receipt_fields': False,
             'bumon_label': '申請部門' if is_asset_specialized else '負担部門',
             'hide_ringi_no': is_asset_move,
-            'hide_detail_total_bar': is_asset_specialized,
         }
     return {
         'hide_currency': False,
@@ -135,7 +134,6 @@ def _asset_form_context(doc_type):
         'hide_receipt_fields': mg_code == 'LON',
         'bumon_label': '負担部門',
         'hide_ringi_no': False,
-        'hide_detail_total_bar': False,
     }
 
 

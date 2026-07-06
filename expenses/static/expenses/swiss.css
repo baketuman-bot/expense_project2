@@ -1288,26 +1288,6 @@ body.no-sidebar .precision-main{
 /* sandstone が上書きしていたフォントサイズ基準を維持 */
 :root { font-size: 15px; }
 body.precision { font-size: 14px; }
-/* form-action-bar 内のボタン（.precision-main 外）に primary 色を適用 */
-.form-action-bar .btn-primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-}
-.form-action-bar .btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-  color: #fff;
-}
-.form-action-bar .btn-outline-primary {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-.form-action-bar .btn-outline-primary:hover {
-  background: var(--primary);
-  color: #fff;
-}
-
 /* ===== カードホバー（リンクカード用） ===== */
 .card-hover-primary {
   transition: box-shadow .15s ease, border-color .15s ease;
@@ -1319,54 +1299,6 @@ body.precision { font-size: 14px; }
   box-shadow: 0 0 0 2px var(--primary-soft), 0 2px 8px rgba(23,48,122,.10);
 }
 
-/* ===== 固定アクションバー（申請フォーム） ===== */
-.form-action-bar {
-  position: fixed;
-  bottom: 0;
-  left: var(--precision-sidebar-width);
-  right: 0;
-  z-index: 1040;
-  background: #fff;
-  border-top: 2px solid var(--primary);
-  padding: 10px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  box-shadow: 0 -2px 8px rgba(0,0,0,.08);
-}
-body:not(.has-sidebar) .form-action-bar {
-  left: 0;
-}
-@media (max-width: 768px) {
-  .form-action-bar {
-    left: 0;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 10px 16px;
-  }
-}
-.form-action-bar-total {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--primary);
-  white-space: nowrap;
-}
-.form-action-bar-total .bar-total-amount {
-  font-size: 18px;
-  margin-left: 6px;
-  font-variant-numeric: tabular-nums;
-}
-.form-action-bar-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-/* バー分の下余白 */
-.form-has-action-bar {
-  padding-bottom: 72px;
-}
 
 /* ===== 必須ラベル赤アスタリスク ===== */
 label.required::after {
