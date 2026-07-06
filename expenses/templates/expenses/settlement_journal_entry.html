@@ -132,6 +132,17 @@ body.journal-page .precision-shell {
 .jnl-badge-todo { background: #f3f4f6; color: var(--sub); border-color: var(--line-strong); }
 .jnl-badge-warn { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 
+/* ── 分割行 ── */
+.jnl-item-split { padding-left: 28px; background: #fafcff; }
+.jnl-item-split.done { background: #f0fdf4; }
+.jnl-split-tag { color: var(--primary); font-weight: 700; margin-right: 3px; }
+.jnl-row-btn {
+  border: 1px solid var(--line-strong); background: #fff; color: var(--sub);
+  border-radius: 4px; font-size: 10px; padding: 1px 6px; cursor: pointer; margin-top: 3px;
+}
+.jnl-row-btn:hover { background: var(--primary-soft); color: var(--primary); }
+.jnl-row-btn-del:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+
 /* ── リストナビ ── */
 .jnl-list-nav {
   padding: 7px 10px;
@@ -332,14 +343,15 @@ body.journal-page .precision-shell {
     <div class="jnl-pane-body">
       <ul class="jnl-list" id="jnl-list">
         {% for r in rows %}
-        <li class="jnl-item {% if r.journal_done %}done{% elif r.warn %}warn{% endif %} {% if forloop.first %}active{% endif %}"
+        <li class="jnl-item {% if r.is_split %}jnl-item-split{% endif %} {% if r.journal_done %}done{% elif r.warn %}warn{% endif %} {% if forloop.first %}active{% endif %}"
             id="jnl-item-{{ r.pk }}"
             data-pk="{{ r.pk }}"
             data-settle-kbn="{{ r.settle_kbn }}"
+            data-parent="{{ r.parent_pk|default_if_none:'' }}"
             onclick="jnlSelect({{ r.pk }})">
           <span class="jnl-item-no">{{ r.document_id }}</span>
           <div style="min-width:0;">
-            <div class="jnl-item-name">{{ r.account_name }}</div>
+            <div class="jnl-item-name">{% if r.is_split %}<span class="jnl-split-tag">↳ 分割</span>{% endif %}{{ r.account_name }}</div>
             <div class="jnl-item-sub">{{ r.applicant }} ／ {{ r.date|date:"Y/m/d" }}</div>
             <div class="jnl-item-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.purpose }}</div>
             <div style="margin-top:3px;">
@@ -355,7 +367,17 @@ body.journal-page .precision-shell {
           <div style="text-align:right;flex-shrink:0;">
             <div class="jnl-item-amount">{% if r.amount %}¥{{ r.amount|floatformat:"0" }}{% endif %}</div>
             <div class="jnl-item-sub" style="font-size:10px;">{{ r.settle_label }}</div>
-            {% if r.journal_done %}<div class="jnl-item-sub" style="font-size:10px;color:#16a34a;">入力済</div>{% endif %}
+            {% if r.is_split %}
+            <button type="button" class="jnl-row-btn jnl-row-btn-del"
+                    onclick="event.stopPropagation(); jnlSplitDelete({{ r.pk }});">
+              <i class="fas fa-times"></i> 削除
+            </button>
+            {% else %}
+            <button type="button" class="jnl-row-btn"
+                    onclick="event.stopPropagation(); jnlSplit({{ r.pk }});">
+              <i class="fas fa-code-branch"></i> 分割
+            </button>
+            {% endif %}
           </div>
         </li>
         {% endfor %}
@@ -405,6 +427,15 @@ body.journal-page .precision-shell {
 
         <!-- 借方 -->
         <div style="padding:3px 10px 2px 10px;font-size:10px;font-weight:600;color:var(--sub);letter-spacing:.04em;background:var(--panel);border-bottom:1px solid var(--line);">借方</div>
+
+        <div class="jnl-input-row" id="row-account-cd" style="display:none;">
+          <span class="jnl-lbl">借方科目</span>
+          <select class="jnl-ctrl" id="inp-account-cd" style="flex:1;">
+            {% for a in account_options %}
+            <option value="{{ a.account_cd }}">{{ a.account_cd }}　{{ a.account_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
 
         <div class="jnl-input-row">
           <span class="jnl-lbl">借方補助科目</span>
@@ -464,6 +495,7 @@ body.journal-page .precision-shell {
           <input type="text" class="jnl-ctrl" id="inp-jnl-desc-deb" maxlength="50" placeholder="" style="flex:1;">
         </div>
 
+        <div id="jnl-cre-section">
         <!-- 貸方 -->
         <div style="padding:3px 10px 2px 10px;font-size:10px;font-weight:600;color:var(--sub);letter-spacing:.04em;background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:4px;">貸方</div>
 
@@ -492,6 +524,7 @@ body.journal-page .precision-shell {
         <div class="jnl-input-row">
           <span class="jnl-lbl">貸方摘要</span>
           <input type="text" class="jnl-ctrl" id="inp-cre-desc" maxlength="50" placeholder="" style="flex:1;">
+        </div>
         </div>
 
       </div>
@@ -555,6 +588,9 @@ body.journal-page .precision-shell {
   /* ── 定数 ── */
   var DETAIL_URL_TPL = "{% url 'expenses:journal_detail_api' 0 %}".replace('/0/', '/{pk}/');
   var SAVE_URL_TPL   = "{% url 'expenses:journal_save' 0 %}".replace('/0/', '/{pk}/');
+  var SPLIT_URL_TPL     = "{% url 'expenses:journal_split' 0 %}".replace('/0/', '/{pk}/');
+  var SPLIT_DEL_URL_TPL = "{% url 'expenses:journal_split_delete' 0 %}".replace('/0/', '/{pk}/');
+  var currentIsSplit    = false;
   var CSRF           = '{{ csrf_token }}';
   var currentPk      = null;
   var zoomLevel      = 1.0;
@@ -669,6 +705,15 @@ body.journal-page .precision-shell {
     } else {
       warnRow.style.display = 'none';
     }
+
+    /* 分割行: 借方科目セレクト表示・貸方非表示 */
+    currentIsSplit = !!d.is_split;
+    document.getElementById('row-account-cd').style.display = currentIsSplit ? '' : 'none';
+    document.getElementById('jnl-cre-section').style.display = currentIsSplit ? 'none' : '';
+    if (currentIsSplit) {
+      document.getElementById('inp-account-cd').value = d.account_cd_raw || '';
+    }
+    renderGroupWarn(d.group);
 
     /* 証憑ビューア */
     currentAttUrl = d.att_url;
@@ -813,6 +858,7 @@ body.journal-page .precision-shell {
     if (!currentPk) return;
     var body = new URLSearchParams({
       csrfmiddlewaretoken:    CSRF,
+      account_cd:             (currentIsSplit ? document.getElementById('inp-account-cd').value : ''),
       hojo_cd:                document.getElementById('inp-hojo').value,
       journal_amont:          stripFmt(document.getElementById('inp-jnl-amont').value),
       consumption_tax:        stripFmt(document.getElementById('inp-tax-amt').value),
@@ -838,6 +884,7 @@ body.journal-page .precision-shell {
       .then(function (d) {
         if (!d.ok) { alert('保存に失敗しました。'); return; }
         updateListItem(currentPk, d.journal_done);
+        renderGroupWarn(d.group);
         clearMissing();
         if (!d.journal_done && d.missing && d.missing.length) {
           /* 未確定の理由を表示し、次へは進まない */
@@ -869,6 +916,110 @@ body.journal-page .precision-shell {
         : '<span class="jnl-badge jnl-badge-todo">未入力</span>';
     }
   }
+
+  /* ── グループ合計警告 ── */
+  function renderGroupWarn(group) {
+    var badge = document.getElementById('jnl-form-badge');
+    var old = document.getElementById('jnl-group-warn');
+    if (old) old.remove();
+    if (group && group.mismatch) {
+      var span = document.createElement('span');
+      span.id = 'jnl-group-warn';
+      span.className = 'jnl-badge jnl-badge-warn';
+      span.style.marginLeft = '4px';
+      span.textContent = '⚠ 分割合計不一致 (' + Number(group.group_total).toLocaleString()
+                       + ' / ' + Number(group.expected).toLocaleString() + ')';
+      badge.appendChild(span);
+    }
+  }
+
+  /* ── サマリー件数の増減 ── */
+  function bumpTotals(delta) {
+    /* サーバーレンダリングの件数表示はページ再読込で正確化されるため、
+       ここではリスト件数のみ更新する */
+    var countEl = document.getElementById('jnl-list-count');
+    if (countEl) {
+      var n = parseInt(countEl.textContent) || 0;
+      countEl.textContent = (n + delta) + '件';
+    }
+  }
+
+  /* ── 分割作成 ── */
+  window.jnlSplit = function (pk) {
+    fetch(SPLIT_URL_TPL.replace('{pk}', pk), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'csrfmiddlewaretoken=' + encodeURIComponent(CSRF),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { alert(d.error || '分割に失敗しました。'); return; }
+        insertSplitItem(d.row);
+        bumpTotals(1);
+        jnlSelect(d.row.pk);
+      });
+  };
+
+  function insertSplitItem(row) {
+    /* 元行のグループ（元行+既存分割行）の最後の li の後に挿入する */
+    var anchor = document.getElementById('jnl-item-' + row.parent_pk);
+    if (!anchor) return;
+    var next = anchor.nextElementSibling;
+    while (next && next.dataset.parent === String(row.parent_pk)) {
+      anchor = next;
+      next = next.nextElementSibling;
+    }
+    var li = document.createElement('li');
+    li.className = 'jnl-item jnl-item-split';
+    li.id = 'jnl-item-' + row.pk;
+    li.dataset.pk = row.pk;
+    li.dataset.settleKbn = row.settle_kbn;
+    li.dataset.parent = String(row.parent_pk);
+    li.onclick = function () { jnlSelect(row.pk); };
+    li.innerHTML =
+      '<span class="jnl-item-no">' + row.document_id + '</span>' +
+      '<div style="min-width:0;">' +
+        '<div class="jnl-item-name"><span class="jnl-split-tag">↳ 分割</span>' + escapeHtml(row.account_name) + '</div>' +
+        '<div class="jnl-item-sub">' + escapeHtml(row.applicant) + ' ／ ' + (row.date || '') + '</div>' +
+        '<div class="jnl-item-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(row.purpose) + '</div>' +
+        '<div style="margin-top:3px;"><span class="jnl-badge jnl-badge-todo">未入力</span></div>' +
+      '</div>' +
+      '<div style="text-align:right;flex-shrink:0;">' +
+        '<div class="jnl-item-amount"></div>' +
+        '<div class="jnl-item-sub" style="font-size:10px;">' + escapeHtml(row.settle_label) + '</div>' +
+        '<button type="button" class="jnl-row-btn jnl-row-btn-del"><i class="fas fa-times"></i> 削除</button>' +
+      '</div>';
+    li.querySelector('.jnl-row-btn-del').addEventListener('click', function (e) {
+      e.stopPropagation();
+      jnlSplitDelete(row.pk);
+    });
+    anchor.insertAdjacentElement('afterend', li);
+  }
+
+  function escapeHtml(s) {
+    var div = document.createElement('div');
+    div.textContent = s || '';
+    return div.innerHTML;
+  }
+
+  /* ── 分割削除 ── */
+  window.jnlSplitDelete = function (pk) {
+    if (!confirm('この分割行を削除しますか？入力済みの仕訳値も失われます。')) return;
+    fetch(SPLIT_DEL_URL_TPL.replace('{pk}', pk), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'csrfmiddlewaretoken=' + encodeURIComponent(CSRF),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { alert(d.error || '削除に失敗しました。'); return; }
+        var li = document.getElementById('jnl-item-' + pk);
+        var parentPk = li ? parseInt(li.dataset.parent) : null;
+        if (li) li.remove();
+        bumpTotals(-1);
+        if (currentPk === pk && parentPk) jnlSelect(parentPk);
+      });
+  };
 
   /* ── フィルター ── */
   var currentFilter = '';
@@ -958,6 +1109,26 @@ body.journal-page .precision-shell {
   function setText(id, val) {
     var el = document.getElementById(id);
     if (el) el.textContent = val || '';
+  }
+
+  /* ── 分割行の借方科目変更 → 補助科目候補を再取得 ── */
+  var accountSel = document.getElementById('inp-account-cd');
+  if (accountSel) {
+    accountSel.addEventListener('change', function () {
+      if (!currentPk || !currentIsSplit) return;
+      fetch(DETAIL_URL_TPL.replace('{pk}', currentPk) + '?account_cd=' + encodeURIComponent(this.value))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var hojoSel = document.getElementById('inp-hojo');
+          hojoSel.innerHTML = '<option value="">— 選択してください —</option>';
+          (d.hojo_options || []).forEach(function (h) {
+            var opt = document.createElement('option');
+            opt.value = h.cd;
+            opt.textContent = h.cd + '　' + h.name;
+            hojoSel.appendChild(opt);
+          });
+        });
+    });
   }
 
   /* ── 初期選択 ── */

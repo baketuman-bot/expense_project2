@@ -299,3 +299,21 @@ class JournalEntryViewSplitTest(JournalSplitFixtureMixin, TestCase):
         res = self.client.get(
             f'/settings/settlement/journal/entry/?ids={self.parent.pk}')
         self.assertEqual(res.context['total'], 2)
+
+
+class JournalEntryTemplateSplitTest(JournalSplitFixtureMixin, TestCase):
+    """分割UIがテンプレートに含まれることのスモークテスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.split = self._create_split()
+
+    def test_template_has_split_ui(self):
+        res = self.client.get(
+            f'/settings/settlement/journal/entry/?ids={self.parent.pk}')
+        html = res.content.decode('utf-8')
+        self.assertIn('jnlSplit(', html)          # 分割ボタン
+        self.assertIn('jnlSplitDelete(', html)    # 削除ボタン
+        self.assertIn('inp-account-cd', html)     # 借方科目セレクト
+        self.assertIn('jnl-cre-section', html)    # 貸方セクションのラッパ
+        self.assertIn('↳ 分割', html)             # 分割行のインジケータ
