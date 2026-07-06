@@ -5946,9 +5946,9 @@ def journal_split_delete(request, pk):
 # --- 仕訳Excel出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
 _JNL_IDX_DENPYO   = 0    # denpyo_kubun (伝票区切)
 _JNL_IDX_DOC_ID   = 1    # document_id (申請番号)
-_JNL_CRE_ALL_IDX  = tuple(range(23, 37))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
-_JNL_CRE_KEY_IDX  = (23, 25, 27, 31, 32, 35)      # 集約キー: 部門・科目・補助科目・外貨・換算レート・取引先(貸方)
-_JNL_CRE_SUM_IDX  = {29, 30, 33, 34}              # 合算列: 税抜・税・外貨金額・外貨税額(貸方)
+_JNL_CRE_ALL_IDX  = tuple(range(24, 38))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
+_JNL_CRE_KEY_IDX  = (24, 26, 28, 32, 33, 36)      # 集約キー: 部門・科目・補助科目・外貨・換算レート・取引先(貸方)
+_JNL_CRE_SUM_IDX  = {30, 31, 34, 35}              # 合算列: 税抜・税・外貨金額・外貨税額(貸方)
 
 
 def _aggregate_journal_credit_rows(rows):
@@ -6030,7 +6030,7 @@ def _journal_csv_view(request, mode):
     HEADERS = [
         '伝票区切', '申請番号', '申請明細番号', '申請名称', '申請者No', '申請者',
         '伝票日付', '部門ｺｰﾄﾞ', '部門名', '科目ｺｰﾄﾞ', '科目名',
-        '補助科目ｺｰﾄﾞ', '補助科目名', '税抜金額', '税金額', '税区分', '税区分名', '税率',
+        '補助科目ｺｰﾄﾞ', '補助科目名', '税抜金額', '税金額', '税込金額', '税区分', '税区分名', '税率',
         '外貨ｺｰﾄﾞ', '換算ﾚｰﾄ', '外貨金額', '外貨税額', '摘要',
         '部門ｺｰﾄﾞ(貸方)', '部門名(貸方)', '科目ｺｰﾄﾞ(貸方)', '科目名(貸方)',
         '補助科目ｺｰﾄﾞ(貸方)', '補助科目名(貸方)', '税抜金額(貸方)', '税金額(貸方)',
@@ -6041,7 +6041,8 @@ def _journal_csv_view(request, mode):
         'denpyo_kubun', 'document_id', 'document_detail_id', 'document_title',
         'applicant_man_number', 'applicant_name', 'date', 'bumon_cd', 'bumon_name',
         'account_cd', 'account_name', 'hojo_cd', 'sub_account_name',
-        'journal_amont', 'journal_tax', 'journal_tax_kbn', 'journal_tax_kbn_name', 'journal_tax_rate',
+        'journal_amont', 'journal_tax', 'journal_amount_incl',
+        'journal_tax_kbn', 'journal_tax_kbn_name', 'journal_tax_rate',
         'tsuka_cd', 'journal_fx_rate', 'journal_amont_fx', 'journal_tax_fx', 'journal_discription_deb',
         'bumon_cd_cre', 'bumon_name_cre', 'account_cd_cre', 'account_name_cre',
         'account_sub_cd_cre', 'account_sub_account_cre', 'journal_amount_cre', 'journal_tax_cre',
@@ -6055,6 +6056,7 @@ def _journal_csv_view(request, mode):
         'account_sub_cd_cre', 'tsuka_cd_cre', 'journal_tori_cd_cre',
     }
     text_flags = [col in TEXT_COLUMNS for col in COLUMNS]
+    idx_tax_rate = COLUMNS.index('journal_tax_rate')
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -6075,6 +6077,15 @@ def _journal_csv_view(request, mode):
             raw_rows = cur.fetchall()
 
         for row in _aggregate_journal_credit_rows(raw_rows):
+            row = list(row)
+            # 税率: '10%' → 10 のように % を除いた数値にする（'対象外' 等はそのまま）
+            if row[idx_tax_rate] is not None:
+                rate = str(row[idx_tax_rate]).replace('%', '').strip()
+                try:
+                    rate = int(rate)
+                except ValueError:
+                    pass
+                row[idx_tax_rate] = rate
             values = []
             for is_text, v in zip(text_flags, row):
                 if v is None:

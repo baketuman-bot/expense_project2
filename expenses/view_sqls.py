@@ -261,6 +261,10 @@ SELECT
   vdc.sub_account_name,
   vdc.journal_amont,
   vdc.journal_tax,
+  CASE
+    WHEN vdc.journal_amont IS NULL AND vdc.journal_tax IS NULL THEN NULL
+    ELSE COALESCE(vdc.journal_amont, 0) + COALESCE(vdc.journal_tax, 0)
+  END                        AS journal_amount_incl,
   vdc.journal_tax_kbn,
   vdc.journal_tax_kbn_name,
   vdc.journal_tax_rate,
