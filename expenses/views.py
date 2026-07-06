@@ -5210,7 +5210,23 @@ def journal_entry(request):
     if selected_ids:
         qs = qs.filter(document_detail_id__in=selected_ids)
 
-    contents = list(qs)
+    parents = list(qs)   # objects マネージャ → 元行のみ
+
+    # 分割行を取得して元行の直後に差し込む
+    splits_map = {}
+    split_qs = (
+        T_DocumentContent.all_objects
+        .filter(split_from_id__in=[p.document_detail_id for p in parents])
+        .select_related('document', 'document__man_number', 'document__bumon_cd', 'account')
+        .order_by('document_detail_id')
+    )
+    for s in split_qs:
+        splits_map.setdefault(s.split_from_id, []).append(s)
+
+    contents = []
+    for p in parents:
+        contents.append(p)
+        contents.extend(splits_map.get(p.document_detail_id, []))
 
     if not contents:
         return redirect('expenses:settlement_menu')
@@ -5224,23 +5240,30 @@ def journal_entry(request):
         M_Item.objects.filter(data_kbn='TAX_C').order_by('key').values('key', 'content', 'content2', 'content3')
     )
 
+    account_options = list(
+        M_Account.objects.order_by('account_cd').values('account_cd', 'account_name')
+    )
+
     rows = []
     for c in contents:
         bumon_cd = str(c.document.bumon_cd_id or '').strip()
         raw_acd  = str(c.account_id or '').strip()
         acd5     = _build_account_cd_5(raw_acd, bumon_cd)
+        is_split = c.split_from_id is not None
         rows.append({
             'pk':           c.document_detail_id,
             'document_id':  c.document.document_id,
             'account_name': c.account.account_name if c.account else '',
             'date':         c.date,
             'applicant':    str(c.document.man_number) if c.document.man_number else '',
-            'amount':       c.amount,
+            'amount':       c.journal_amont if is_split else c.amount,
             'purpose':      c.purpose or '',
             'settle_kbn':   c.settle_kbn or '',
             'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn or ''),
             'journal_done': c.journal_done,
             'warn':         acd5.startswith('??'),
+            'is_split':     is_split,
+            'parent_pk':    c.split_from_id,
         })
 
     # フィルター用: 実際に存在する支払い方法の一覧（表示順は _JOURNAL_KBN_LABEL 順）
@@ -5258,6 +5281,7 @@ def journal_entry(request):
         'todo':                  total - done,
         'warn':                  warn,
         'tax_options':           tax_options,
+        'account_options':       account_options,
         'settle_filter_options': settle_filter_options,
         'current':               'settlement_journal',
     })

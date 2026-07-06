@@ -266,3 +266,36 @@ class JournalDetailApiSplitTest(JournalSplitFixtureMixin, TestCase):
             f'/settings/settlement/journal/{self.split.pk}/?account_cd=671')
         d = res.json()
         self.assertEqual(d['hojo_options'][0]['cd'], '01')
+
+
+class JournalEntryViewSplitTest(JournalSplitFixtureMixin, TestCase):
+    """journal_entry ビューの分割行対応テスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.split = self._create_split()
+
+    def test_split_rows_follow_parent(self):
+        """?ids= に元行だけ指定しても分割行が直後に並ぶ"""
+        res = self.client.get(
+            f'/settings/settlement/journal/entry/?ids={self.parent.pk}')
+        self.assertEqual(res.status_code, 200)
+        rows = res.context['rows']
+        pks = [r['pk'] for r in rows]
+        self.assertEqual(pks.index(self.split.pk), pks.index(self.parent.pk) + 1)
+        by_pk = {r['pk']: r for r in rows}
+        self.assertTrue(by_pk[self.split.pk]['is_split'])
+        self.assertEqual(by_pk[self.split.pk]['parent_pk'], self.parent.pk)
+        self.assertFalse(by_pk[self.parent.pk]['is_split'])
+
+    def test_account_options_in_context(self):
+        res = self.client.get(
+            f'/settings/settlement/journal/entry/?ids={self.parent.pk}')
+        cds = [a['account_cd'] for a in res.context['account_options']]
+        self.assertIn('670', cds)
+        self.assertIn('671', cds)
+
+    def test_total_includes_splits(self):
+        res = self.client.get(
+            f'/settings/settlement/journal/entry/?ids={self.parent.pk}')
+        self.assertEqual(res.context['total'], 2)
