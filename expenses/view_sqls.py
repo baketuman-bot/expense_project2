@@ -149,6 +149,7 @@ _V_DOCUMENTCONTENTS = """
 CREATE OR REPLACE VIEW v_documentcontents AS
 SELECT
   dc.document_detail_id,
+  dc.split_from_id,
   dc.document_id,
   d.title             AS document_title,
   d.document_type_id,
@@ -224,6 +225,7 @@ SELECT
   '*'                        AS denpyo_kubun,
   vdc.document_id,
   vdc.document_detail_id,
+  vdc.split_from_id,
   vdc.document_title,
   vdc.applicant_man_number,
   vdc.applicant_name,
