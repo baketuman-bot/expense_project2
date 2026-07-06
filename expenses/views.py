@@ -5079,12 +5079,14 @@ def settlement_cash_print(request):
 
 @login_required
 def settlement_transfer(request):
-    """口座振込処理（表示のみ）"""
-    return render(request, 'expenses/settlement_stub.html', {
-        'title': '口座振込処理',
-        'icon': 'fa-university',
-        'current': 'settlement_transfer',
-    })
+    """口座振込処理: LON_PRE → LON_INPRO"""
+    return _settlement_payment_view(
+        request,
+        pre_kbn='LON_PRE', inpro_kbn='LON_INPRO',
+        page_title='口座振込処理', icon='fa-university',
+        current_name='settlement_transfer', process_label='口座振込',
+        from_param='settlement_transfer',
+    )
 
 
 @login_required
