@@ -1,0 +1,50 @@
+[
+  {
+    "document_detail_id": 16,
+    "document_id": 9,
+    "date_before": null,
+    "date_after": "2026-05-28",
+    "purpose": "日当",
+    "amount": null
+  },
+  {
+    "document_detail_id": 30,
+    "document_id": 21,
+    "date_before": null,
+    "date_after": "2026-06-01",
+    "purpose": "日当",
+    "amount": "5000.00"
+  },
+  {
+    "document_detail_id": 35,
+    "document_id": 24,
+    "date_before": null,
+    "date_after": "2026-06-02",
+    "purpose": "日当",
+    "amount": "5000.00"
+  },
+  {
+    "document_detail_id": 40,
+    "document_id": 25,
+    "date_before": null,
+    "date_after": "2026-06-02",
+    "purpose": "出張旅費",
+    "amount": "7500.00"
+  },
+  {
+    "document_detail_id": 56,
+    "document_id": 34,
+    "date_before": null,
+    "date_after": "2026-06-08",
+    "purpose": "日当",
+    "amount": null
+  },
+  {
+    "document_detail_id": 60,
+    "document_id": 35,
+    "date_before": null,
+    "date_after": "2026-06-09",
+    "purpose": "日当",
+    "amount": "5000.00"
+  }
+]

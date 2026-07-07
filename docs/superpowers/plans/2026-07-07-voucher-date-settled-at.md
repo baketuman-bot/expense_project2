@@ -454,6 +454,25 @@ class SettlementClassifyGetTest(SettlementClassifyFixtureMixin, TestCase):
         rows = res.context['rows']
         self.assertEqual(rows[0]['total_amount'], Decimal('1000'))   # 分類済みの2000円は除外
 
+    def test_mixed_methods_within_document_shows_both_labels(self):
+        """1申請内に現金明細と法人カード明細が混在する場合、両方の精算方法を表示する"""
+        mixed_doc = T_Document.objects.create(
+            document_type=self.doc_type, title='混在申請', man_number=self.user,
+            status_cd=self.status_fns, pay_kbn='03',
+        )
+        T_DocumentContent.objects.create(
+            document=mixed_doc, date=datetime.date(2026, 7, 1), account=self.account,
+            amount=Decimal('1000'), settle_kbn=None,
+        )
+        T_DocumentContent.objects.create(
+            document=mixed_doc, date=datetime.date(2026, 7, 1), account=self.account,
+            amount=Decimal('500'), settle_kbn=None, corpo_card=2, corpo_card_no='9999',
+        )
+        res = self.client.get('/settings/settlement/classify/')
+        rows = {r['document'].document_id: r for r in res.context['rows']}
+        labels = set(rows[mixed_doc.pk]['method_label'].split(' / '))
+        self.assertEqual(labels, {'現金（本社）', 'カード'})
+
 
 class SettlementClassifyPostTest(SettlementClassifyFixtureMixin, TestCase):
     def setUp(self):
@@ -590,14 +609,18 @@ def settlement_classify(request):
     docs = {}
     for c in contents:
         entry = docs.setdefault(c.document_id, {
-            'document':     c.document,
-            'total_amount': Decimal('0'),
-            'method_label': _method_label(c),
+            'document':      c.document,
+            'total_amount':  Decimal('0'),
+            'method_labels': {},   # 挿入順を保持する順序付きセットとして使う（dictのkeys）
         })
         if c.amount:
             entry['total_amount'] += c.amount
+        entry['method_labels'][_method_label(c)] = True
 
-    rows = list(docs.values())
+    rows = []
+    for entry in docs.values():
+        entry['method_label'] = ' / '.join(entry['method_labels'].keys())
+        rows.append(entry)
 
     stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
     pay_items    = list(M_Item.objects.filter(data_kbn='PAY').order_by('key'))
