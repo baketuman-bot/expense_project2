@@ -5147,8 +5147,7 @@ _JOURNAL_MODES = {
         'csv_url':      'expenses:journal_csv',
         'from_param':   'settlement_journal',
         'current':      'settlement_journal',
-        'sheet_title':  '仕訳取込',
-        'filename':     '仕訳取込.xlsx',
+        'filename':     '仕訳取込.csv',
     },
     'debt': {
         'kbns':         ['LON_INPRO'],
@@ -5158,8 +5157,7 @@ _JOURNAL_MODES = {
         'csv_url':      'expenses:debt_csv',
         'from_param':   'settlement_debt',
         'current':      'settlement_debt',
-        'sheet_title':  '債務管理取込',
-        'filename':     '債務管理取込.xlsx',
+        'filename':     '債務管理取込.csv',
     },
 }
 
@@ -5249,7 +5247,7 @@ def _filter_complete_journal_groups(contents):
 
 
 def _journal_output_view(request, mode):
-    """仕訳出力/債務管理出力 共通: 入力済み(journal_done=1)の明細一覧から対象を選んでExcel出力する"""
+    """仕訳出力/債務管理出力 共通: 入力済み(journal_done=1)の明細一覧から対象を選んでCSV出力する"""
     journal_kbns = mode['kbns']
     parents = list(
         T_DocumentContent.objects
@@ -5943,7 +5941,7 @@ def journal_split_delete(request, pk):
     return JsonResponse({'ok': True})
 
 
-# --- 仕訳Excel出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
+# --- 仕訳CSV出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
 _JNL_IDX_DENPYO   = 0    # denpyo_kubun (伝票区切)
 _JNL_IDX_DOC_ID   = 1    # document_id (申請番号)
 _JNL_CRE_ALL_IDX  = tuple(range(24, 38))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
@@ -5993,13 +5991,10 @@ def _aggregate_journal_credit_rows(rows):
 
 
 def _journal_csv_view(request, mode):
-    """仕訳/債務管理Excel出力 共通: v_journaldocuments を参照してダウンロード（コード列は先頭ゼロ保持のため文字列で出力）"""
+    """仕訳/債務管理CSV出力 共通: v_journaldocuments を参照してダウンロード"""
     from django.db import connection
-    from django.http import HttpResponse
-    from io import BytesIO
-    import openpyxl
-    from openpyxl.styles import Font
-    from openpyxl.utils import get_column_letter
+    from django.http import StreamingHttpResponse
+    import csv as _csv
 
     journal_kbns = mode['kbns']
 
@@ -6049,22 +6044,9 @@ def _journal_csv_view(request, mode):
         'tsuka_cd_cre', 'journal_fx_rate_cre', 'journal_amont_fx_cre', 'journal_tax_fx_cre',
         'journal_tori_cd_cre', 'journal_discription_cre',
     ]
-    # 先頭ゼロを持ちうるコード系の列は文字列（テキスト書式）で出力する
-    TEXT_COLUMNS = {
-        'denpyo_kubun', 'applicant_man_number', 'bumon_cd', 'account_cd', 'hojo_cd',
-        'journal_tax_kbn', 'tsuka_cd', 'bumon_cd_cre', 'account_cd_cre',
-        'account_sub_cd_cre', 'tsuka_cd_cre', 'journal_tori_cd_cre',
-    }
-    text_flags = [col in TEXT_COLUMNS for col in COLUMNS]
     idx_tax_rate = COLUMNS.index('journal_tax_rate')
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = mode['sheet_title']
-    ws.append(HEADERS)
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-
+    raw_rows = []
     if detail_ids:
         placeholders = ','.join(['%s'] * len(detail_ids))
         sql = (
@@ -6076,7 +6058,16 @@ def _journal_csv_view(request, mode):
             cur.execute(sql, detail_ids)
             raw_rows = cur.fetchall()
 
-        for row in _aggregate_journal_credit_rows(raw_rows):
+    agg_rows = _aggregate_journal_credit_rows(raw_rows) if raw_rows else []
+
+    class _Echo:
+        def write(self, value):
+            return value
+
+    def _rows():
+        writer = _csv.writer(_Echo())
+        yield writer.writerow(HEADERS)
+        for row in agg_rows:
             row = list(row)
             # 税率: '10%' → 10 のように % を除いた数値にする（'対象外' 等はそのまま）
             if row[idx_tax_rate] is not None:
@@ -6086,45 +6077,22 @@ def _journal_csv_view(request, mode):
                 except ValueError:
                     pass
                 row[idx_tax_rate] = rate
-            values = []
-            for is_text, v in zip(text_flags, row):
-                if v is None:
-                    values.append('')
-                elif is_text:
-                    values.append(str(v))
-                else:
-                    values.append(v)
-            ws.append(values)
+            yield writer.writerow(['' if v is None else v for v in row])
 
-        for col_idx, is_text in enumerate(text_flags, start=1):
-            if is_text:
-                for row_idx in range(2, ws.max_row + 1):
-                    ws.cell(row=row_idx, column=col_idx).number_format = '@'
-
-    for col_idx, header in enumerate(HEADERS, start=1):
-        ws.column_dimensions[get_column_letter(col_idx)].width = max(10, len(header) + 2)
-
-    buffer = BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-
-    response = HttpResponse(
-        buffer.getvalue(),
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
+    response = StreamingHttpResponse(_rows(), content_type='text/csv; charset=utf-8-sig')
     response['Content-Disposition'] = 'attachment; filename="%s"' % mode['filename']
     return response
 
 
 @login_required
 def journal_csv(request):
-    """仕訳Excel出力: CAS/SAL/COC_INPRO 対象"""
+    """仕訳CSV出力: CAS/SAL/COC_INPRO 対象"""
     return _journal_csv_view(request, _JOURNAL_MODES['journal'])
 
 
 @login_required
 def debt_csv(request):
-    """債務管理Excel出力: LON_INPRO(口座振込) 対象"""
+    """債務管理CSV出力: LON_INPRO(口座振込) 対象"""
     return _journal_csv_view(request, _JOURNAL_MODES['debt'])
 
 

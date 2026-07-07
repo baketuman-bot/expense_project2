@@ -320,7 +320,7 @@ class JournalEntryTemplateSplitTest(JournalSplitFixtureMixin, TestCase):
 
 
 class JournalCsvSplitTest(JournalSplitFixtureMixin, TestCase):
-    """journal_csv（Excel出力）の分割行対応テスト"""
+    """journal_csv（CSV出力）の分割行対応テスト"""
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -344,11 +344,12 @@ class JournalCsvSplitTest(JournalSplitFixtureMixin, TestCase):
         )
 
     def _load_rows(self, res):
-        from io import BytesIO
-        import openpyxl
-        wb = openpyxl.load_workbook(BytesIO(res.content))
-        ws = wb.active
-        return list(ws.iter_rows(min_row=2, values_only=True))
+        import csv as _csv
+        from io import StringIO
+        content = b''.join(res.streaming_content)
+        text = content.decode('utf-8-sig')
+        rows = list(_csv.reader(StringIO(text)))
+        return rows[1:]  # ヘッダ行を除く
 
     def test_split_row_included_after_parent(self):
         """元行のidだけ指定しても分割行が直後に出力される"""
@@ -358,7 +359,7 @@ class JournalCsvSplitTest(JournalSplitFixtureMixin, TestCase):
         data = self._load_rows(res)
         # 列2 = 申請明細番号（document_detail_id）
         detail_ids = [row[2] for row in data]
-        self.assertEqual(detail_ids, [self.parent.pk, self.split.pk])
+        self.assertEqual(detail_ids, [str(self.parent.pk), str(self.split.pk)])
 
     def test_split_row_uses_own_account(self):
         res = self.client.get(
@@ -374,8 +375,8 @@ class JournalCsvSplitTest(JournalSplitFixtureMixin, TestCase):
         res = self.client.get('/settings/settlement/journal/csv/')
         data = self._load_rows(res)
         detail_ids = [row[2] for row in data]
-        self.assertNotIn(self.parent.pk, detail_ids)
-        self.assertNotIn(self.split.pk, detail_ids)
+        self.assertNotIn(str(self.parent.pk), detail_ids)
+        self.assertNotIn(str(self.split.pk), detail_ids)
 
 
 class SettlementJournalListSplitTest(JournalSplitFixtureMixin, TestCase):
