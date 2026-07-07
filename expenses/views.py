@@ -5633,7 +5633,7 @@ def journal_detail_api(request, pk):
         _def_cre_sub = '5' if 'アイコック' in (content.shiharaisaki or '') else '10'
     elif _def_cre_acd == '41410':
         _cocn = (
-            M_Item.objects.filter(data_kbn='COCN', key=str(content.corpo_card or ''))
+            M_Item.objects.filter(data_kbn='COCN', key=str(content.corpo_card_no or ''))
             .values_list('content2', flat=True).first()
         )
         _def_cre_sub = _cocn or ''
