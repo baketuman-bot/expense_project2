@@ -38,7 +38,7 @@
           <tr>
             <th class="text-nowrap">申請ID</th>
             <th class="text-nowrap">申請種別</th>
-            <th class="text-nowrap">明細日付</th>
+            <th class="text-nowrap">伝票日付</th>
             <th>申請件名</th>
             <th>支払先</th>
             <th>目的</th>
@@ -58,7 +58,7 @@
               </a>
             </td>
             <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
-            <td class="text-nowrap">{{ c.date|date:"Y/m/d" }}</td>
+            <td class="text-nowrap">{{ c.voucher_date|date:"Y/m/d" }}</td>
             <td>{% if row.is_split %}<span style="color:var(--primary);font-weight:700;">↳ 分割</span> {% endif %}{{ c.document.title }}</td>
             <td>{{ c.shiharaisaki|default:"-" }}</td>
             <td>{{ c.purpose|default:"-" }}</td>
