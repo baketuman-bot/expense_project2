@@ -4972,7 +4972,6 @@ def _settlement_payment_view(request, pre_kbn, inpro_kbn, page_title, icon,
                     if not has_remaining:
                         T_Document.objects.filter(document_id=doc_id).update(
                             is_settled=True,
-                            settled_at=settle_ymd,
                         )
             elif action == 'cancel':
                 T_DocumentContent.objects.filter(
