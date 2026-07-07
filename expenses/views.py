@@ -5399,7 +5399,7 @@ def _journal_entry_view(request, mode):
             'pk':           c.document_detail_id,
             'document_id':  c.document.document_id,
             'account_name': c.account.account_name if c.account else '',
-            'date':         c.date,
+            'date':         c.voucher_date,
             'applicant':    str(c.document.man_number) if c.document.man_number else '',
             'amount':       c.journal_amont if is_split else c.amount,
             'purpose':      c.purpose or '',
@@ -5715,7 +5715,7 @@ def journal_detail_api(request, pk):
         'ref': {
             'applicant':          str(doc.man_number) if doc.man_number else '',
             'document_id':        doc.document_id,
-            'date':               content.date.strftime('%Y-%m-%d') if content.date else '',
+            'date':               content.voucher_date.strftime('%Y-%m-%d') if content.voucher_date else '',
             'bumon_cd':           bumon_cd,
             'bumon_name':         doc.bumon_cd.bumon_name if doc.bumon_cd else '',
             'account_cd':         acd5,
