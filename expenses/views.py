@@ -4936,14 +4936,18 @@ def settlement_classify(request):
     docs = {}
     for c in contents:
         entry = docs.setdefault(c.document_id, {
-            'document':     c.document,
-            'total_amount': Decimal('0'),
-            'method_label': _method_label(c),
+            'document':      c.document,
+            'total_amount':  Decimal('0'),
+            'method_labels': {},   # 挿入順を保持する順序付きセットとして使う（dictのkeys）
         })
         if c.amount:
             entry['total_amount'] += c.amount
+        entry['method_labels'][_method_label(c)] = True
 
-    rows = list(docs.values())
+    rows = []
+    for entry in docs.values():
+        entry['method_label'] = ' / '.join(entry['method_labels'].keys())
+        rows.append(entry)
 
     stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
     pay_items    = list(M_Item.objects.filter(data_kbn='PAY').order_by('key'))
