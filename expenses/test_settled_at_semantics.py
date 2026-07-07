@@ -63,3 +63,31 @@ class SettlementPaymentViewSettledAtTest(SettledAtFixtureMixin, TestCase):
         self.assertTrue(self.doc.is_settled)
         self.assertEqual(self.doc.settled_at, self.pre_settled_at)   # 上書きされていない
         self.assertEqual(self.content.settle_kbn, 'CAS_INPRO')
+
+
+class SettlementToggleSettledAtTest(SettledAtFixtureMixin, TestCase):
+    """精算処理画面の手動トグルがsettled_atを変更しないこと"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.pre_settled_at = datetime.datetime(2026, 7, 1, 0, 0, 0)
+        self.doc = T_Document.objects.create(
+            document_type=self.doc_type, title='トグルテスト', man_number=self.user,
+            status_cd=self.status_fns, is_settled=False, settled_at=self.pre_settled_at,
+        )
+
+    def test_toggle_on_does_not_change_settled_at(self):
+        res = self.client.post(f'/settings/settlement/{self.doc.pk}/toggle/')
+        self.assertEqual(res.status_code, 200)
+        self.doc.refresh_from_db()
+        self.assertTrue(self.doc.is_settled)
+        self.assertEqual(self.doc.settled_at, self.pre_settled_at)
+
+    def test_toggle_off_does_not_clear_settled_at(self):
+        self.doc.is_settled = True
+        self.doc.save(update_fields=['is_settled'])
+        res = self.client.post(f'/settings/settlement/{self.doc.pk}/toggle/')
+        self.assertEqual(res.status_code, 200)
+        self.doc.refresh_from_db()
+        self.assertFalse(self.doc.is_settled)
+        self.assertEqual(self.doc.settled_at, self.pre_settled_at)   # クリアされない

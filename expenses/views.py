@@ -6171,13 +6171,9 @@ def settlement_list(request):
 @require_POST
 def settlement_toggle(request, pk):
     """精算完了フラグをトグル（AJAX POST）"""
-    import json
-    from django.utils import timezone as tz
-
     doc = get_object_or_404(T_Document, pk=pk, status_cd__status_cd='FNS')
     doc.is_settled = not doc.is_settled
-    doc.settled_at = tz.now() if doc.is_settled else None
-    doc.save(update_fields=['is_settled', 'settled_at'])
+    doc.save(update_fields=['is_settled'])
     return JsonResponse({
         'is_settled': doc.is_settled,
         'settled_at': doc.settled_at.strftime('%Y/%m/%d %H:%M') if doc.settled_at else '',
