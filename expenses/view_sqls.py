@@ -229,7 +229,7 @@ SELECT
   vdc.document_title,
   vdc.applicant_man_number,
   vdc.applicant_name,
-  vdc.date,
+  COALESCE(DATE(vdc.settled_at), vdc.date) AS date,
   vdc.bumon_cd,
   vdc.bumon_name,
   CASE

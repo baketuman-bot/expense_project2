@@ -98,3 +98,51 @@ class JournalOutputVoucherDateTest(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, '2026/07/25')
         self.assertNotContains(res, '2026/07/01')
+
+
+class ViewSqlVoucherDateTest(TestCase):
+    def test_v_journaldocuments_uses_settled_at_with_fallback(self):
+        from expenses.view_sqls import _V_JOURNALDOCUMENTS
+        self.assertIn('COALESCE(DATE(vdc.settled_at), vdc.date) AS date', _V_JOURNALDOCUMENTS)
+
+
+class JournalCsvVoucherDateTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.status_fns, _ = M_Status.objects.get_or_create(
+            status_cd='FNS', defaults={'status_name': '最終承認'}
+        )
+        grp, _ = M_DocumentGroup.objects.get_or_create(
+            menu_group='PAY',
+            defaults={'menu_group_name': '支出伺い', 'category': 'expense', 'menu_order': 1},
+        )
+        cls.doc_type, _ = M_DocumentType.objects.get_or_create(
+            document_type_id=1,
+            defaults={'document_type_name': 'テスト種別', 'menu_group': grp},
+        )
+        cls.account, _ = M_Account.objects.get_or_create(
+            account_cd='670', defaults={'account_name': '旅費交通費'}
+        )
+        cls.user, _ = User.objects.get_or_create(
+            man_number='JC001',
+            defaults={'username': 'journal_csv_user', 'user_name': 'CSV太郎'},
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.doc = T_Document.objects.create(
+            document_type=self.doc_type, title='CSV出力テスト', man_number=self.user,
+            status_cd=self.status_fns,
+            settled_at=datetime.datetime(2026, 7, 28, 0, 0, 0),
+        )
+        self.content = T_DocumentContent.objects.create(
+            document=self.doc, date=datetime.date(2026, 7, 1), account=self.account,
+            amount=Decimal('1000'), settle_kbn='CAS_INPRO', journal_done=True,
+        )
+
+    def test_csv_output_uses_voucher_date(self):
+        res = self.client.get(f'/settings/settlement/journal/csv/?ids={self.content.pk}')
+        self.assertEqual(res.status_code, 200)
+        body = b''.join(res.streaming_content).decode('utf-8-sig')
+        self.assertIn('2026-07-28', body)
+        self.assertNotIn('2026-07-01', body)
