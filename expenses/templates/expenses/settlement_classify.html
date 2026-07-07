@@ -58,6 +58,12 @@
       <a href="#" id="select-all" class="small">全選択</a>
       <a href="#" id="deselect-all" class="small">全解除</a>
 
+      <span class="vr mx-1"></span>
+      <label class="form-label small mb-0 text-nowrap" for="settle_ymd">精算日</label>
+      <input type="date" id="settle_ymd" name="settle_ymd"
+             class="form-control form-control-sm" style="width:auto;"
+             value="{{ today }}">
+
       <button type="submit" class="btn btn-primary btn-sm ms-auto">
         <i class="fas fa-check me-1"></i>チェック済を精算開始
       </button>
@@ -70,51 +76,32 @@
             <tr>
               <th class="text-nowrap">申請ID</th>
               <th class="text-nowrap">申請種別</th>
-              <th class="text-nowrap">明細日付</th>
               <th>申請件名</th>
-              <th>支払先</th>
-              <th>目的</th>
-              <th class="text-end text-nowrap">金額</th>
+              <th>申請者</th>
+              <th class="text-end text-nowrap">明細合計金額</th>
               <th class="text-nowrap">精算方法</th>
               <th class="text-center text-nowrap">精算開始</th>
             </tr>
           </thead>
           <tbody>
             {% for row in rows %}
-            {% with c=row.content %}
+            {% with doc=row.document %}
             <tr class="classify-row">
               <td class="text-nowrap">
-                <a href="{% url 'expenses:expense_detail' c.document_id %}?from=settlement_classify">
-                  {{ c.document_id }}
+                <a href="{% url 'expenses:expense_detail' doc.document_id %}?from=settlement_classify">
+                  {{ doc.document_id }}
                 </a>
               </td>
-              <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
-              <td class="text-nowrap">{{ c.date|date:"Y/m/d" }}</td>
-              <td>{{ c.document.title }}</td>
-              <td>{{ c.shiharaisaki|default:"-" }}</td>
-              <td>{{ c.purpose|default:"-" }}</td>
-              <td class="text-end text-nowrap">
-                {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
-              </td>
-              <td>
-                <select name="settle_kbn_{{ c.document_detail_id }}"
-                        class="form-select form-select-sm settle-kbn-select"
-                        style="min-width:160px;"
-                        data-detail-id="{{ c.document_detail_id }}">
-                  <option value="">-- 選択 --</option>
-                  {% for s in stl_statuses %}
-                  <option value="{{ s.status_cd }}"
-                    {% if s.status_cd == row.default_status_cd %}selected{% endif %}>
-                    {{ s.status_name }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </td>
+              <td class="text-nowrap">{{ doc.document_type.document_type_name }}</td>
+              <td>{{ doc.title }}</td>
+              <td class="text-nowrap">{{ doc.man_number }}</td>
+              <td class="text-end text-nowrap">{{ row.total_amount|floatformat:"0" }}</td>
+              <td class="text-nowrap">{{ row.method_label }}</td>
               <td class="text-center">
                 <input type="checkbox"
                        class="form-check-input classify-check"
-                       name="selected_ids"
-                       value="{{ c.document_detail_id }}">
+                       name="selected_doc_ids"
+                       value="{{ doc.document_id }}">
               </td>
             </tr>
             {% endwith %}
@@ -163,8 +150,6 @@
       getChecks().forEach(function (c) { c.checked = false; });
     });
   }
-
-
 })();
 </script>
 {% endblock %}

@@ -4862,24 +4862,54 @@ def settlement_menu(request):
 
 @login_required
 def settlement_classify(request):
-    """未精算データ分類: settle_kbn IS NULL の明細に精算方法を割り当てる"""
+    """未精算データ分類: 申請単位で未分類明細をまとめ、精算方法の自動判定表示・精算開始日の設定を行う"""
+    import datetime
+
     PAY_KBN_TO_STATUS_CD = {
         item.key: item.content2
         for item in M_Item.objects.filter(data_kbn='PAY').exclude(content2='')
     }
+    PAY_KBN_LABEL = {
+        '01': '給与',
+        '02': '現金（大阪）',
+        '03': '現金（本社）',
+        '04': '振込',
+    }
+
+    def _default_status_cd(content):
+        if content.corpo_card_no:
+            return 'COC_PRE'
+        return PAY_KBN_TO_STATUS_CD.get(content.document.pay_kbn or '', '')
+
+    def _method_label(content):
+        if content.corpo_card_no:
+            return 'カード'
+        return PAY_KBN_LABEL.get(content.document.pay_kbn or '', '-')
 
     stl_filter      = request.GET.get('stl_filter', '')
     pay_kbn_filter  = request.GET.get('pay_kbn', '')
 
     if request.method == 'POST':
-        selected_ids = request.POST.getlist('selected_ids')
-        for detail_id in selected_ids:
-            settle_kbn_val = request.POST.get(f'settle_kbn_{detail_id}', '').strip()
-            if settle_kbn_val:
-                T_DocumentContent.objects.filter(
-                    document_detail_id=detail_id
-                ).update(settle_kbn=settle_kbn_val)
-        # GETパラメータ（検索条件）を維持してリダイレクト
+        selected_doc_ids = request.POST.getlist('selected_doc_ids')
+        settle_ymd_str = request.POST.get('settle_ymd', '').strip()
+        try:
+            settle_ymd = datetime.date.fromisoformat(settle_ymd_str)
+        except (ValueError, TypeError):
+            settle_ymd = datetime.date.today()
+
+        if selected_doc_ids:
+            target_contents = list(
+                T_DocumentContent.objects
+                .filter(document_id__in=selected_doc_ids, settle_kbn__isnull=True)
+                .select_related('document')
+            )
+            for c in target_contents:
+                c.settle_kbn = _default_status_cd(c)
+            T_DocumentContent.objects.bulk_update(target_contents, ['settle_kbn'])
+            T_Document.objects.filter(document_id__in=selected_doc_ids).update(
+                settled_at=settle_ymd,
+            )
+
         qs = request.GET.urlencode()
         redirect_url = reverse('expenses:settlement_classify')
         if qs:
@@ -4890,7 +4920,7 @@ def settlement_classify(request):
         T_DocumentContent.objects
         .select_related('document', 'document__document_type')
         .filter(settle_kbn__isnull=True, document__status_cd_id='FNS')
-        .order_by('document__document_type_id', 'document__document_id', 'date')
+        .order_by('document__document_type_id', 'document_id', 'date')
     )
 
     if stl_filter == 'COC_PRE':
@@ -4903,19 +4933,20 @@ def settlement_classify(request):
     if pay_kbn_filter:
         contents = contents.filter(document__pay_kbn=pay_kbn_filter)
 
+    docs = {}
+    for c in contents:
+        entry = docs.setdefault(c.document_id, {
+            'document':     c.document,
+            'total_amount': Decimal('0'),
+            'method_label': _method_label(c),
+        })
+        if c.amount:
+            entry['total_amount'] += c.amount
+
+    rows = list(docs.values())
+
     stl_statuses = list(M_Status.objects.filter(status_kbn='STL').order_by('order_by'))
     pay_items    = list(M_Item.objects.filter(data_kbn='PAY').order_by('key'))
-
-    rows = []
-    for content in contents:
-        if content.corpo_card_no:
-            default_status_cd = 'COC_PRE'
-        else:
-            default_status_cd = PAY_KBN_TO_STATUS_CD.get(content.document.pay_kbn or '', '')
-        rows.append({
-            'content': content,
-            'default_status_cd': default_status_cd,
-        })
 
     return render(request, 'expenses/settlement_classify.html', {
         'rows': rows,
@@ -4923,6 +4954,7 @@ def settlement_classify(request):
         'pay_items': pay_items,
         'stl_filter': stl_filter,
         'pay_kbn_filter': pay_kbn_filter,
+        'today': datetime.date.today().isoformat(),
         'current': 'settlement_classify',
     })
 
