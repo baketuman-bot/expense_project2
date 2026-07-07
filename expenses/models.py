@@ -534,7 +534,10 @@ class T_Document(models.Model):
     created_at = models.DateTimeField("作成日時", auto_now_add=True)
     updated_at = models.DateTimeField("更新日時", auto_now=True)
     is_settled = models.BooleanField("精算完了", default=False, db_column='is_settled')
-    settled_at = models.DateTimeField("精算日時", null=True, blank=True, db_column='settled_at')
+    settled_at = models.DateTimeField(
+        "精算開始日時", null=True, blank=True, db_column='settled_at',
+        help_text='精算処理を開始した日（未精算データ分類画面で設定）。精算完了日ではない。',
+    )
 
     def __str__(self):
         return f"{self.document_id} - {self.title}"
@@ -717,6 +720,14 @@ class T_DocumentContent(models.Model):
     all_objects = models.Manager()          # 全件（仕訳系ビュー専用）
 
     # 旧フィールド（receipt/receipt_thumbnail）廃止に伴い、サムネイル生成や save の上書きは不要
+
+    @property
+    def voucher_date(self):
+        """伝票日付: 精算開始日(document.settled_at)があればそれを優先、なければ明細日付にフォールバック"""
+        settled_at = self.document.settled_at
+        if settled_at is None:
+            return self.date
+        return settled_at.date() if hasattr(settled_at, 'date') else settled_at
 
     def __str__(self):
         return f"{self.document_detail_id} - {self.purpose or ''}"
