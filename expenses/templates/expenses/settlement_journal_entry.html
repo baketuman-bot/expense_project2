@@ -507,6 +507,7 @@ body.journal-page .precision-shell {
         <div class="jnl-input-row">
           <span class="jnl-lbl">貸方補助科目</span>
           <input type="text" class="jnl-ctrl" id="inp-cre-sub-cd" maxlength="10" placeholder="" style="max-width:120px;">
+          <span id="inp-cre-sub-name" style="font-size:11px;color:var(--sub);white-space:nowrap;"></span>
         </div>
         <div class="jnl-input-row">
           <span class="jnl-lbl">貸方税抜金額</span>
@@ -597,6 +598,7 @@ body.journal-page .precision-shell {
   var zoomLevel      = 1.0;
   var currentAttUrl  = null;
   var currentIsImg   = false;
+  var accountSubMaster = [];
 
   /* ── 数値フォーマット ── */
   function fmtInt(v) {
@@ -692,6 +694,8 @@ body.journal-page .precision-shell {
     var creAcdName = (entry.account_cd_cre ? entry.account_cd_cre_name : '') || d.default_account_cd_cre_name || '';
     setText('inp-cre-account-name', creAcdName);
     document.getElementById('inp-cre-sub-cd').value    = entry.account_sub_cd_cre || d.default_account_sub_cd_cre   || '';
+    accountSubMaster = d.account_sub_master || [];
+    updateCreSubName();
     document.getElementById('inp-cre-amount').value    = fmtInt(entry.journal_amount_cre || d.default_journal_amount_cre   || '');
     document.getElementById('inp-cre-amont-fx').value  = fmtDec2(entry.journal_amont_fx_cre || d.default_journal_amont_fx_cre || '');
     document.getElementById('inp-cre-tori-cd').value   = entry.journal_tori_cd_cre  || d.default_journal_tori_cd_cre  || '';
@@ -1111,6 +1115,22 @@ body.journal-page .precision-shell {
     var el = document.getElementById(id);
     if (el) el.textContent = val || '';
   }
+
+  /* ── 貸方補助科目名の表示（m_account_sub から照合） ── */
+  function updateCreSubName() {
+    var acd = (document.getElementById('inp-cre-account-cd').value || '').trim();
+    var sub = (document.getElementById('inp-cre-sub-cd').value || '').trim();
+    var name = '';
+    if (acd && sub) {
+      var found = accountSubMaster.find(function (m) {
+        return m.account_cd === acd && m.sub_account_cd === sub;
+      });
+      if (found) name = found.sub_account_name;
+    }
+    setText('inp-cre-sub-name', name);
+  }
+  document.getElementById('inp-cre-sub-cd').addEventListener('input', updateCreSubName);
+  document.getElementById('inp-cre-account-cd').addEventListener('input', updateCreSubName);
 
   /* ── 分割行の借方科目変更 → 補助科目候補を再取得 ── */
   var accountSel = document.getElementById('inp-account-cd');

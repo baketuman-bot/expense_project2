@@ -5465,6 +5465,12 @@ def journal_detail_api(request, pk):
         .values('sub_account_cd', 'sub_account_name')
     )
 
+    # 貸方補助科目名の逆引き用マスタ全件（貸方科目・貸方補助科目は自由入力のためクライアント側で照合）
+    account_sub_master = list(
+        M_AccountSub.objects.order_by('account_cd', 'sub_account_cd')
+        .values('account_cd', 'sub_account_cd', 'sub_account_name')
+    )
+
     # consumption_kbn の名称を M_Item[data_kbn='TAX'] から取得
     c_kbn_name = ''
     if content.consumption_kbn is not None:
@@ -5711,6 +5717,7 @@ def journal_detail_api(request, pk):
             {'cd': h['sub_account_cd'], 'name': h['sub_account_name']}
             for h in hojo_options
         ],
+        'account_sub_master': account_sub_master,
         'att_url':           att_url,
         'att_name':          att_name,
         'att_is_image':      att_is_image,
