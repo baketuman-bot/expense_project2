@@ -84,3 +84,29 @@ class DebitDescriptionDefaultTest(JournalDescriptionDefaultsFixtureMixin, TestCa
             d['default_discription_deb'],
             f'7/8 精算太郎 {doc.document_id}',
         )
+
+
+class CreditDescriptionDefaultTest(JournalDescriptionDefaultsFixtureMixin, TestCase):
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_default_includes_settler_name(self):
+        doc, content = self._make_content(self.account_other)
+        res = self.client.get(f'/settings/settlement/journal/{content.pk}/')
+        self.assertEqual(res.status_code, 200)
+        d = res.json()
+        self.assertEqual(
+            d['default_discription_cre'],
+            f'7/8 出張 精算太郎 JR東日本 {doc.document_id}',
+        )
+
+    def test_corpo_card_excludes_settler_name(self):
+        doc, content = self._make_content(
+            self.account_other, corpo_card=2, corpo_card_no='1234',
+        )
+        res = self.client.get(f'/settings/settlement/journal/{content.pk}/')
+        d = res.json()
+        self.assertEqual(
+            d['default_discription_cre'],
+            f'7/8 出張 JR東日本 {doc.document_id}',
+        )

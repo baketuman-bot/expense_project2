@@ -5698,16 +5698,17 @@ def journal_detail_api(request, pk):
     else:
         _def_cre_tori = ''
 
-    # 貸方摘要: M/D(申請日) purpose shiharaisaki user_name (スペース連結、50文字上限)
+    # 貸方摘要: 月/日(content.date) 目的 精算者名 支払先 申請ID (法人カード時は精算者名を除く。スペース連結、50文字上限)
     _cre_parts = []
-    if doc.created_at:
-        _cre_parts.append(f'{doc.created_at.month}/{doc.created_at.day}')
+    if content.date:
+        _cre_parts.append(f'{content.date.month}/{content.date.day}')
     if content.purpose:
         _cre_parts.append(content.purpose)
+    if content.corpo_card != 2 and _applicant_name:
+        _cre_parts.append(_applicant_name)
     if content.shiharaisaki:
         _cre_parts.append(content.shiharaisaki)
-    if doc.man_number and doc.man_number.user_name:
-        _cre_parts.append(doc.man_number.user_name)
+    _cre_parts.append(str(doc.document_id))
     _def_desc_cre = ' '.join(_cre_parts)[:50]
 
     return JsonResponse({
