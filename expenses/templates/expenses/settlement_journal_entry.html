@@ -493,6 +493,7 @@ body.journal-page .precision-shell {
         <div class="jnl-input-row">
           <span class="jnl-lbl">借方適用</span>
           <input type="text" class="jnl-ctrl" id="inp-jnl-desc-deb" maxlength="50" placeholder="" style="flex:1;">
+          <span id="inp-jnl-desc-deb-warn" class="jnl-badge jnl-badge-warn" style="display:none;white-space:nowrap;">40文字以上</span>
         </div>
 
         <div id="jnl-cre-section">
@@ -525,6 +526,7 @@ body.journal-page .precision-shell {
         <div class="jnl-input-row">
           <span class="jnl-lbl">貸方摘要</span>
           <input type="text" class="jnl-ctrl" id="inp-cre-desc" maxlength="50" placeholder="" style="flex:1;">
+          <span id="inp-cre-desc-warn" class="jnl-badge jnl-badge-warn" style="display:none;white-space:nowrap;">40文字以上</span>
         </div>
         </div>
 
@@ -690,6 +692,7 @@ body.journal-page .precision-shell {
     document.getElementById('inp-jnl-tax-fx').value    = fmtDec2(entry.journal_tax_fx     || d.default_journal_tax_fx       || '');
     document.getElementById('inp-fx-rate').value       = entry.journal_fx_rate    || d.default_fx_rate              || '';
     document.getElementById('inp-jnl-desc-deb').value  = entry.journal_discription_deb  || d.default_discription_deb     || '';
+    updateDescWarn('inp-jnl-desc-deb', 'inp-jnl-desc-deb-warn');
     document.getElementById('inp-cre-account-cd').value = entry.account_cd_cre    || d.default_account_cd_cre       || '';
     var creAcdName = (entry.account_cd_cre ? entry.account_cd_cre_name : '') || d.default_account_cd_cre_name || '';
     setText('inp-cre-account-name', creAcdName);
@@ -700,6 +703,7 @@ body.journal-page .precision-shell {
     document.getElementById('inp-cre-amont-fx').value  = fmtDec2(entry.journal_amont_fx_cre || d.default_journal_amont_fx_cre || '');
     document.getElementById('inp-cre-tori-cd').value   = entry.journal_tori_cd_cre  || d.default_journal_tori_cd_cre  || '';
     document.getElementById('inp-cre-desc').value      = entry.journal_discription_cre || d.default_discription_cre  || '';
+    updateDescWarn('inp-cre-desc', 'inp-cre-desc-warn');
 
     /* 税率 要確認ウォーニング */
     var warnRow  = document.getElementById('tax-rate-warn-row');
@@ -1131,6 +1135,20 @@ body.journal-page .precision-shell {
   }
   document.getElementById('inp-cre-sub-cd').addEventListener('input', updateCreSubName);
   document.getElementById('inp-cre-account-cd').addEventListener('input', updateCreSubName);
+
+  /* ── 摘要 40文字超の警告バッジ ── */
+  function updateDescWarn(inputId, warnId) {
+    var input = document.getElementById(inputId);
+    var warn  = document.getElementById(warnId);
+    if (!input || !warn) return;
+    warn.style.display = input.value.length > 40 ? '' : 'none';
+  }
+  document.getElementById('inp-jnl-desc-deb').addEventListener('input', function () {
+    updateDescWarn('inp-jnl-desc-deb', 'inp-jnl-desc-deb-warn');
+  });
+  document.getElementById('inp-cre-desc').addEventListener('input', function () {
+    updateDescWarn('inp-cre-desc', 'inp-cre-desc-warn');
+  });
 
   /* ── 分割行の借方科目変更 → 補助科目候補を再取得 ── */
   var accountSel = document.getElementById('inp-account-cd');

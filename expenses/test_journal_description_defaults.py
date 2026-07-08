@@ -110,3 +110,19 @@ class CreditDescriptionDefaultTest(JournalDescriptionDefaultsFixtureMixin, TestC
             d['default_discription_cre'],
             f'7/8 出張 JR東日本 {doc.document_id}',
         )
+
+
+class DescriptionWarnBadgeTemplateTest(JournalDescriptionDefaultsFixtureMixin, TestCase):
+    """40文字超警告バッジ用のマークアップ・JSが出力されていることのスモークテスト"""
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_entry_page_has_warn_badge_markup(self):
+        doc, content = self._make_content(self.account_other)
+        res = self.client.get(f'/settings/settlement/journal/entry/?ids={content.pk}')
+        self.assertEqual(res.status_code, 200)
+        html = res.content.decode('utf-8')
+        self.assertIn('inp-jnl-desc-deb-warn', html)
+        self.assertIn('inp-cre-desc-warn', html)
+        self.assertIn('updateDescWarn', html)
