@@ -96,6 +96,40 @@ class SettlementClassifyGetTest(SettlementClassifyFixtureMixin, TestCase):
         labels = set(rows[mixed_doc.pk]['method_label'].split(' / '))
         self.assertEqual(labels, {'現金（本社）', 'カード'})
 
+    def test_stl_filter_shows_full_mixed_document_not_partial(self):
+        """精算方法フィルタを適用しても、混在ヘッダーは全明細分の合計・全方法ラベルで表示される"""
+        mixed_doc = T_Document.objects.create(
+            document_type=self.doc_type, title='混在申請2', man_number=self.user,
+            status_cd=self.status_fns, pay_kbn='03',
+        )
+        T_DocumentContent.objects.create(
+            document=mixed_doc, date=datetime.date(2026, 7, 1), account=self.account,
+            amount=Decimal('1000'), settle_kbn=None,
+        )
+        T_DocumentContent.objects.create(
+            document=mixed_doc, date=datetime.date(2026, 7, 1), account=self.account,
+            amount=Decimal('500'), settle_kbn=None, corpo_card=2, corpo_card_no='9999',
+        )
+        # 「カード」(COC_PRE) でフィルタしても、現金明細を含めた全額・全ラベルが表示される
+        res = self.client.get('/settings/settlement/classify/?stl_filter=COC_PRE')
+        rows = {r['document'].document_id: r for r in res.context['rows']}
+        self.assertIn(mixed_doc.pk, rows)
+        self.assertEqual(rows[mixed_doc.pk]['total_amount'], Decimal('1500'))
+        self.assertEqual(
+            set(rows[mixed_doc.pk]['method_label'].split(' / ')),
+            {'現金（本社）', 'カード'},
+        )
+        # 「現金（本社）」(CAS_PRE) でフィルタしても同じ結果になる
+        res2 = self.client.get('/settings/settlement/classify/?stl_filter=CAS_PRE')
+        rows2 = {r['document'].document_id: r for r in res2.context['rows']}
+        self.assertIn(mixed_doc.pk, rows2)
+        self.assertEqual(rows2[mixed_doc.pk]['total_amount'], Decimal('1500'))
+
+    def test_stl_filter_excludes_document_with_no_matching_line(self):
+        res = self.client.get('/settings/settlement/classify/?stl_filter=SAL_PRE')
+        rows = res.context['rows']
+        self.assertEqual(len(rows), 0)   # self.doc はpay_kbn=03(現金)のみ、給与(SAL_PRE)には一致しない
+
 
 class SettlementClassifyPostTest(SettlementClassifyFixtureMixin, TestCase):
     def setUp(self):

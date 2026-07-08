@@ -4922,30 +4922,29 @@ def settlement_classify(request):
         .filter(settle_kbn__isnull=True, document__status_cd_id='FNS')
         .order_by('document__document_type_id', 'document_id', 'date')
     )
-
-    if stl_filter == 'COC_PRE':
-        contents = contents.exclude(corpo_card_no__isnull=True).exclude(corpo_card_no='')
-    elif stl_filter:
-        matching_pay_kbns = [k for k, v in PAY_KBN_TO_STATUS_CD.items() if v == stl_filter]
-        contents = contents.filter(
-            document__pay_kbn__in=matching_pay_kbns
-        ).filter(Q(corpo_card_no__isnull=True) | Q(corpo_card_no=''))
     if pay_kbn_filter:
         contents = contents.filter(document__pay_kbn=pay_kbn_filter)
 
+    # 精算方法フィルタ(stl_filter)は明細単位ではなく申請単位で判定する。
+    # 1申請内に複数の精算方法（現金明細と法人カード明細の混在等）がある場合、
+    # いずれか1つでも一致すればその申請の全明細（合計金額・全ラベル）を表示する。
     docs = {}
     for c in contents:
         entry = docs.setdefault(c.document_id, {
             'document':      c.document,
             'total_amount':  Decimal('0'),
             'method_labels': {},   # 挿入順を保持する順序付きセットとして使う（dictのkeys）
+            'status_cds':    set(),
         })
         if c.amount:
             entry['total_amount'] += c.amount
         entry['method_labels'][_method_label(c)] = True
+        entry['status_cds'].add(_default_status_cd(c))
 
     rows = []
     for entry in docs.values():
+        if stl_filter and stl_filter not in entry['status_cds']:
+            continue
         entry['method_label'] = ' / '.join(entry['method_labels'].keys())
         rows.append(entry)
 
