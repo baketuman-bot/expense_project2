@@ -5628,20 +5628,20 @@ def journal_detail_api(request, pk):
     # 借方税額外貨: 外貨のとき consumption_tax
     _def_tax_fx = _c_tax if (_is_foreign and _c_tax is not None) else None
 
-    # 借方適用
+    # 借方摘要: [旅費特例] 月/日(content.date) 目的 精算者名 支払先 申請ID (スペース連結、50文字上限)
     _applicant_name = doc.man_number.user_name if doc.man_number else ''
+    _deb_parts = []
     if raw_acd.strip() == '670':
-        _deb_parts = ['旅費特例']
-        if content.shiharaisaki:
-            _deb_parts.append(content.shiharaisaki)
-        if _applicant_name:
-            _deb_parts.append(_applicant_name)
-    else:
-        _deb_parts = []
-        if content.purpose:
-            _deb_parts.append(content.purpose)
-        if content.shiharaisaki:
-            _deb_parts.append(content.shiharaisaki)
+        _deb_parts.append('旅費特例')
+    if content.date:
+        _deb_parts.append(f'{content.date.month}/{content.date.day}')
+    if content.purpose:
+        _deb_parts.append(content.purpose)
+    if _applicant_name:
+        _deb_parts.append(_applicant_name)
+    if content.shiharaisaki:
+        _deb_parts.append(content.shiharaisaki)
+    _deb_parts.append(str(doc.document_id))
     _def_desc_deb = ' '.join(_deb_parts)[:50]
 
     # 貸方科目: corpo_card=2→'41410' / else→m_item.content3[PAY,pay_kbn]
@@ -5985,6 +5985,7 @@ def journal_split_delete(request, pk):
 # --- 仕訳CSV出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
 _JNL_IDX_DENPYO   = 0    # denpyo_kubun (伝票区切)
 _JNL_IDX_DOC_ID   = 1    # document_id (申請番号)
+_JNL_IDX_DATE     = 6    # date (伝票日付)
 _JNL_CRE_ALL_IDX  = tuple(range(24, 38))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
 _JNL_CRE_KEY_IDX  = (24, 26, 28, 32, 33, 36)      # 集約キー: 部門・科目・補助科目・外貨・換算レート・取引先(貸方)
 _JNL_CRE_SUM_IDX  = {30, 31, 34, 35}              # 合算列: 税抜・税・外貨金額・外貨税額(貸方)
@@ -5993,7 +5994,7 @@ _JNL_CRE_SUM_IDX  = {30, 31, 34, 35}              # 合算列: 税抜・税・�
 def _aggregate_journal_credit_rows(rows):
     """伝票(document_id)単位で貸方列を集約し、伝票内の先頭行から詰め直す。
 
-    - 伝票区切: 出力全体の先頭行のみ '*'（申請書が複数あっても1出力に1つ）
+    - 伝票区切: 伝票日付が直前行と異なる行に '*' を出力（rows は伝票日付昇順が前提）
     - 貸方: 部門・科目・補助科目・外貨・換算レート・取引先が同じ行を1つに合算。
       摘要（貸方）はキーに含めず、グループ先頭行の値を使う
     - 貸方グループ数が明細行数を超えた場合は借方側が空の行を追加する
@@ -6001,6 +6002,7 @@ def _aggregate_journal_credit_rows(rows):
     from itertools import groupby
 
     out = []
+    last_date = object()  # 番兵：どの日付とも一致しない値
     for _doc_id, grp in groupby(rows, key=lambda r: r[_JNL_IDX_DOC_ID]):
         block = list(grp)
 
@@ -6023,7 +6025,13 @@ def _aggregate_journal_credit_rows(rows):
         n_cols = len(block[0])
         for i in range(max(len(block), len(cre_list))):
             row = list(block[i]) if i < len(block) else [None] * n_cols
-            row[_JNL_IDX_DENPYO] = '*' if not out else ''
+            row_date = row[_JNL_IDX_DATE]
+            if row_date is None:
+                # 借方が無い集約専用の補完行は伝票区切の判定対象外
+                row[_JNL_IDX_DENPYO] = ''
+            else:
+                row[_JNL_IDX_DENPYO] = '*' if row_date != last_date else ''
+                last_date = row_date
             cre = cre_list[i] if i < len(cre_list) else None
             for pos, ci in enumerate(_JNL_CRE_ALL_IDX):
                 row[ci] = cre[pos] if cre else None
@@ -6093,7 +6101,7 @@ def _journal_csv_view(request, mode):
         sql = (
             f"SELECT {', '.join(COLUMNS)} FROM v_journaldocuments "
             f"WHERE document_detail_id IN ({placeholders}) "
-            f"ORDER BY document_id, COALESCE(split_from_id, document_detail_id), document_detail_id"
+            f"ORDER BY date, document_id, document_detail_id"
         )
         with connection.cursor() as cur:
             cur.execute(sql, detail_ids)
