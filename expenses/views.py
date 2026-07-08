@@ -5984,27 +5984,28 @@ def journal_split_delete(request, pk):
 
 
 # --- 仕訳CSV出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
-_JNL_IDX_DENPYO   = 0    # denpyo_kubun (伝票区切)
-_JNL_IDX_DOC_ID   = 1    # document_id (申請番号)
-_JNL_IDX_DATE     = 6    # date (伝票日付)
+_JNL_IDX_DENPYO      = 0    # denpyo_kubun (伝票区切)
+_JNL_IDX_DOC_ID      = 1    # document_id (申請番号)
+_JNL_IDX_SETTLED_AT  = 38   # settled_at (t_documents.settled_at、COLUMNSの末尾にSQL側で追加取得。CSV表示列には含めない)
 _JNL_CRE_ALL_IDX  = tuple(range(24, 38))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
 _JNL_CRE_KEY_IDX  = (24, 26, 28, 32, 33, 36)      # 集約キー: 部門・科目・補助科目・外貨・換算レート・取引先(貸方)
 _JNL_CRE_SUM_IDX  = {30, 31, 34, 35}              # 合算列: 税抜・税・外貨金額・外貨税額(貸方)
 
 
 def _aggregate_journal_credit_rows(rows):
-    """伝票(document_id)単位で貸方列を集約し、伝票内の先頭行から詰め直す。
+    """伝票(t_documents.settled_at + document_id)単位で貸方列を集約し、伝票内の先頭行から詰め直す。
 
-    - 伝票区切: 伝票日付が直前行と異なる行に '*' を出力（rows は伝票日付昇順が前提）
+    - 伝票区切: 伝票(settled_at, document_id)が変わる先頭行にのみ '*' を出力
+      （rows は settled_at, document_id 昇順が前提）
     - 貸方: 部門・科目・補助科目・外貨・換算レート・取引先が同じ行を1つに合算。
       摘要（貸方）はキーに含めず、グループ先頭行の値を使う
     - 貸方グループ数が明細行数を超えた場合は借方側が空の行を追加する
+    - 末尾のsettled_at列（集約キー専用、CSV非表示）は出力直前に取り除く
     """
     from itertools import groupby
 
     out = []
-    last_date = object()  # 番兵：どの日付とも一致しない値
-    for _doc_id, grp in groupby(rows, key=lambda r: r[_JNL_IDX_DOC_ID]):
+    for _key, grp in groupby(rows, key=lambda r: (r[_JNL_IDX_SETTLED_AT], r[_JNL_IDX_DOC_ID])):
         block = list(grp)
 
         # 貸方の集約（出現順を保持）
@@ -6026,17 +6027,11 @@ def _aggregate_journal_credit_rows(rows):
         n_cols = len(block[0])
         for i in range(max(len(block), len(cre_list))):
             row = list(block[i]) if i < len(block) else [None] * n_cols
-            row_date = row[_JNL_IDX_DATE]
-            if row_date is None:
-                # 借方が無い集約専用の補完行は伝票区切の判定対象外
-                row[_JNL_IDX_DENPYO] = ''
-            else:
-                row[_JNL_IDX_DENPYO] = '*' if row_date != last_date else ''
-                last_date = row_date
+            row[_JNL_IDX_DENPYO] = '*' if i == 0 else ''
             cre = cre_list[i] if i < len(cre_list) else None
             for pos, ci in enumerate(_JNL_CRE_ALL_IDX):
                 row[ci] = cre[pos] if cre else None
-            out.append(row)
+            out.append(row[:_JNL_IDX_SETTLED_AT])
     return out
 
 
@@ -6100,9 +6095,9 @@ def _journal_csv_view(request, mode):
     if detail_ids:
         placeholders = ','.join(['%s'] * len(detail_ids))
         sql = (
-            f"SELECT {', '.join(COLUMNS)} FROM v_journaldocuments "
+            f"SELECT {', '.join(COLUMNS)}, settled_at FROM v_journaldocuments "
             f"WHERE document_detail_id IN ({placeholders}) "
-            f"ORDER BY date, document_id, document_detail_id"
+            f"ORDER BY settled_at, document_id, document_detail_id"
         )
         with connection.cursor() as cur:
             cur.execute(sql, detail_ids)

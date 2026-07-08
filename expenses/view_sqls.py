@@ -291,7 +291,8 @@ SELECT
   vdc.journal_amont_fx_cre,
   0                          AS journal_tax_fx_cre,
   vdc.journal_tori_cd_cre,
-  vdc.journal_discription_cre
+  vdc.journal_discription_cre,
+  vdc.settled_at
 FROM v_documentcontents vdc
 """
 
