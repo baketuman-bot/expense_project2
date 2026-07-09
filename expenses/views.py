@@ -5192,6 +5192,7 @@ _JOURNAL_MODES = {
         'from_param':   'settlement_debt',
         'current':      'settlement_debt',
         'filename':     '債務管理取込.csv',
+        'is_debt':      True,
     },
 }
 
@@ -5432,6 +5433,7 @@ def _journal_entry_view(request, mode):
         'output_url':            reverse(mode['output_url']),
         'from_param':            mode['from_param'],
         'current':               mode['current'],
+        'is_debt':               mode.get('is_debt', False),
     })
 
 
@@ -5747,6 +5749,9 @@ def journal_detail_api(request, pk):
             'journal_amont_fx_cre':  str(content.journal_amont_fx_cre or ''),
             'journal_tori_cd_cre':   content.journal_tori_cd_cre or '',
             'journal_discription_cre': content.journal_discription_cre or '',
+            'supplier_cd':           content.supplier_cd or '',
+            'item_cd':               content.item_cd or '',
+            'qty':                   str(content.qty) if content.qty is not None else '',
         },
         'hojo_options': [
             {'cd': h['sub_account_cd'], 'name': h['sub_account_name']}
@@ -5913,6 +5918,16 @@ def journal_save(request, pk):
         'journal_tori_cd_cre', 'journal_discription_cre',
         'journal_done',
     ]
+    # 債務管理データ作成のみ送信するフィールド（仕訳作成のPOSTには含まれないため既存値を保持）
+    if 'supplier_cd' in request.POST:
+        content.supplier_cd = request.POST.get('supplier_cd', '').strip() or None
+        content.item_cd     = request.POST.get('item_cd', '').strip() or None
+        qv = request.POST.get('qty', '').strip().replace(',', '')
+        try:
+            content.qty = int(qv) if qv else None
+        except ValueError:
+            content.qty = None
+        update_fields += ['supplier_cd', 'item_cd', 'qty']
     if is_split:
         update_fields.append('account')
     content.save(update_fields=update_fields)
@@ -6114,13 +6129,16 @@ def _journal_csv_view(request, mode):
         yield writer.writerow(HEADERS)
         for row in agg_rows:
             row = list(row)
-            # 税率: '10%' → 10 のように % を除いた数値にする（'対象外' 等はそのまま）
+            # 税率: '10%' → 10 のように % を除いた数値にする（'対象外' は 0 として出力）
             if row[idx_tax_rate] is not None:
                 rate = str(row[idx_tax_rate]).replace('%', '').strip()
-                try:
-                    rate = int(rate)
-                except ValueError:
-                    pass
+                if rate == '対象外':
+                    rate = 0
+                else:
+                    try:
+                        rate = int(rate)
+                    except ValueError:
+                        pass
                 row[idx_tax_rate] = rate
             yield writer.writerow(['' if v is None else v for v in row])
 

@@ -495,6 +495,20 @@ body.journal-page .precision-shell {
           <input type="text" class="jnl-ctrl" id="inp-jnl-desc-deb" maxlength="50" placeholder="" style="flex:1;">
           <span id="inp-jnl-desc-deb-warn" class="jnl-badge jnl-badge-warn" style="display:none;white-space:nowrap;">40文字以上</span>
         </div>
+        {% if is_debt %}
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">仕入先CD</span>
+          <input type="text" class="jnl-ctrl" id="inp-supplier-cd" maxlength="10" placeholder="" style="max-width:120px;">
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">品目CD</span>
+          <input type="text" class="jnl-ctrl" id="inp-item-cd" maxlength="30" placeholder="" style="max-width:160px;">
+        </div>
+        <div class="jnl-input-row">
+          <span class="jnl-lbl">数量</span>
+          <input type="text" class="jnl-ctrl" id="inp-qty" placeholder="" style="max-width:120px;text-align:right;">
+        </div>
+        {% endif %}
 
         <div id="jnl-cre-section">
         <!-- 貸方 -->
@@ -693,6 +707,13 @@ body.journal-page .precision-shell {
     document.getElementById('inp-fx-rate').value       = entry.journal_fx_rate    || d.default_fx_rate              || '';
     document.getElementById('inp-jnl-desc-deb').value  = entry.journal_discription_deb  || d.default_discription_deb     || '';
     updateDescWarn('inp-jnl-desc-deb', 'inp-jnl-desc-deb-warn');
+    /* 債務管理のみの入力欄（仕訳作成では要素が存在しない） */
+    var supplierEl = document.getElementById('inp-supplier-cd');
+    if (supplierEl) {
+      supplierEl.value = entry.supplier_cd || '0';
+      document.getElementById('inp-item-cd').value = entry.item_cd || 'IPPAN';
+      document.getElementById('inp-qty').value     = entry.qty !== '' ? entry.qty : '0';
+    }
     document.getElementById('inp-cre-account-cd').value = entry.account_cd_cre    || d.default_account_cd_cre       || '';
     var creAcdName = (entry.account_cd_cre ? entry.account_cd_cre_name : '') || d.default_account_cd_cre_name || '';
     setText('inp-cre-account-name', creAcdName);
@@ -884,6 +905,13 @@ body.journal-page .precision-shell {
       journal_tori_cd_cre:    document.getElementById('inp-cre-tori-cd').value,
       journal_discription_cre: document.getElementById('inp-cre-desc').value,
     });
+    /* 債務管理のみの入力欄（仕訳作成では要素がないため送信しない → 既存値を保持） */
+    var supplierSaveEl = document.getElementById('inp-supplier-cd');
+    if (supplierSaveEl) {
+      body.append('supplier_cd', supplierSaveEl.value);
+      body.append('item_cd', document.getElementById('inp-item-cd').value);
+      body.append('qty', document.getElementById('inp-qty').value);
+    }
     fetch(SAVE_URL_TPL.replace('{pk}', currentPk), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

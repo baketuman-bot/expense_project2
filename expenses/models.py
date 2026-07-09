@@ -705,6 +705,11 @@ class T_DocumentContent(models.Model):
     journal_tori_cd_cre     = models.CharField("貸方取引先コード",   max_length=10,  null=True, blank=True)
     journal_discription_cre = models.CharField("貸方摘要",          max_length=50,  null=True, blank=True)
 
+    # 債務管理データ作成用フィールド
+    supplier_cd = models.CharField("仕入先コード", max_length=10, null=True, blank=True)
+    item_cd     = models.CharField("品目コード",   max_length=30, null=True, blank=True)
+    qty         = models.IntegerField("数量", null=True, blank=True, db_column='Qty')
+
     # 仕訳分割: 元明細への自己参照（NULL=通常明細、非NULL=仕訳入力で作られた分割行）
     split_from = models.ForeignKey(
         'self',
