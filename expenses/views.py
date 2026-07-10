@@ -6001,10 +6001,10 @@ def journal_split_delete(request, pk):
 # --- 仕訳CSV出力の列インデックス（journal_csv の COLUMNS 順と一致させること） ---
 _JNL_IDX_DENPYO      = 0    # denpyo_kubun (伝票区切)
 _JNL_IDX_DOC_ID      = 1    # document_id (申請番号)
-_JNL_IDX_SETTLED_AT  = 38   # settled_at (t_documents.settled_at、COLUMNSの末尾にSQL側で追加取得。CSV表示列には含めない)
-_JNL_CRE_ALL_IDX  = tuple(range(24, 38))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
-_JNL_CRE_KEY_IDX  = (24, 26, 28, 32, 33, 36)      # 集約キー: 部門・科目・補助科目・外貨・換算レート・取引先(貸方)
-_JNL_CRE_SUM_IDX  = {30, 31, 34, 35}              # 合算列: 税抜・税・外貨金額・外貨税額(貸方)
+_JNL_IDX_SETTLED_AT  = 43   # settled_at (t_documents.settled_at、COLUMNSの末尾にSQL側で追加取得。CSV表示列には含めない)
+_JNL_CRE_ALL_IDX  = tuple(range(29, 43))          # 貸方14列 (bumon_cd_cre〜journal_discription_cre)
+_JNL_CRE_KEY_IDX  = (29, 31, 33, 37, 38, 41)      # 集約キー: 部門・科目・補助科目・外貨・換算レート・取引先(貸方)
+_JNL_CRE_SUM_IDX  = {35, 36, 39, 40}              # 合算列: 税抜・税・外貨金額・外貨税額(貸方)
 
 
 def _aggregate_journal_credit_rows(rows):
@@ -6087,6 +6087,7 @@ def _journal_csv_view(request, mode):
         '伝票日付', '部門ｺｰﾄﾞ', '部門名', '科目ｺｰﾄﾞ', '科目名',
         '補助科目ｺｰﾄﾞ', '補助科目名', '税抜金額', '税金額', '税込金額', '税区分', '税区分名', '税率',
         '外貨ｺｰﾄﾞ', '換算ﾚｰﾄ', '外貨金額', '外貨税額', '摘要',
+        '仕入先コード', '品目コード', '数量', '債務区分CD', '支払方法CD',
         '部門ｺｰﾄﾞ(貸方)', '部門名(貸方)', '科目ｺｰﾄﾞ(貸方)', '科目名(貸方)',
         '補助科目ｺｰﾄﾞ(貸方)', '補助科目名(貸方)', '税抜金額(貸方)', '税金額(貸方)',
         '外貨ｺｰﾄﾞ(貸方)', '換算ﾚｰﾄ(貸方)', '外貨金額(貸方)', '外貨税額(貸方)',
@@ -6099,6 +6100,7 @@ def _journal_csv_view(request, mode):
         'journal_amont', 'journal_tax', 'journal_amount_incl',
         'journal_tax_kbn', 'journal_tax_kbn_name', 'journal_tax_rate',
         'tsuka_cd', 'journal_fx_rate', 'journal_amont_fx', 'journal_tax_fx', 'journal_discription_deb',
+        'supplier_cd', 'item_cd', 'qty', 'saimu_kubun_cd', 'shiharai_houhou_cd',
         'bumon_cd_cre', 'bumon_name_cre', 'account_cd_cre', 'account_name_cre',
         'account_sub_cd_cre', 'account_sub_account_cre', 'journal_amount_cre', 'journal_tax_cre',
         'tsuka_cd_cre', 'journal_fx_rate_cre', 'journal_amont_fx_cre', 'journal_tax_fx_cre',
