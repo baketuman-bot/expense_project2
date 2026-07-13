@@ -9,7 +9,7 @@ from expenses.models import (
 
 
 class Command(BaseCommand):
-    help = "Load initial master data for Render/production. Idempotent: inserts only when missing."
+    help = "Load initial master data for production. Idempotent: inserts only when missing."
 
     def add_arguments(self, parser):
         parser.add_argument("--force", action="store_true", help="Insert even if some records exist (upsert)")

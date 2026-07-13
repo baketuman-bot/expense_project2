@@ -34,9 +34,8 @@ pip install pyodbc
 
 - `[mdb] path`: 本物MDB（`FDATA001.MDB`）のUNCパス（担当者に確認）
 - `[mdb] password`: 通常は空欄。接続エラーになる場合のみ `34100198` を設定
-- `[mysql]`: WSL側 `/home/idc_user/expense_project2` の環境変数設定
-  （`.env` または systemd サービスファイル `expense_project2-uvicorn.service` の `DATABASE_URL`）から
-  実際の接続情報を確認して設定してください
+- `[mysql]`: WSL側 `/home/idc_user/expense_project2/expense_project/settings.py` の
+  `DATABASES['default']`（HOST/USER/PASSWORD/NAME）から実際の接続情報を確認して設定してください
 - `[backup] dir`: MDBバックアップの保存先フォルダ（存在しない場合は自動作成されます）
 - `[backup] keep`: 保持するバックアップ世代数
 

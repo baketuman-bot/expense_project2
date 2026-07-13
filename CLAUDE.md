@@ -14,11 +14,11 @@
 ## Tech Stack
 
 - **Backend:** Django 5.2.6 / Python 3.12+
-- **Database:** PostgreSQL (本番・Render), MySQL 8.0 (ローカル開発・172.16.100.150)
+- **Database:** MySQL 8.0 (社内LAN・172.16.100.150、本番・開発共通)
 - **Server:** Gunicorn + Uvicorn (ASGI)
 - **Frontend:** Django Templates + Bootstrap CSS + JavaScript
 - **Storage:** Google Cloud Storage (領収書), ローカル `/media/` (開発時)
-- **Deploy:** Render PaaS (`render.yaml`, `build.sh`)
+- **Deploy:** `build.sh`（社内サーバーへの手動/スクリプトデプロイ）
 
 ## Project Structure
 
@@ -50,7 +50,6 @@ expense_project2/
 ├── media/                   # アップロードファイル (領収書等)
 ├── deploy/                  # デプロイスクリプト
 ├── requirements.txt
-├── render.yaml
 └── build.sh
 ```
 
@@ -368,13 +367,14 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 
 ## Configuration
 
-- `SECRET_KEY`, `DEBUG`, `DATABASE_URL`: 環境変数から取得
+- `SECRET_KEY`, `DEBUG`: 環境変数から取得
+- DB接続情報（HOST/USER/PASSWORD等）は `settings.py` の `DATABASES['default']` にハードコード（社内LAN MySQL、環境変数は使用しない）
 - `EMAIL_HOST`: 社内SMTP (172.16.100.243:25, 認証なし)
 - `DEFAULT_FROM_EMAIL`: `keiri@idc-com.co.jp`（送信元メールアドレス）
 - `EMAIL_FORCE_TO`: テスト時のメール宛先強制変更
 - `GCS_PROJECT_ID`, `GCS_BUCKET_NAME`: Cloud Storage設定
 - `IMAGE_UP_APP_BASE_URL`: Cloud Run 領収書アップロードアプリURL
-- `CSRF_TRUSTED_ORIGINS`: Render URL + 社内IP
+- `CSRF_TRUSTED_ORIGINS`: 社内IP (`http://172.16.100.150`)
 
 ## Coding Conventions
 

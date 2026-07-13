@@ -10,10 +10,9 @@ def create_view(apps, schema_editor):
         except Exception as e:
             warnings.warn(
                 f"[0048] v_document_full VIEW の作成をスキップしました ({e})。"
-                " MySQL の場合は管理者ユーザーで "
+                " 管理者ユーザーで "
                 "`GRANT CREATE VIEW ON expense_db.* TO 'ex_user'@'%'; FLUSH PRIVILEGES;`"
                 " を実行後、`python manage.py create_views` を実行してください。"
-                " PostgreSQL (Render) では自動的に作成されます。"
             )
 
 

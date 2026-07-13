@@ -29,11 +29,11 @@ class SiteUrlSettingsTest(TestCase):
         """環境変数 SITE_URL で上書き可能なこと"""
         import importlib
         import os
-        os.environ['SITE_URL'] = 'https://myapp.onrender.com'
+        os.environ['SITE_URL'] = 'https://myapp.example.com'
         try:
             import expense_project.settings as s
             importlib.reload(s)
-            self.assertEqual(s.SITE_URL, 'https://myapp.onrender.com')
+            self.assertEqual(s.SITE_URL, 'https://myapp.example.com')
         finally:
             if 'SITE_URL' in os.environ:
                 del os.environ['SITE_URL']
@@ -65,7 +65,7 @@ class BuildApprovalRequestMailTest(TestCase):
             _, body = _build_approval_request_mail(expense)
         self.assertIn('http://172.16.100.150/', body)
 
-    @override_settings(SITE_URL='https://myapp.onrender.com')
+    @override_settings(SITE_URL='https://myapp.example.com')
     def test_mail_body_uses_site_url_setting(self):
         """SITE_URL が変更された場合、その値がメール本文に反映されること"""
         from expenses.views import _build_approval_request_mail
@@ -73,7 +73,7 @@ class BuildApprovalRequestMailTest(TestCase):
         with patch('expenses.views.M_Item') as mock_item:
             mock_item.objects.filter.return_value.values_list.return_value.first.return_value = 'JPY'
             _, body = _build_approval_request_mail(expense)
-        self.assertIn('https://myapp.onrender.com/', body)
+        self.assertIn('https://myapp.example.com/', body)
         self.assertNotIn('http://172.16.100.150/', body)
 
     @override_settings(SITE_URL='http://172.16.100.150')

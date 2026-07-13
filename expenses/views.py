@@ -3905,7 +3905,7 @@ def settings_export(request):
         from django.http import StreamingHttpResponse
         import csv as _csv
 
-        ilike_op = 'ILIKE' if _conn.vendor == 'postgresql' else 'LIKE'
+        ilike_op = 'LIKE'
         sql_conditions, sql_params = [], []
 
         if date_from:
@@ -4751,7 +4751,7 @@ def settings_data_view_browse(request, view_name):
     page    = max(1, int(request.GET.get('page', 1)))
     per_page = 50
 
-    ilike_op = 'ILIKE' if _conn.vendor == 'postgresql' else 'LIKE'
+    ilike_op = 'LIKE'
 
     where_sql, params = '', []
     if q and cfg['search_cols']:
@@ -4803,7 +4803,7 @@ def settings_data_view_csv(request, view_name):
         raise Http404
     cfg      = DATA_VIEW_REGISTRY[view_name]
     q        = request.GET.get('q', '').strip()
-    ilike_op = 'ILIKE' if _conn.vendor == 'postgresql' else 'LIKE'
+    ilike_op = 'LIKE'
 
     where_sql, params = '', []
     if q and cfg['search_cols']:

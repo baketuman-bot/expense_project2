@@ -1,18 +1,16 @@
 from pathlib import Path
 import os
-"""PyMySQL は MySQL 環境でのみ必要。Render(PostgreSQL)では未インストールでも起動できるようにする。"""
-try:  # optional for local MySQL
-    import pymysql  # type: ignore
-    pymysql.install_as_MySQLdb()
-except Exception:
-    pass
+import pymysql  # type: ignore
+pymysql.install_as_MySQLdb()
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-your-secret-key')
-# DEBUG: 本番(Render等)では環境変数で制御。ローカル（DATABASE_URL未設定）では明示未指定なら True。
+# DEBUG: 環境変数で明示指定がなければ True（社内LAN運用のため）
 DEBUG = os.environ.get('DEBUG', '').lower() in {'1', 'true', 'yes'}
+if 'DEBUG' not in os.environ:
+    DEBUG = True
 MEDIA_URL = "/media/"
 # ローカルの実ファイル配置に合わせて media をルートにする
 # 既存ファイルが BASE_DIR/media 配下にあるため、ここを参照先に設定
@@ -71,74 +69,35 @@ TEMPLATES = [
 WSGI_APPLICATION = 'expense_project.wsgi.application'
 
 
-# DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
-
-"""
-DATABASES 設定:
-- Render など本番: 環境変数 DATABASE_URL を優先（conn_max_age/SSL 必須）
-- ローカル開発: 環境変数がなければ既存の MySQL 設定を使用
-"""
-
-db_url_env = os.environ.get('DATABASE_URL')
-if db_url_env:
-    # Render の fromDatabase で注入される接続文字列を利用
-    try:
-        import dj_database_url  # type: ignore
-        # sqlite のときは sslmode を付与しない
-        scheme = db_url_env.split(':', 1)[0].lower()
-        require_ssl = scheme not in {'sqlite', 'file'}
-        DATABASES = {
-            'default': dj_database_url.config(conn_max_age=600, ssl_require=require_ssl)
-        }
-    except Exception as e:
-        # 依存関係が未インストールの場合は明示的に失敗させる
-        raise RuntimeError(
-            "DATABASE_URL が設定されていますが dj-database-url がインストールされていません。requirements に追加してください。"
-        ) from e
-else:
-    # ローカル: DEBUG が環境変数で明示されていなければ有効化（/media の配信など開発用途のため）
-    if 'DEBUG' not in os.environ:
-        DEBUG = True
-    # ローカル開発はMySQL (既存設定) を使用
-    # DJANGO_TEST_DB_NAME 環境変数でテスト用DBを指定可能（デフォルト: test_expense_db）
-    # ※ ex_user は CREATE DATABASE 権限がないため、test_expense_db を使うには
-    #   別途 MySQL 管理者が GRANT ALL ON `test_expense_db`.* TO 'ex_user'@'%' を実行すること。
-    _test_db_name = os.environ.get('DJANGO_TEST_DB_NAME', 'test_expense_db')
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'expense_db',
-            'USER': 'ex_user',
-            'PASSWORD': 'Django3592',
-    #        'HOST': '192.168.0.128',
-    #        'HOST': '172.16.100.149',
-            'HOST': '172.16.100.150',
-            'PORT': '3306',
-            'OPTIONS': {
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-                'charset': 'utf8mb4',
-            },
-            # 接続の永続化（ローカルでも有効にしておく）
-            'CONN_MAX_AGE': 60,
-            # DANGER: TEST.NAME に本番DBと同名を設定しないこと。
-            # 誤ってテストを実行すると本番DBが削除される。
-            # テストDB名を明示しない場合、Django は 'test_expense_db' を自動使用する。
-            # 'TEST': {'NAME': 'expense_db'},  # ← 絶対に設定しないこと
-            'TEST': {'NAME': _test_db_name},
-        }
+# DATABASES: 社内LAN上のMySQLサーバーを使用（本番・開発共通）
+# DJANGO_TEST_DB_NAME 環境変数でテスト用DBを指定可能（デフォルト: test_expense_db）
+# ※ ex_user は CREATE DATABASE 権限がないため、test_expense_db を使うには
+#   別途 MySQL 管理者が GRANT ALL ON `test_expense_db`.* TO 'ex_user'@'%' を実行すること。
+_test_db_name = os.environ.get('DJANGO_TEST_DB_NAME', 'test_expense_db')
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'expense_db',
+        'USER': 'ex_user',
+        'PASSWORD': 'Django3592',
+#        'HOST': '192.168.0.128',
+#        'HOST': '172.16.100.149',
+        'HOST': '172.16.100.150',
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+        },
+        # 接続の永続化
+        'CONN_MAX_AGE': 60,
+        'ATOMIC_REQUESTS': True,
+        # DANGER: TEST.NAME に本番DBと同名を設定しないこと。
+        # 誤ってテストを実行すると本番DBが削除される。
+        # テストDB名を明示しない場合、Django は 'test_expense_db' を自動使用する。
+        # 'TEST': {'NAME': 'expense_db'},  # ← 絶対に設定しないこと
+        'TEST': {'NAME': _test_db_name},
     }
-
-# 共通のDBオプション（接続の永続化とリクエストトランザクション）
-if 'default' in globals().get('DATABASES', {}):
-    _db = DATABASES['default']
-    # 既に設定済みでなければデフォルト値を補完
-    _db.setdefault('CONN_MAX_AGE', 600 if os.environ.get('DATABASE_URL') else 60)
-    _db.setdefault('ATOMIC_REQUESTS', True)
+}
 
 # /media の配信制御フラグ（DEBUG の最終値が決まった後に算出）
 SERVE_MEDIA = (
@@ -172,7 +131,6 @@ IMAGE_UP_APP_TIMEOUT = int(os.environ.get('IMAGE_UP_APP_TIMEOUT', '15'))
 
 # メールリンク用サイトURL
 # 環境変数 SITE_URL で本番URLを上書き可能
-# 例: SITE_URL=https://myapp.onrender.com
 SITE_URL = os.environ.get('SITE_URL', 'http://172.16.100.150')
 
 # カスタムユーザー
@@ -208,22 +166,9 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'expenses:home'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Render / 逆プロキシ配下のHTTPS検知とホスト/CSRF設定
+# 逆プロキシ配下のHTTPS検知とホスト/CSRF設定
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
-_render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-_render_url = os.environ.get('RENDER_EXTERNAL_URL')
-_csrf = []
-if _render_host:
-    _csrf.append(f"https://{_render_host}")
-elif _render_url:
-    _csrf.append(_render_url)
 
 # 内部公開用IP (HTTP アクセス) を信頼オリジンに追加
-try:
-    _csrf.append("http://172.16.100.150")
-except Exception:
-    pass
-
-if _csrf:
-    CSRF_TRUSTED_ORIGINS = _csrf
+CSRF_TRUSTED_ORIGINS = ["http://172.16.100.150"]

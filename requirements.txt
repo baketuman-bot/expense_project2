@@ -4,7 +4,6 @@ qrcode[pil]==7.4.2
 cffi==2.0.0
 click==8.3.0
 cryptography==45.0.7
-dj-database-url==3.0.1
 Django==5.2.6
 et_xmlfile==2.0.0
 gunicorn==23.0.0
@@ -14,7 +13,6 @@ packaging==25.0
 pdf2image==1.17.0
 pillow==11.3.0
 PyMuPDF==1.27.2.3
-psycopg2-binary==2.9.11
 pycparser==2.23
 PyMySQL==1.1.2
 setuptools==80.9.0
