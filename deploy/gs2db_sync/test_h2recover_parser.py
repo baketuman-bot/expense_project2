@@ -91,5 +91,62 @@ class ParseValuesTupleTest(unittest.TestCase):
         self.assertEqual(result[5], datetime.datetime(2025, 6, 24, 16, 21, 28, 112000))
 
 
+import tempfile
+from pathlib import Path
+
+from h2recover_parser import extract_rows_for_table, parse_ddl_columns, parse_o0_metadata
+
+
+class ParseDdlColumnsTest(unittest.TestCase):
+    def test_simple_table(self):
+        ddl = (
+            "CREATE CACHED TABLE PUBLIC.CMN_POSITION(\n"
+            "    POS_SID INTEGER NOT NULL,\n"
+            "    POS_CODE VARCHAR(15) NOT NULL,\n"
+            "    POS_NAME VARCHAR(30) NOT NULL\n"
+            ")"
+        )
+        name, columns = parse_ddl_columns(ddl)
+        self.assertEqual(name, 'PUBLIC.CMN_POSITION')
+        self.assertEqual(columns, ['POS_SID', 'POS_CODE', 'POS_NAME'])
+
+    def test_non_create_table_returns_none(self):
+        self.assertIsNone(parse_ddl_columns('CREATE SCHEMA IF NOT EXISTS FTL AUTHORIZATION GSESSION;'))
+
+
+class ParseO0MetadataTest(unittest.TestCase):
+    def test_resolves_table_name_and_columns(self):
+        content = (
+            "INSERT INTO O_0 VALUES(387, 0, 0, STRINGDECODE("
+            "'CREATE CACHED TABLE PUBLIC.CMN_POSITION(\\n"
+            "    POS_SID INTEGER NOT NULL,\\n"
+            "    POS_CODE VARCHAR(15) NOT NULL\\n"
+            ")'));\n"
+            "INSERT INTO O_0 VALUES(999, 0, 0, STRINGDECODE('not a create table'));\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'dump.sql'
+            path.write_text(content, encoding='utf-8')
+            meta = parse_o0_metadata(path)
+        self.assertEqual(meta[387], ('PUBLIC.CMN_POSITION', ['POS_SID', 'POS_CODE']))
+        self.assertNotIn(999, meta)
+
+
+class ExtractRowsForTableTest(unittest.TestCase):
+    def test_extracts_matching_rows_only(self):
+        content = (
+            "INSERT INTO O_387 VALUES(1, 'P01', 'Manager');\n"
+            "INSERT INTO O_3870 VALUES(1, 'X01', 'Should not match O_387');\n"
+            "INSERT INTO O_387 VALUES(2, 'P02', 'Staff');\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'dump.sql'
+            path.write_text(content, encoding='utf-8')
+            rows = list(extract_rows_for_table(path, 387, ['POS_SID', 'POS_CODE', 'POS_NAME']))
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0], {'pos_sid': 1, 'pos_code': 'P01', 'pos_name': 'Manager'})
+        self.assertEqual(rows[1], {'pos_sid': 2, 'pos_code': 'P02', 'pos_name': 'Staff'})
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -148,3 +148,66 @@ def parse_scalar(token):
 def parse_values_tuple(values_str):
     """`INSERT INTO ... VALUES(<values_str>)` の中身をPythonのリストに変換する"""
     return [parse_scalar(tok) for tok in split_top_level(values_str)]
+
+
+_CREATE_TABLE_RE = re.compile(
+    r'CREATE\s+(?:CACHED\s+|MEMORY\s+)?TABLE\s+(?:IF NOT EXISTS\s+)?([A-Za-z0-9_."]+)\s*\((.*)\)\s*$',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def parse_ddl_columns(ddl_text):
+    """CREATE TABLE DDL文字列からテーブル名とカラム名リストを取り出す。
+    CREATE TABLE文でなければNoneを返す。"""
+    m = _CREATE_TABLE_RE.search(ddl_text)
+    if not m:
+        return None
+    table_name = m.group(1)
+    body = m.group(2)
+    columns = []
+    for col_def in split_top_level(body):
+        col_def = col_def.strip()
+        if not col_def:
+            continue
+        if col_def.upper().startswith(('PRIMARY', 'CONSTRAINT', 'FOREIGN', 'UNIQUE')):
+            continue
+        columns.append(col_def.split()[0])
+    return table_name, columns
+
+
+_O0_ROW_RE = re.compile(r"^INSERT INTO O_0 VALUES\((\d+), (-?\d+), (-?\d+), STRINGDECODE\('(.*)'\)\);\s*$")
+
+
+def parse_o0_metadata(sql_path):
+    """O_0メタテーブルのINSERT行から {内部ID: (実テーブル名, [実カラム名,...])} を復元する"""
+    result = {}
+    with open(sql_path, encoding='utf-8', errors='replace') as f:
+        for line in f:
+            m = _O0_ROW_RE.match(line)
+            if not m:
+                continue
+            oid, _c1, _c2, raw = m.groups()
+            ddl = stringdecode(sql_unescape_quotes(raw))
+            parsed = parse_ddl_columns(ddl)
+            if parsed:
+                result[int(oid)] = parsed
+    return result
+
+
+def extract_rows_for_table(sql_path, oid, columns):
+    """物理テーブル O_<oid> のINSERT行をスキャンし、実カラム名(小文字)をキーとする
+    dictを1行ずつyieldする。"""
+    marker = f'INSERT INTO O_{oid} VALUES('
+    pattern = re.compile(rf'^INSERT INTO O_{oid} VALUES\((.*)\);\s*$')
+    lower_columns = [c.lower() for c in columns]
+    with open(sql_path, encoding='utf-8', errors='replace') as f:
+        for line in f:
+            if marker not in line:
+                continue
+            m = pattern.match(line)
+            if not m:
+                continue
+            values = parse_values_tuple(m.group(1))
+            if len(values) != len(lower_columns):
+                continue
+            yield dict(zip(lower_columns, values))
