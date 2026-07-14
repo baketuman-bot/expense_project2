@@ -147,6 +147,37 @@ class ExtractRowsForTableTest(unittest.TestCase):
         self.assertEqual(rows[0], {'pos_sid': 1, 'pos_code': 'P01', 'pos_name': 'Manager'})
         self.assertEqual(rows[1], {'pos_sid': 2, 'pos_code': 'P02', 'pos_name': 'Staff'})
 
+    def test_column_count_mismatch_is_skipped_but_counted(self):
+        """カラム数が一致しない行はyieldされないが、skip_counterに渡したdictへ
+        件数が記録され、呼び出し側から可視化できることを確認する。"""
+        content = (
+            "INSERT INTO O_387 VALUES(1, 'P01', 'Manager');\n"
+            # 3カラム期待だが値が2つしかない行（マーカーにはマッチするがカラム数不一致）
+            "INSERT INTO O_387 VALUES(2, 'P02');\n"
+            "INSERT INTO O_387 VALUES(3, 'P03', 'Staff');\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'dump.sql'
+            path.write_text(content, encoding='utf-8')
+            skip_counter = {}
+            rows = list(extract_rows_for_table(
+                path, 387, ['POS_SID', 'POS_CODE', 'POS_NAME'], skip_counter=skip_counter,
+            ))
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(skip_counter.get('skipped'), 1)
+
+    def test_skip_counter_omitted_still_works(self):
+        """skip_counterを渡さない従来通りの呼び出しは引き続き動作する（後方互換）。"""
+        content = (
+            "INSERT INTO O_387 VALUES(1, 'P01', 'Manager');\n"
+            "INSERT INTO O_387 VALUES(2, 'P02');\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'dump.sql'
+            path.write_text(content, encoding='utf-8')
+            rows = list(extract_rows_for_table(path, 387, ['POS_SID', 'POS_CODE', 'POS_NAME']))
+        self.assertEqual(len(rows), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

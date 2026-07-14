@@ -117,12 +117,14 @@ def main():
             sys.exit(f'テーブルが見つかりません: {real_name}')
         oid = name_to_oid[real_name]
         _, src_columns = meta[oid]
-        rows = list(extract_rows_for_table(sql_path, oid, src_columns))
+        skip_counter = {}
+        rows = list(extract_rows_for_table(sql_path, oid, src_columns, skip_counter=skip_counter))
         write_csv(args.out_dir / f'{csv_name}.csv', out_columns, rows)
         unresolved = sum(
             1 for r in rows for v in r.values() if isinstance(v, UnresolvedLob)
         )
-        print(f'{csv_name}: {len(rows)} 件書き出し（未解決CLOB: {unresolved}）')
+        skipped = skip_counter.get('skipped', 0)
+        print(f'{csv_name}: {len(rows)} 件書き出し（未解決CLOB: {unresolved}、スキップ: {skipped}）')
 
     for required in ('CMN_USRM', 'CMN_USRM_INF'):
         if required not in name_to_oid:
@@ -130,15 +132,24 @@ def main():
 
     usrm_oid = name_to_oid['CMN_USRM']
     _, usrm_cols = meta[usrm_oid]
-    usrm_rows = {r['usr_sid']: r for r in extract_rows_for_table(sql_path, usrm_oid, usrm_cols)}
+    usrm_skip_counter = {}
+    usrm_rows = {
+        r['usr_sid']: r
+        for r in extract_rows_for_table(sql_path, usrm_oid, usrm_cols, skip_counter=usrm_skip_counter)
+    }
 
     inf_oid = name_to_oid['CMN_USRM_INF']
     _, inf_cols = meta[inf_oid]
-    inf_rows = {r['usr_sid']: r for r in extract_rows_for_table(sql_path, inf_oid, inf_cols)}
+    inf_skip_counter = {}
+    inf_rows = {
+        r['usr_sid']: r
+        for r in extract_rows_for_table(sql_path, inf_oid, inf_cols, skip_counter=inf_skip_counter)
+    }
 
     merged = merge_usr_rows(usrm_rows, inf_rows)
     write_csv(args.out_dir / 'gs_usr.csv', USR_FIELDS + USR_INF_FIELDS, merged)
-    print(f'gs_usr: {len(merged)} 件書き出し')
+    total_skipped = usrm_skip_counter.get('skipped', 0) + inf_skip_counter.get('skipped', 0)
+    print(f'gs_usr: {len(merged)} 件書き出し（スキップ: {total_skipped}）')
 
 
 if __name__ == '__main__':

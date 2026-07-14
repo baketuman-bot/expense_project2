@@ -1226,21 +1226,21 @@ class GS_Ringi(models.Model):
     """稟議データ本体（旧GSESSIONのRNG_RNDATAより参照専用インポート）"""
 
     rng_sid        = models.IntegerField("旧稟議SID", primary_key=True)
-    rng_title      = models.CharField("件名", max_length=100)
-    rng_makedate   = models.DateTimeField("作成日時")
+    rng_title      = models.CharField("件名", max_length=100, null=True, blank=True)
+    rng_makedate   = models.DateTimeField("作成日時", null=True, blank=True)
     rng_applicate  = models.IntegerField("申請者旧USR_SID", null=True, blank=True)
     rng_appldate   = models.DateTimeField("申請日時", null=True, blank=True)
-    rng_status     = models.IntegerField("ステータス")
-    rng_compflg    = models.IntegerField("完了フラグ")
+    rng_status     = models.IntegerField("ステータス", null=True, blank=True)
+    rng_compflg    = models.IntegerField("完了フラグ", null=True, blank=True)
     rng_admcomment = models.CharField("管理者コメント", max_length=300, null=True, blank=True)
-    rng_auid       = models.IntegerField("作成者旧USR_SID")
-    rng_adate      = models.DateTimeField("作成日時(監査)")
-    rng_euid       = models.IntegerField("更新者旧USR_SID")
-    rng_edate      = models.DateTimeField("更新日時(監査)")
+    rng_auid       = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
+    rng_adate      = models.DateTimeField("作成日時(監査)", null=True, blank=True)
+    rng_euid       = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
+    rng_edate      = models.DateTimeField("更新日時(監査)", null=True, blank=True)
     rng_id         = models.CharField("表示用ID", max_length=120, null=True, blank=True)
-    rtp_sid        = models.IntegerField("テンプレート旧SID")
-    rtp_ver        = models.IntegerField("テンプレートバージョン")
-    rct_ver        = models.IntegerField("カテゴリバージョン", default=0)
+    rtp_sid        = models.IntegerField("テンプレート旧SID", null=True, blank=True)
+    rtp_ver        = models.IntegerField("テンプレートバージョン", null=True, blank=True)
+    rct_ver        = models.IntegerField("カテゴリバージョン", default=0, null=True, blank=True)
 
     def __str__(self):
         return f"{self.rng_sid} {self.rng_title}"
@@ -1259,8 +1259,8 @@ class GS_Usr(models.Model):
     """
 
     usr_sid           = models.IntegerField("旧ユーザーSID", primary_key=True)
-    usr_lgid           = models.CharField("ログインID", max_length=256)
-    usr_jkbn           = models.IntegerField("在籍区分")
+    usr_lgid           = models.CharField("ログインID", max_length=256, null=True, blank=True)
+    usr_jkbn           = models.IntegerField("在籍区分", null=True, blank=True)
     usi_sei            = models.CharField("姓", max_length=30, null=True, blank=True)
     usi_mei            = models.CharField("名", max_length=30, null=True, blank=True)
     usi_sei_kn         = models.CharField("姓カナ", max_length=60, null=True, blank=True)
@@ -1285,16 +1285,16 @@ class GS_Group(models.Model):
     """組織・グループマスタ（旧GSESSIONのCMN_GROUPMより参照専用インポート）"""
 
     grp_sid     = models.IntegerField("旧グループSID", primary_key=True)
-    grp_id      = models.CharField("グループID", max_length=50)
+    grp_id      = models.CharField("グループID", max_length=50, null=True, blank=True)
     grp_name    = models.CharField("グループ名", max_length=50, null=True, blank=True)
     grp_name_kn = models.CharField("グループ名カナ", max_length=75, null=True, blank=True)
     grp_comment = models.CharField("コメント", max_length=1000, null=True, blank=True)
-    grp_auid    = models.IntegerField("作成者旧USR_SID")
-    grp_adate   = models.DateTimeField("作成日時")
-    grp_euid    = models.IntegerField("更新者旧USR_SID")
-    grp_edate   = models.DateTimeField("更新日時")
-    grp_sort    = models.IntegerField("表示順")
-    grp_jkbn    = models.IntegerField("状態区分")
+    grp_auid    = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
+    grp_adate   = models.DateTimeField("作成日時", null=True, blank=True)
+    grp_euid    = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
+    grp_edate   = models.DateTimeField("更新日時", null=True, blank=True)
+    grp_sort    = models.IntegerField("表示順", null=True, blank=True)
+    grp_jkbn    = models.IntegerField("状態区分", null=True, blank=True)
 
     def __str__(self):
         return f"{self.grp_sid} {self.grp_name}"
@@ -1309,13 +1309,13 @@ class GS_Group(models.Model):
 class GS_Belong(models.Model):
     """所属（グループ-ユーザーの紐付け。旧GSESSIONのCMN_BELONGMより参照専用インポート）"""
 
-    grp_sid    = models.IntegerField("旧グループSID")
-    usr_sid    = models.IntegerField("旧ユーザーSID")
-    beg_auid   = models.IntegerField("作成者旧USR_SID")
-    beg_adate  = models.DateTimeField("作成日時")
-    beg_euid   = models.IntegerField("更新者旧USR_SID")
-    beg_edate  = models.DateTimeField("更新日時")
-    beg_defgrp = models.IntegerField("デフォルトグループ区分")
+    grp_sid    = models.IntegerField("旧グループSID", null=True, blank=True)
+    usr_sid    = models.IntegerField("旧ユーザーSID", null=True, blank=True)
+    beg_auid   = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
+    beg_adate  = models.DateTimeField("作成日時", null=True, blank=True)
+    beg_euid   = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
+    beg_edate  = models.DateTimeField("更新日時", null=True, blank=True)
+    beg_defgrp = models.IntegerField("デフォルトグループ区分", null=True, blank=True)
     beg_grpkbn = models.IntegerField("グループ区分", null=True, blank=True)
 
     def __str__(self):
@@ -1332,14 +1332,14 @@ class GS_Position(models.Model):
     """役職マスタ（旧GSESSIONのCMN_POSITIONより参照専用インポート）"""
 
     pos_sid   = models.IntegerField("旧役職SID", primary_key=True)
-    pos_code  = models.CharField("役職コード", max_length=15)
-    pos_name  = models.CharField("役職名", max_length=30)
+    pos_code  = models.CharField("役職コード", max_length=15, null=True, blank=True)
+    pos_name  = models.CharField("役職名", max_length=30, null=True, blank=True)
     pos_biko  = models.CharField("備考", max_length=300, null=True, blank=True)
-    pos_sort  = models.IntegerField("表示順")
-    pos_auid  = models.IntegerField("作成者旧USR_SID")
-    pos_adate = models.DateTimeField("作成日時")
-    pos_euid  = models.IntegerField("更新者旧USR_SID")
-    pos_edate = models.DateTimeField("更新日時")
+    pos_sort  = models.IntegerField("表示順", null=True, blank=True)
+    pos_auid  = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
+    pos_adate = models.DateTimeField("作成日時", null=True, blank=True)
+    pos_euid  = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
+    pos_edate = models.DateTimeField("更新日時", null=True, blank=True)
 
     def __str__(self):
         return f"{self.pos_sid} {self.pos_name}"

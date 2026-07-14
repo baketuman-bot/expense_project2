@@ -6,7 +6,7 @@ from pathlib import Path
 from django.core.management import call_command
 from django.test import TestCase
 
-from expenses.models import GS_Group, GS_Ringi
+from expenses.models import GS_Belong, GS_Group, GS_Ringi, GS_Usr
 
 
 class ImportGs2dbTest(TestCase):
@@ -75,3 +75,43 @@ class ImportGs2dbTest(TestCase):
             call_command('import_gs2db', tmp_dir, '--dry-run')
             from expenses.models import GS_Position
             self.assertEqual(GS_Position.objects.count(), 0)
+
+    def test_import_gs2db_belong_composite_key_upsert(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            header = ['grp_sid', 'usr_sid', 'beg_auid', 'beg_adate', 'beg_euid', 'beg_edate',
+                      'beg_defgrp', 'beg_grpkbn']
+            self._write_csv(tmp_dir, 'gs_belong.csv', header,
+                             [['1', '100', '1', '2025-01-01 00:00:00',
+                               '1', '2025-01-01 00:00:00', '1', '0']])
+
+            call_command('import_gs2db', tmp_dir)
+
+            self.assertEqual(GS_Belong.objects.count(), 1)
+            belong = GS_Belong.objects.get(grp_sid=1, usr_sid=100, beg_grpkbn=0)
+            self.assertEqual(belong.beg_auid, 1)
+            self.assertEqual(belong.beg_defgrp, 1)
+
+            # 同じCSVを再インポートしても複製が作られない（冪等性）
+            call_command('import_gs2db', tmp_dir)
+            self.assertEqual(GS_Belong.objects.count(), 1)
+
+    def test_import_gs2db_usr(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._write_csv(
+                tmp_dir, 'gs_usr.csv',
+                ['usr_sid', 'usr_lgid', 'usr_jkbn', 'usi_sei', 'usi_mei', 'usi_sei_kn',
+                 'usi_mei_kn', 'usi_syain_no', 'usi_syozoku', 'usi_yakusyoku', 'pos_sid',
+                 'usi_entrance_date'],
+                [['100', 'taro', '1', '山田', '太郎', 'ヤマダ', 'タロウ', '001',
+                  '経理部', '課長', '1', '2020-04-01 00:00:00']],
+            )
+
+            call_command('import_gs2db', tmp_dir)
+
+            usr = GS_Usr.objects.get(usr_sid=100)
+            self.assertEqual(usr.usr_lgid, 'taro')
+            self.assertEqual(usr.usr_jkbn, 1)
+            self.assertEqual(usr.usi_sei, '山田')
+            self.assertEqual(usr.usi_mei, '太郎')
+            self.assertEqual(usr.usi_syain_no, '001')
+            self.assertEqual(usr.pos_sid, 1)

@@ -194,9 +194,14 @@ def parse_o0_metadata(sql_path):
     return result
 
 
-def extract_rows_for_table(sql_path, oid, columns):
+def extract_rows_for_table(sql_path, oid, columns, skip_counter=None):
     """物理テーブル O_<oid> のINSERT行をスキャンし、実カラム名(小文字)をキーとする
-    dictを1行ずつyieldする。"""
+    dictを1行ずつyieldする。
+
+    `skip_counter` に `dict`（または `collections.Counter`）を渡すと、
+    マーカー行にはマッチしたがカラム数不一致で読み捨てられた行数を
+    `skip_counter['skipped']` に加算する（呼び出し側で件数を可視化するため）。
+    渡さない場合は従来通り黙って読み捨てる（後方互換）。"""
     marker = f'INSERT INTO O_{oid} VALUES('
     pattern = re.compile(rf'^INSERT INTO O_{oid} VALUES\((.*)\);\s*$')
     lower_columns = [c.lower() for c in columns]
@@ -209,5 +214,7 @@ def extract_rows_for_table(sql_path, oid, columns):
                 continue
             values = parse_values_tuple(m.group(1))
             if len(values) != len(lower_columns):
+                if skip_counter is not None:
+                    skip_counter['skipped'] = skip_counter.get('skipped', 0) + 1
                 continue
             yield dict(zip(lower_columns, values))
