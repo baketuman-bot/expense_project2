@@ -1334,7 +1334,7 @@ class GS_Position(models.Model):
     pos_sid   = models.IntegerField("旧役職SID", primary_key=True)
     pos_code  = models.CharField("役職コード", max_length=15)
     pos_name  = models.CharField("役職名", max_length=30)
-    pos_biko  = models.CharField("備考", max_length=300, blank=True)
+    pos_biko  = models.CharField("備考", max_length=300, null=True, blank=True)
     pos_sort  = models.IntegerField("表示順")
     pos_auid  = models.IntegerField("作成者旧USR_SID")
     pos_adate = models.DateTimeField("作成日時")
