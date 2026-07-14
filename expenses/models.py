@@ -1217,3 +1217,136 @@ class M_ExchangeRate(models.Model):
         verbose_name = '換算為替レート'
         verbose_name_plural = '換算為替レート'
 
+
+# ── GSESSION (旧グループウェア) 参照データ ─────────────────────────────
+# tmp/gs2db.h2.db から deploy/gs2db_sync/extract_gs2db.py + import_gs2db
+# コマンドで取り込む、参照専用の独立テーブル群。既存M_/T_系とは紐付けない。
+
+class GS_Ringi(models.Model):
+    """稟議データ本体（旧GSESSIONのRNG_RNDATAより参照専用インポート）"""
+
+    rng_sid        = models.IntegerField("旧稟議SID", primary_key=True)
+    rng_title      = models.CharField("件名", max_length=100)
+    rng_makedate   = models.DateTimeField("作成日時")
+    rng_applicate  = models.IntegerField("申請者旧USR_SID", null=True, blank=True)
+    rng_appldate   = models.DateTimeField("申請日時", null=True, blank=True)
+    rng_status     = models.IntegerField("ステータス")
+    rng_compflg    = models.IntegerField("完了フラグ")
+    rng_admcomment = models.CharField("管理者コメント", max_length=300, null=True, blank=True)
+    rng_auid       = models.IntegerField("作成者旧USR_SID")
+    rng_adate      = models.DateTimeField("作成日時(監査)")
+    rng_euid       = models.IntegerField("更新者旧USR_SID")
+    rng_edate      = models.DateTimeField("更新日時(監査)")
+    rng_id         = models.CharField("表示用ID", max_length=120, null=True, blank=True)
+    rtp_sid        = models.IntegerField("テンプレート旧SID")
+    rtp_ver        = models.IntegerField("テンプレートバージョン")
+    rct_ver        = models.IntegerField("カテゴリバージョン", default=0)
+
+    def __str__(self):
+        return f"{self.rng_sid} {self.rng_title}"
+
+    class Meta:
+        db_table = 'GS_RINGI'
+        verbose_name = '旧稟議データ(GSESSION)'
+        verbose_name_plural = '旧稟議データ(GSESSION)'
+        ordering = ['-rng_sid']
+
+
+class GS_Usr(models.Model):
+    """ユーザー参照データ（旧GSESSIONのCMN_USRM+CMN_USRM_INFより参照専用インポート）
+
+    パスワードハッシュ(USR_PSWD)はセキュリティ上の理由で取り込まない。
+    """
+
+    usr_sid           = models.IntegerField("旧ユーザーSID", primary_key=True)
+    usr_lgid           = models.CharField("ログインID", max_length=256)
+    usr_jkbn           = models.IntegerField("在籍区分")
+    usi_sei            = models.CharField("姓", max_length=30, null=True, blank=True)
+    usi_mei            = models.CharField("名", max_length=30, null=True, blank=True)
+    usi_sei_kn         = models.CharField("姓カナ", max_length=60, null=True, blank=True)
+    usi_mei_kn         = models.CharField("名カナ", max_length=60, null=True, blank=True)
+    usi_syain_no       = models.CharField("社員番号", max_length=20, null=True, blank=True)
+    usi_syozoku        = models.CharField("所属名", max_length=60, null=True, blank=True)
+    usi_yakusyoku      = models.CharField("役職名", max_length=30, null=True, blank=True)
+    pos_sid            = models.IntegerField("旧役職SID", null=True, blank=True)
+    usi_entrance_date  = models.DateTimeField("入社日", null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.usr_sid} {self.usi_sei}{self.usi_mei}"
+
+    class Meta:
+        db_table = 'GS_USR'
+        verbose_name = '旧ユーザー(GSESSION)'
+        verbose_name_plural = '旧ユーザー(GSESSION)'
+        ordering = ['usr_sid']
+
+
+class GS_Group(models.Model):
+    """組織・グループマスタ（旧GSESSIONのCMN_GROUPMより参照専用インポート）"""
+
+    grp_sid     = models.IntegerField("旧グループSID", primary_key=True)
+    grp_id      = models.CharField("グループID", max_length=50)
+    grp_name    = models.CharField("グループ名", max_length=50, null=True, blank=True)
+    grp_name_kn = models.CharField("グループ名カナ", max_length=75, null=True, blank=True)
+    grp_comment = models.CharField("コメント", max_length=1000, null=True, blank=True)
+    grp_auid    = models.IntegerField("作成者旧USR_SID")
+    grp_adate   = models.DateTimeField("作成日時")
+    grp_euid    = models.IntegerField("更新者旧USR_SID")
+    grp_edate   = models.DateTimeField("更新日時")
+    grp_sort    = models.IntegerField("表示順")
+    grp_jkbn    = models.IntegerField("状態区分")
+
+    def __str__(self):
+        return f"{self.grp_sid} {self.grp_name}"
+
+    class Meta:
+        db_table = 'GS_GROUP'
+        verbose_name = '旧組織グループ(GSESSION)'
+        verbose_name_plural = '旧組織グループ(GSESSION)'
+        ordering = ['grp_sort', 'grp_sid']
+
+
+class GS_Belong(models.Model):
+    """所属（グループ-ユーザーの紐付け。旧GSESSIONのCMN_BELONGMより参照専用インポート）"""
+
+    grp_sid    = models.IntegerField("旧グループSID")
+    usr_sid    = models.IntegerField("旧ユーザーSID")
+    beg_auid   = models.IntegerField("作成者旧USR_SID")
+    beg_adate  = models.DateTimeField("作成日時")
+    beg_euid   = models.IntegerField("更新者旧USR_SID")
+    beg_edate  = models.DateTimeField("更新日時")
+    beg_defgrp = models.IntegerField("デフォルトグループ区分")
+    beg_grpkbn = models.IntegerField("グループ区分", null=True, blank=True)
+
+    def __str__(self):
+        return f"grp={self.grp_sid} usr={self.usr_sid}"
+
+    class Meta:
+        db_table = 'GS_BELONG'
+        verbose_name = '旧所属(GSESSION)'
+        verbose_name_plural = '旧所属(GSESSION)'
+        unique_together = [('grp_sid', 'usr_sid', 'beg_grpkbn')]
+
+
+class GS_Position(models.Model):
+    """役職マスタ（旧GSESSIONのCMN_POSITIONより参照専用インポート）"""
+
+    pos_sid   = models.IntegerField("旧役職SID", primary_key=True)
+    pos_code  = models.CharField("役職コード", max_length=15)
+    pos_name  = models.CharField("役職名", max_length=30)
+    pos_biko  = models.CharField("備考", max_length=300, blank=True)
+    pos_sort  = models.IntegerField("表示順")
+    pos_auid  = models.IntegerField("作成者旧USR_SID")
+    pos_adate = models.DateTimeField("作成日時")
+    pos_euid  = models.IntegerField("更新者旧USR_SID")
+    pos_edate = models.DateTimeField("更新日時")
+
+    def __str__(self):
+        return f"{self.pos_sid} {self.pos_name}"
+
+    class Meta:
+        db_table = 'GS_POSITION'
+        verbose_name = '旧役職(GSESSION)'
+        verbose_name_plural = '旧役職(GSESSION)'
+        ordering = ['pos_sort', 'pos_sid']
+
