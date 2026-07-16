@@ -6364,7 +6364,13 @@ def settings_master_create(request, master_key):
             form.save()
             return redirect('expenses:settings_master_list', master_key=master_key)
     else:
-        form = FormClass()
+        # GETパラメータのうちフォームフィールド名に一致するものを初期値に
+        # （部署ツリーの「配下に追加」が ?upper_group_cd=xxx を渡してくる）
+        initial = {
+            k: v for k, v in request.GET.items()
+            if k in FormClass.base_fields
+        }
+        form = FormClass(initial=initial)
 
     _master_add_bootstrap(form)
     return render(request, 'expenses/settings_master_form.html', {

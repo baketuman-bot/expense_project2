@@ -96,3 +96,28 @@ class GroupManagerListViewTests(TestCase):
             reverse('expenses:settings_master_list', args=['m_bumon']))
         self.assertEqual(res.status_code, 200)
         self.assertTemplateUsed(res, 'expenses/settings_master_list.html')
+
+
+class MasterCreateInitialTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.login_user = User.objects.create_user(
+            username='tester2', man_number='9003',
+            user_name='テスト次郎', password='pass')
+
+    def test_GETパラメータがフォーム初期値に入る(self):
+        self.client.force_login(self.login_user)
+        res = self.client.get(
+            reverse('expenses:settings_master_create', args=['m_group'])
+            + '?upper_group_cd=100')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res.context['form'].initial.get('upper_group_cd'), '100')
+
+    def test_フォームに存在しないGETパラメータは無視される(self):
+        self.client.force_login(self.login_user)
+        res = self.client.get(
+            reverse('expenses:settings_master_create', args=['m_group'])
+            + '?evil_param=x')
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn('evil_param', res.context['form'].initial)
