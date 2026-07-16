@@ -1,0 +1,421 @@
+{% load expense_extras %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ expense.document_type.document_type_name }} #{{ expense.document_id }}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Noto Sans JP", "Meiryo", "MS Gothic", sans-serif;
+      font-size: 11px;
+      color: #000;
+      margin: 0;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .no-print {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .no-print button {
+      padding: 6px 18px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #999;
+      background: #f5f5f5;
+    }
+    .no-print .btn-primary {
+      background: #17307a;
+      color: #fff;
+      border-color: #17307a;
+    }
+
+    /* ── ページヘッダー ── */
+    .rp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 2px solid #17307a;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+    .rp-header h1 {
+      font-size: 17px;
+      margin: 0;
+      letter-spacing: .06em;
+    }
+    .rp-header .meta {
+      font-size: 10.5px;
+      color: #333;
+      text-align: right;
+      line-height: 1.6;
+    }
+    .rp-header .meta b { font-size: 12px; }
+
+    /* 申請情報テーブル */
+    table.info {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+      margin-bottom: 14px;
+    }
+    table.info td, table.info th {
+      border: 1px solid #999;
+      padding: 4px 8px;
+      text-align: left;
+      font-weight: normal;
+    }
+    table.info td.lbl {
+      background: #eef0f8;
+      font-weight: bold;
+      width: 90px;
+      white-space: nowrap;
+    }
+    table.info td.sec {
+      background: #dde2f0;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .sec-title {
+      font-size: 12px;
+      font-weight: bold;
+      border-left: 4px solid #17307a;
+      padding-left: 7px;
+      margin: 16px 0 5px;
+    }
+
+    /* 明細テーブル */
+    table.det {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+    }
+    table.det th {
+      background: #dde2f0;
+      border: 1px solid #888;
+      padding: 3px 5px;
+      text-align: center;
+      white-space: nowrap;
+      font-weight: bold;
+    }
+    table.det td {
+      border: 1px solid #999;
+      padding: 3px 6px;
+      vertical-align: top;
+    }
+    table.det tfoot td {
+      background: #eef0f8;
+      font-weight: bold;
+      border: 1px solid #888;
+    }
+    .num { text-align: right; white-space: nowrap; }
+    .ctr { text-align: center; }
+
+    .grand {
+      margin-top: 8px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .grand span {
+      display: inline-block;
+      border: 1.5px solid #17307a;
+      padding: 5px 14px;
+      min-width: 180px;
+    }
+
+    /* 検印欄（右下・2cm角×3） */
+    .stamp-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 28px;
+    }
+    .stamp-area {
+      display: flex;
+      border: 1.5px solid #000;
+    }
+    .stamp-box {
+      width: 2cm;
+      height: 2cm;
+      border-right: 1px solid #000;
+    }
+    .stamp-box:last-child { border-right: none; }
+
+    @media print {
+      @page { size: A4 portrait; margin: 12mm; }
+      body  { padding: 0; font-size: 10px; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="no-print">
+  <button class="btn-primary" onclick="window.print()">印刷</button>
+  <button onclick="window.close()">閉じる</button>
+  <span style="color:#555; font-size:12px; margin-left:8px;">
+    添付画像は印刷されません。印刷はA4縦を想定しています。
+  </span>
+</div>
+
+<!-- ヘッダ: 帳票タイトル + 申請No / 印刷日 / ステータス -->
+<div class="rp-header">
+  <h1>{{ expense.document_type.document_type_name }}</h1>
+  <div class="meta">
+    <b>申請No. {{ expense.document_id }}</b><br>
+    印刷日: {{ print_date|date:"Y/m/d" }}<br>
+    ステータス: {% status_label expense progress %}
+  </div>
+</div>
+
+<!-- 申請情報 -->
+<table class="info">
+  {% if is_asset %}
+  <tr>
+    <td class="lbl">{{ purpose_label|default:"件名" }}</td>
+    <td colspan="5"><b>{{ asset_subject|default:"—" }}</b></td>
+  </tr>
+  <tr>
+    <td class="lbl">申請者</td><td>{{ expense.applicant.user_name }}（{{ expense.applicant.man_number }}）</td>
+    <td class="lbl">{{ bumon_label|default:"負担部門" }}</td><td>{{ expense.bumon_cd.bumon_name|default:"—" }}</td>
+    <td class="lbl">申請日時</td><td>{{ expense.created_at|date:"Y/m/d H:i" }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">稟議No</td><td>{{ expense.ringi_no|default:"—" }}</td>
+    <td class="lbl">備考</td><td colspan="3">{{ expense.memo|default:"—" }}</td>
+  </tr>
+  {% else %}
+  <tr>
+    <td class="lbl">申請者</td><td>{{ expense.applicant.user_name }}（{{ expense.applicant.man_number }}）</td>
+    <td class="lbl">{{ bumon_label|default:"負担部門" }}</td><td>{{ expense.bumon_cd.bumon_name|default:"—" }}</td>
+    <td class="lbl">申請日時</td><td>{{ expense.created_at|date:"Y/m/d H:i" }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">精算方法</td><td>{{ pay_kbn_map|get_item:expense.pay_kbn|default:expense.pay_kbn|default:"—" }}</td>
+    <td class="lbl">通貨</td><td>{% if expense.tsuka_cd %}{{ expense.tsuka_cd }}{% if currency_name %}（{{ currency_name }}）{% endif %}{% else %}—{% endif %}</td>
+    <td class="lbl">稟議No</td><td>{{ expense.ringi_no|default:"—" }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">備考</td><td colspan="5">{{ expense.memo|default:"—" }}</td>
+  </tr>
+  {% endif %}
+</table>
+
+{% if is_travel %}
+{# ── TRV: 移動経路 / 宿泊費 / 日当 の3表 ── #}
+<div class="sec-title">移動経路明細</div>
+<table class="det">
+  <thead>
+    <tr>
+      <th>No</th><th>日付</th><th>経路</th><th>交通手段</th><th>目的</th><th>支払先</th><th>運賃</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for detail in travel_route_details %}
+    <tr>
+      <td class="ctr">{{ forloop.counter }}</td>
+      <td class="ctr" style="white-space:nowrap;">{{ detail.date|date:"Y/m/d"|default:"—" }}</td>
+      <td>{{ detail.content.departure|default:"—" }} → {{ detail.content.arrival|default:"—" }}</td>
+      <td class="ctr">{{ detail.content.transport|default:"—" }}</td>
+      <td>{{ detail.purpose|default:"—" }}</td>
+      <td>{{ detail.shiharaisaki|default:"—" }}</td>
+      <td class="num" data-amount="{{ detail.amount|default:0 }}">{{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" class="ctr">明細がありません</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><td colspan="6" class="num">小計</td><td class="num total-cell">—</td></tr>
+  </tfoot>
+</table>
+
+{% if travel_accom_details %}
+<div class="sec-title">宿泊費明細</div>
+<table class="det">
+  <thead>
+    <tr><th>No</th><th>日付</th><th>支払先（宿泊先）</th><th>泊数</th><th>金額</th></tr>
+  </thead>
+  <tbody>
+    {% for detail in travel_accom_details %}
+    <tr>
+      <td class="ctr">{{ forloop.counter }}</td>
+      <td class="ctr" style="white-space:nowrap;">{{ detail.date|date:"Y/m/d"|default:"—" }}</td>
+      <td>{{ detail.shiharaisaki|default:"—" }}</td>
+      <td class="ctr">{% if detail.content.nights %}{{ detail.content.nights }}泊{% else %}—{% endif %}</td>
+      <td class="num" data-amount="{{ detail.amount|default:0 }}">{{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><td colspan="4" class="num">小計</td><td class="num total-cell">—</td></tr>
+  </tfoot>
+</table>
+{% endif %}
+
+{% if travel_allow_details %}
+<div class="sec-title">日当明細</div>
+<table class="det">
+  <thead>
+    <tr><th>No</th><th>種別</th><th>日数</th><th>金額</th></tr>
+  </thead>
+  <tbody>
+    {% for detail in travel_allow_details %}
+    <tr>
+      <td class="ctr">{{ forloop.counter }}</td>
+      <td>{{ detail.purpose|default:"—" }}</td>
+      <td class="ctr">{% if detail.content.days %}{{ detail.content.days }}日{% else %}—{% endif %}</td>
+      <td class="num" data-amount="{{ detail.amount|default:0 }}">{{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><td colspan="3" class="num">小計</td><td class="num total-cell">—</td></tr>
+  </tfoot>
+</table>
+{% endif %}
+
+{% elif not is_asset %}
+{# ── PAY / REC / LON: 標準明細表（LON は登録番号・カード列なし） ── #}
+<div class="sec-title">{% if is_lon %}前借明細{% else %}経費明細{% endif %}</div>
+<table class="det">
+  <thead>
+    <tr>
+      <th>No</th><th>日付</th><th>勘定科目</th><th>支払先</th><th>目的</th>
+      <th>金額</th><th>消費税</th>
+      {% if not is_lon %}<th>登録番号</th><th>カード</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for detail in expense.details.all %}
+    <tr>
+      <td class="ctr">{{ forloop.counter }}</td>
+      <td class="ctr" style="white-space:nowrap;">{{ detail.date|date:"Y/m/d"|default:"—" }}</td>
+      <td>{% if detail.account %}{{ detail.account.account_name }}{% else %}—{% endif %}</td>
+      <td>{{ detail.shiharaisaki|default:"—" }}</td>
+      <td>{{ detail.purpose|default:"—" }}</td>
+      <td class="num" data-amount="{{ detail.amount|default:0 }}">{{ detail.amount|amount_format:expense.tsuka_cd }}</td>
+      <td class="num" data-tax="{{ detail.consumption_tax|default:0 }}">{% if detail.consumption_tax %}{{ detail.consumption_tax|amount_format:expense.tsuka_cd }}{% else %}—{% endif %}</td>
+      {% if not is_lon %}
+      <td class="ctr" style="white-space:nowrap;">{{ detail.tekikaku_cd|default:"—" }}</td>
+      <td class="ctr" style="white-space:nowrap;">{% if detail.corpo_card is not None %}{% with k=detail.corpo_card|stringformat:"s" %}{{ coc_label_map|get_item:k|default:k }}{% endwith %}{% if detail.corpo_card_no %} {{ detail.corpo_card_no }}{% endif %}{% else %}—{% endif %}</td>
+      {% endif %}
+    </tr>
+    {% empty %}
+    <tr><td colspan="{% if is_lon %}7{% else %}9{% endif %}" class="ctr">明細がありません</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="5" class="num">合計</td>
+      <td class="num total-cell">—</td>
+      <td class="num tax-total-cell">—</td>
+      {% if not is_lon %}<td colspan="2"></td>{% endif %}
+    </tr>
+  </tfoot>
+</table>
+{% endif %}
+
+{% if dynamic_fields_display %}
+{% with first_row=dynamic_fields_display.0 %}
+<div class="sec-title">{% if first_row.type == 'section' %}{{ first_row.header }}{% elif is_asset %}固定資産情報{% else %}追加入力項目{% endif %}</div>
+<table class="info">
+  {% for row in dynamic_fields_display %}
+    {% if forloop.first and row.type == 'section' %}
+    {% elif row.type == 'section' %}
+    <tr><td class="sec" colspan="{{ row.colspan }}">{{ row.header }}</td></tr>
+    {% else %}
+    <tr>
+      {% for f in row.fields %}
+      <td class="lbl">{{ f.label }}</td>
+      <td colspan="{{ f.td_colspan }}"{% if f.is_label %} style="font-weight:bold;"{% endif %}>{{ f.value|default:"—" }}</td>
+      {% endfor %}
+    </tr>
+    {% endif %}
+  {% endfor %}
+</table>
+{% endwith %}
+{% endif %}
+
+{% if not is_asset %}
+<div class="grand"><span>合計金額　{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</span></div>
+{% endif %}
+
+<!-- 承認履歴 -->
+<div class="sec-title">承認履歴</div>
+<table class="det">
+  <thead>
+    <tr>
+      <th style="width:60px;">Step</th>
+      <th style="width:90px;">操作</th>
+      <th>氏名</th>
+      <th style="width:120px;">日時</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for act in workflow_actions %}
+    <tr>
+      <td class="ctr">{% if act.step %}{{ act.step.step_order }}{% else %}—{% endif %}</td>
+      <td class="ctr">{{ act.action_status.action_name|default:act.action_status.status_name }}</td>
+      <td>{{ act.approver_man_number.user_name }}{% if act.approver_man_number.post_cd %}（{{ act.approver_man_number.post_cd.post_name }}）{% endif %}</td>
+      <td class="ctr">{{ act.actioned_at|date:"Y/m/d H:i" }}</td>
+    </tr>
+    {% endfor %}
+    {% for pa in pending_approvers %}
+    <tr>
+      <td class="ctr">{{ pa.step_order }}</td>
+      <td class="ctr">承認待ち</td>
+      <td>{{ pa.man_number.user_name }}{% if pa.man_number.post_cd %}（{{ pa.man_number.post_cd.post_name }}）{% endif %}</td>
+      <td class="ctr">—</td>
+    </tr>
+    {% endfor %}
+    {% if not workflow_actions and not pending_approvers %}
+    <tr><td colspan="4" class="ctr">承認履歴がありません</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<!-- 検印欄（右下・2cm角×3） -->
+<div class="stamp-row">
+  <div class="stamp-area">
+    <div class="stamp-box"></div>
+    <div class="stamp-box"></div>
+    <div class="stamp-box"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // 各明細テーブルの金額・消費税を集計して tfoot に表示（既存 settlement_cash_print と同方式）
+  function fmt(v) {
+    return Number.isInteger(v)
+      ? v.toLocaleString('ja-JP')
+      : v.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  document.querySelectorAll('table.det').forEach(function (tbl) {
+    var total = 0, taxTotal = 0;
+    tbl.querySelectorAll('tbody td[data-amount]').forEach(function (td) {
+      var v = parseFloat(td.dataset.amount);
+      if (!isNaN(v)) total += v;
+    });
+    tbl.querySelectorAll('tbody td[data-tax]').forEach(function (td) {
+      var v = parseFloat(td.dataset.tax);
+      if (!isNaN(v)) taxTotal += v;
+    });
+    var cell = tbl.querySelector('.total-cell');
+    if (cell) cell.textContent = fmt(total);
+    var taxCell = tbl.querySelector('.tax-total-cell');
+    if (taxCell) taxCell.textContent = fmt(taxTotal);
+  });
+})();
+</script>
+
+</body>
+</html>

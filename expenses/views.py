@@ -184,6 +184,76 @@ def _asset_detail_context(expense):
     }
 
 
+def _build_expense_detail_context(expense):
+    """申請詳細画面・印刷帳票で共通のコンテキストを構築する。
+
+    画面専用のキー（back_url / from_page / can_keiri_edit 等）は含めない。
+    """
+    # ワークフロー履歴を取得
+    workflow_actions = []
+    try:
+        from .models import T_WorkflowAction
+        workflow_actions = (
+            T_WorkflowAction.objects
+            .filter(instance__document_id=expense)
+            .select_related('action_status', 'approver_man_number', 'step', 'instance')
+            .order_by('actioned_at')
+        )
+    except Exception:
+        workflow_actions = []
+
+    # 承認予定者を取得（未承認 = pending/draft + 未処理の keiri ステップ）
+    try:
+        pending_approvers = get_pending_approvers(expense)
+    except Exception:
+        pending_approvers = []
+
+    # 通貨名の解決（表示用）
+    currency_name = None
+    try:
+        if expense.tsuka_cd:
+            cur = M_Item.objects.filter(data_kbn='CUR', key=expense.tsuka_cd).first()
+            if cur:
+                # 表示は content2 を優先、未設定時は content をフォールバック
+                currency_name = (cur.content2 or '').strip() or cur.content
+    except Exception:
+        currency_name = None
+
+    dynamic_fields_display = _build_dynamic_fields_display(expense)
+
+    progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
+
+    is_travel = _is_travel_doc_type(expense.document_type)
+    travel_route_details = []
+    travel_accom_details = []
+    travel_allow_details = []
+    travel_route_subtotal = 0
+    if is_travel:
+        _all_details = list(expense.details.prefetch_related('attachments'))
+        travel_route_details = [d for d in _all_details if isinstance(d.content, dict) and 'departure' in d.content]
+        travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
+        travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
+        travel_route_subtotal = sum((d.amount or 0) for d in travel_route_details)
+
+    return {
+        "expense": expense,
+        "workflow_actions": workflow_actions,
+        "pending_approvers": pending_approvers,
+        "currency_name": currency_name,
+        "dynamic_fields_display": dynamic_fields_display,
+        "progress": progress,
+        "is_travel": is_travel,
+        "is_asset": _is_asset_doc_type(expense.document_type),
+        "travel_route_details": travel_route_details,
+        "travel_accom_details": travel_accom_details,
+        "travel_allow_details": travel_allow_details,
+        "travel_route_subtotal": travel_route_subtotal,
+        "tax_label_map": _item_label_map('TAX'),
+        "coc_label_map": _item_label_map('COC'),
+        **_asset_detail_context(expense),
+    }
+
+
 def _apply_created_at_date_range(qs, date_from, date_to):
     """created_at に対する日付範囲フィルタを、MySQL の timezone テーブル有無に依存しない形で適用する。
 
@@ -753,51 +823,7 @@ def expense_detail(request, pk):
                 "error_message": "この申請は取り消しできません。"
             })
     
-    # ワークフロー履歴を取得
-    workflow_actions = []
-    try:
-        from .models import T_WorkflowAction
-        workflow_actions = (
-            T_WorkflowAction.objects
-            .filter(instance__document_id=expense)
-            .select_related('action_status', 'approver_man_number', 'step', 'instance')
-            .order_by('actioned_at')
-        )
-    except Exception:
-        workflow_actions = []
-
-    # 承認予定者を取得（未承認 = pending/draft + 未処理の keiri ステップ）
-    try:
-        pending_approvers = get_pending_approvers(expense)
-    except Exception:
-        pending_approvers = []
-
-    # 通貨名の解決（表示用）
-    currency_name = None
-    try:
-        if expense.tsuka_cd:
-            cur = M_Item.objects.filter(data_kbn='CUR', key=expense.tsuka_cd).first()
-            if cur:
-                # 表示は content2 を優先、未設定時は content をフォールバック
-                currency_name = (cur.content2 or '').strip() or cur.content
-    except Exception:
-        currency_name = None
-
-    dynamic_fields_display = _build_dynamic_fields_display(expense)
-
-    progress = _get_step_progress_map([expense.document_id]).get(expense.document_id)
-
-    is_travel = _is_travel_doc_type(expense.document_type)
-    travel_route_details = []
-    travel_accom_details = []
-    travel_allow_details = []
-    travel_route_subtotal = 0
-    if is_travel:
-        _all_details = list(expense.details.prefetch_related('attachments'))
-        travel_route_details = [d for d in _all_details if isinstance(d.content, dict) and 'departure' in d.content]
-        travel_accom_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'accommodation']
-        travel_allow_details = [d for d in _all_details if isinstance(d.content, dict) and d.content.get('row_type') == 'allowance']
-        travel_route_subtotal = sum((d.amount or 0) for d in travel_route_details)
+    context = _build_expense_detail_context(expense)
 
     # 遷移元に応じて「一覧に戻る」先を切り替え
     from_page = request.GET.get('from', '')
@@ -814,26 +840,24 @@ def expense_detail(request, pk):
     }
     back_url = back_url_map.get(from_page, reverse('expenses:expense_list'))
 
-    return render(request, "expenses/expense_detail.html", {
-        "expense": expense,
-        "workflow_actions": workflow_actions,
-        "pending_approvers": pending_approvers,
-        "currency_name": currency_name,
-        "dynamic_fields_display": dynamic_fields_display,
-        "progress": progress,
-        "is_travel": is_travel,
-        "is_asset": _is_asset_doc_type(expense.document_type),
-        "travel_route_details": travel_route_details,
-        "travel_accom_details": travel_accom_details,
-        "travel_allow_details": travel_allow_details,
-        "travel_route_subtotal": travel_route_subtotal,
+    context.update({
         "back_url": back_url,
         "from_page": from_page,
         "can_keiri_edit": _can_do_keiri_edit(request.user, expense),
-        "tax_label_map": _item_label_map('TAX'),
-        "coc_label_map": _item_label_map('COC'),
-        **_asset_detail_context(expense),
     })
+    return render(request, "expenses/expense_detail.html", context)
+
+@login_required
+def expense_print(request, pk):
+    """申請帳票の印刷ページ（A4縦・base.html を継承しない独立テンプレート）。"""
+    expense = get_object_or_404(T_Document, pk=pk)
+    context = _build_expense_detail_context(expense)
+    context.update({
+        "is_lon": _is_lon_doc_type(expense.document_type),
+        "pay_kbn_map": _item_label_map('PAY'),
+        "print_date": timezone.now(),
+    })
+    return render(request, "expenses/expense_print.html", context)
 
 @login_required
 def expense_edit(request, pk):
