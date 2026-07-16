@@ -17,8 +17,10 @@ from .models import M_BelongTo, M_Bumon, M_Group, M_Post, M_User
 def build_group_tree(groups):
     """M_Groupのリストから表示順（DFS・同階層はgroup_cd昇順）のノードリストを作る。
 
-    upper_group_cd が空/None はルート。存在しないコードを指す場合(orphan)と
-    循環参照ノードはルート扱い(is_orphan=True)にして無限ループを防ぐ。
+    upper_group_cd が空/None はルート。存在しないコードを指す場合(orphan)は
+    ルート扱い(is_orphan=True)。循環参照は構成ノードそれぞれをルート扱い
+    (is_orphan=True)にして無限ループを防ぐ。循環に属さない配下ノードは
+    通常通りネストされる。
     """
     by_cd = {g.group_cd: g for g in groups}
     children = {}
@@ -33,6 +35,17 @@ def build_group_tree(groups):
         else:
             orphans.append(g)
 
+    # 循環参照ノードを特定（upper をたどって自分自身に戻るノード）
+    cycle_cds = set()
+    for g in groups:
+        seen = set()
+        cur = g
+        while cur is not None and cur.group_cd not in seen:
+            seen.add(cur.group_cd)
+            cur = by_cd.get(cur.upper_group_cd or '')
+        if cur is not None and cur.group_cd == g.group_cd:
+            cycle_cds.add(g.group_cd)
+
     nodes = []
     visited = set()
 
@@ -45,14 +58,16 @@ def build_group_tree(groups):
             'indent': depth * 18, 'is_orphan': is_orphan,
         })
         for c in sorted(children.get(g.group_cd, []), key=lambda x: x.group_cd):
-            walk(c, depth + 1, is_orphan)
+            if c.group_cd in cycle_cds:
+                continue  # 循環ノードは自分自身のルート行として別途出力する
+            walk(c, depth + 1)
 
     for g in sorted(roots, key=lambda x: x.group_cd):
         walk(g, 0)
     for g in sorted(orphans, key=lambda x: x.group_cd):
         walk(g, 0, is_orphan=True)
-    # 循環参照でどのルートからも到達できなかった残りを回収
+    # 循環参照ノードはそれぞれルート扱いで出力し、循環外の配下は通常通りたどる
     for g in sorted(groups, key=lambda x: x.group_cd):
-        if g.group_cd not in visited:
+        if g.group_cd not in visited and g.group_cd in cycle_cds:
             walk(g, 0, is_orphan=True)
     return nodes
