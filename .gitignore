@@ -49,8 +49,8 @@ htmlcov/
 deploy/windows_sync/config.ini
 deploy/windows_sync/sync_assets.log
 
-# gs2db (旧グループウェア GSESSION) 関連 - 個人情報を含むため
-tmp/*.h2.db
+# 一時ファイル置き場（gsession_src 等の巨大ファイル・個人情報を含むため git 管理外）
+tmp/
 deploy/gs2db_sync/*.jar
 deploy/gs2db_sync/csv/
 deploy/gs2db_sync/work/
