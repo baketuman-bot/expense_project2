@@ -121,3 +121,58 @@ class MasterCreateInitialTests(TestCase):
             + '?evil_param=x')
         self.assertEqual(res.status_code, 200)
         self.assertNotIn('evil_param', res.context['form'].initial)
+
+
+class UserManagerListViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.login_user = User.objects.create_user(
+            username='tester3', man_number='9004',
+            user_name='テスト三郎', password='pass')
+        cls.bumon = M_Bumon.objects.create(bumon_cd='B01', bumon_name='管理部門')
+        cls.post = M_Post.objects.create(post_cd='P01', post_name='課長', post_order=10)
+        cls.group = M_Group.objects.create(
+            group_cd='110', group_name='経理部', upper_group_cd='')
+        cls.active_user = User.objects.create_user(
+            username='u_active', man_number='1001', user_name='有効太郎',
+            password='pass', bumon_cd=cls.bumon, post_cd=cls.post, is_active=True)
+        cls.inactive_user = User.objects.create_user(
+            username='u_inactive', man_number='1002', user_name='無効花子',
+            password='pass', is_active=False)
+        M_BelongTo.objects.create(man_number=cls.active_user, group_cd=cls.group)
+
+    def _get(self, params=''):
+        self.client.force_login(self.login_user)
+        url = reverse('expenses:settings_master_list', args=['m_user'])
+        return self.client.get(url + params)
+
+    def test_m_userの一覧は専用画面でデフォルト有効のみ表示(self):
+        res = self._get()
+        self.assertEqual(res.status_code, 200)
+        self.assertTemplateUsed(res, 'expenses/user_manager_list.html')
+        self.assertContains(res, '有効太郎')
+        self.assertNotContains(res, '無効花子')
+
+    def test_statusフィルタallで無効ユーザーも表示(self):
+        res = self._get('?status=all')
+        self.assertContains(res, '有効太郎')
+        self.assertContains(res, '無効花子')
+
+    def test_所属部署フィルタ(self):
+        res = self._get('?group=110')
+        self.assertContains(res, '有効太郎')
+        # ログインユーザー自身の氏名はナビゲーションバーに常時表示されるため、
+        # HTML全体でのassertNotContainsは使えない。一覧結果（page_obj）を検証する。
+        man_numbers = [u.man_number for u in res.context['page_obj']]
+        self.assertNotIn(self.login_user.man_number, man_numbers)  # 未所属のログインユーザーは出ない
+
+    def test_キーワード検索は社員番号と氏名を対象(self):
+        res = self._get('?q=1001')
+        self.assertContains(res, '有効太郎')
+        res = self._get('?q=太郎')
+        self.assertContains(res, '有効太郎')
+
+    def test_所属部署列と未所属表示(self):
+        res = self._get('?status=all')
+        self.assertContains(res, '経理部')      # active_user の所属部署
+        self.assertContains(res, '（未所属）')  # inactive_user は未所属

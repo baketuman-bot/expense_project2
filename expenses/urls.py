@@ -84,6 +84,7 @@ urlpatterns = [
     path("settings/settlement/debt/entry/", views.debt_entry,      name="debt_entry"),
     path("settings/settlement/debt/csv/",   views.debt_csv,        name="debt_csv"),
     # マスタ設定
+    path("settings/master/m_user/<int:pk>/toggle_active/", views.user_toggle_active, name="user_toggle_active"),
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),
     path("settings/master/<str:master_key>/csv/", views.settings_master_csv, name="settings_master_csv"),

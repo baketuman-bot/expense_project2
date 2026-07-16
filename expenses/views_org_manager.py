@@ -93,3 +93,62 @@ def group_manager_list(request):
         'nodes': nodes,
         'total_count': len(groups),
     })
+
+
+@login_required
+def user_manager_list(request):
+    """ユーザーマスタ: フィルタ検索一覧（GSessionユーザマネージャー相当）"""
+    from urllib.parse import urlencode
+
+    bumon = request.GET.get('bumon', '')
+    post = request.GET.get('post', '')
+    group = request.GET.get('group', '')
+    status = request.GET.get('status', 'active')  # active / inactive / all
+    q = request.GET.get('q', '').strip()
+
+    qs = (M_User.objects
+          .select_related('bumon_cd', 'post_cd')
+          .prefetch_related('belongs__group_cd'))
+    if bumon:
+        qs = qs.filter(bumon_cd=bumon)
+    if post:
+        qs = qs.filter(post_cd=post)
+    if group:
+        qs = qs.filter(belongs__group_cd=group)
+    if status == 'active':
+        qs = qs.filter(is_active=True)
+    elif status == 'inactive':
+        qs = qs.filter(is_active=False)
+    if q:
+        qs = qs.filter(Q(man_number__icontains=q) | Q(user_name__icontains=q))
+
+    qs = qs.order_by('man_number').distinct()
+    total_count = qs.count()
+    paginator = Paginator(qs, 50)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
+    filters = {'bumon': bumon, 'post': post, 'group': group,
+               'status': status, 'q': q}
+    qstring = urlencode({k: v for k, v in filters.items() if v})
+
+    return render(request, 'expenses/user_manager_list.html', {
+        'page_obj': page_obj,
+        'total_count': total_count,
+        'bumon_list': M_Bumon.objects.order_by('bumon_cd'),
+        'post_list': M_Post.objects.order_by('post_order'),
+        'group_list': M_Group.objects.order_by('group_cd'),
+        'filters': filters,
+        'qstring': qstring,
+    })
+
+
+@login_required
+@require_POST
+def user_toggle_active(request, pk):
+    """ユーザーの有効/無効をトグル（AJAX POST）。自分自身は無効化不可。"""
+    user = get_object_or_404(M_User, pk=pk)
+    if user.pk == request.user.pk:
+        return HttpResponseBadRequest('自分自身は無効化できません。')
+    user.is_active = not user.is_active
+    user.save(update_fields=['is_active'])
+    return JsonResponse({'is_active': user.is_active})

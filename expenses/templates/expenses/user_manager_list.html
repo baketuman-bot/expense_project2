@@ -1,0 +1,166 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block content %}
+<div>
+    <!-- ページヘッド -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{% url 'expenses:settings_master_home' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>マスタ一覧
+            </a>
+            <div>
+                <h2 class="mb-0">ユーザーマスタ</h2>
+                <p class="text-muted small mb-0">m_user ・ {{ total_count }} 件</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'expenses:settings_master_csv' 'm_user' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-download me-1"></i>データ出力
+            </a>
+            <a href="{% url 'expenses:settings_master_create' 'm_user' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>新規追加
+            </a>
+        </div>
+    </div>
+
+    <!-- フィルタバー -->
+    <form method="get" class="mb-3">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <select name="bumon" class="form-select form-select-sm" style="width:auto;">
+                <option value="">部門: すべて</option>
+                {% for b in bumon_list %}
+                <option value="{{ b.bumon_cd }}" {% if filters.bumon == b.bumon_cd %}selected{% endif %}>{{ b.bumon_name }}</option>
+                {% endfor %}
+            </select>
+            <select name="post" class="form-select form-select-sm" style="width:auto;">
+                <option value="">役職: すべて</option>
+                {% for p in post_list %}
+                <option value="{{ p.post_cd }}" {% if filters.post == p.post_cd %}selected{% endif %}>{{ p.post_name }}</option>
+                {% endfor %}
+            </select>
+            <select name="group" class="form-select form-select-sm" style="width:auto;">
+                <option value="">所属部署: すべて</option>
+                {% for g in group_list %}
+                <option value="{{ g.group_cd }}" {% if filters.group == g.group_cd %}selected{% endif %}>{{ g.group_name }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" class="form-select form-select-sm" style="width:auto;">
+                <option value="active" {% if filters.status == 'active' %}selected{% endif %}>状態: 有効のみ</option>
+                <option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>状態: 無効のみ</option>
+                <option value="all" {% if filters.status == 'all' %}selected{% endif %}>状態: すべて</option>
+            </select>
+            <div class="input-group input-group-sm" style="width:240px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" name="q" value="{{ filters.q }}" class="form-control"
+                       placeholder="社員番号・氏名" autocomplete="off">
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary" style="white-space:nowrap;">検索</button>
+            <a href="{% url 'expenses:settings_master_list' 'm_user' %}" class="btn btn-sm btn-outline-secondary" style="white-space:nowrap;">クリア</a>
+        </div>
+    </form>
+
+    <!-- テーブル -->
+    <div class="card" style="display:inline-block; min-width:700px; max-width:100%;">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle" style="width:auto; min-width:100%;">
+                <thead class="table-light">
+                    <tr>
+                        <th>社員番号</th>
+                        <th>氏名</th>
+                        <th>部門</th>
+                        <th>役職</th>
+                        <th>所属部署</th>
+                        <th class="text-center">状態</th>
+                        <th style="width:140px" class="text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for u in page_obj %}
+                    <tr>
+                        <td class="small">{{ u.man_number }}</td>
+                        <td class="small">{{ u.user_name }}</td>
+                        <td class="small">{{ u.bumon_cd.bumon_name|default:'' }}</td>
+                        <td class="small">{{ u.post_cd.post_name|default:'' }}</td>
+                        <td class="small">
+                            {% for b in u.belongs.all %}{{ b.group_cd.group_name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-danger">（未所属）</span>{% endfor %}
+                        </td>
+                        <td class="text-center">
+                            {% if u.is_active %}
+                                <span class="badge bg-success">有効</span>
+                            {% else %}
+                                <span class="badge bg-secondary">無効</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <a href="{% url 'expenses:settings_master_edit' 'm_user' u.pk %}"
+                                   class="btn btn-outline-primary btn-sm py-0 px-2" title="編集">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button"
+                                        class="btn btn-sm py-0 px-2 js-toggle-active {% if u.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                                        data-url="{% url 'expenses:user_toggle_active' u.pk %}"
+                                        data-user-name="{{ u.user_name }}"
+                                        data-active="{% if u.is_active %}1{% else %}0{% endif %}">
+                                    {% if u.is_active %}無効化{% else %}有効化{% endif %}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">条件に一致するユーザーがいません</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ページネーション（フィルタ条件を引き継ぐ） -->
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-3">
+        <ul class="pagination pagination-sm justify-content-center mb-0">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if qstring %}&{{ qstring }}{% endif %}">前へ</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">前へ</span></li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if qstring %}&{{ qstring }}{% endif %}">次へ</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">次へ</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<script>
+// 有効化/無効化トグル（Task 5 で追加する user_toggle_active API を呼ぶ）
+document.querySelectorAll('.js-toggle-active').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var action = btn.dataset.active === '1' ? '無効化' : '有効化';
+        if (!confirm(btn.dataset.userName + ' さんを' + action + 'しますか？')) return;
+        fetch(btn.dataset.url, {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        }).then(function (r) {
+            if (!r.ok) {
+                r.text().then(function (t) { alert(t || '更新に失敗しました。'); });
+                return;
+            }
+            location.reload();
+        }).catch(function () { alert('通信に失敗しました。'); });
+    });
+});
+</script>
+{% endblock %}

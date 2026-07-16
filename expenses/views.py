@@ -12,7 +12,11 @@ from .views_assets_register import (
 from .views_assets_low_value import (
     assets_low_value_list, assets_low_value_csv,
 )  # noqa: F401
-from .views_org_manager import group_manager_list
+from .views_org_manager import (
+    group_manager_list,
+    user_manager_list,
+    user_toggle_active,
+)
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
@@ -6298,6 +6302,8 @@ def settings_master_list(request, master_key):
     # m_group / m_user は専用マネージャー画面へ委譲（views_org_manager.py）
     if master_key == 'm_group':
         return group_manager_list(request)
+    if master_key == 'm_user':
+        return user_manager_list(request)
     from django.db.models import CharField, TextField
     cfg = MASTER_REGISTRY.get(master_key)
     if not cfg:
