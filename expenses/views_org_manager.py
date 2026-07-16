@@ -71,3 +71,25 @@ def build_group_tree(groups):
         if g.group_cd not in visited and g.group_cd in cycle_cds:
             walk(g, 0, is_orphan=True)
     return nodes
+
+
+@login_required
+def group_manager_list(request):
+    """部署マスタ: 階層ツリー一覧（GSessionグループマネージャー相当）"""
+    groups = list(M_Group.objects.all())
+    nodes = build_group_tree(groups)
+
+    # 所属ユーザーを部署ごとにまとめてページ表示時に一括埋め込み（AJAXなし）
+    members_map = {}
+    belongs = (M_BelongTo.objects
+               .select_related('man_number')
+               .order_by('man_number__man_number'))
+    for b in belongs:
+        members_map.setdefault(b.group_cd_id, []).append(b.man_number)
+    for node in nodes:
+        node['members'] = members_map.get(node['group'].group_cd, [])
+
+    return render(request, 'expenses/group_manager_list.html', {
+        'nodes': nodes,
+        'total_count': len(groups),
+    })

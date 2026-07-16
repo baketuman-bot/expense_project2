@@ -64,3 +64,35 @@ class BuildGroupTreeTests(TestCase):
         nodes = build_group_tree(list(M_Group.objects.all()))
         result = [(n['group'].group_cd, n['depth'], n['is_orphan']) for n in nodes]
         self.assertEqual(result, [('O', 0, True), ('C', 1, False)])
+
+
+class GroupManagerListViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.login_user = User.objects.create_user(
+            username='tester', man_number='9001',
+            user_name='テスト太郎', password='pass')
+        root = M_Group.objects.create(
+            group_cd='100', group_name='管理本部', upper_group_cd='')
+        child = M_Group.objects.create(
+            group_cd='110', group_name='経理部', upper_group_cd='100')
+        member = User.objects.create_user(
+            username='member1', man_number='9002',
+            user_name='所属花子', password='pass')
+        M_BelongTo.objects.create(man_number=member, group_cd=child)
+
+    def test_m_groupの一覧はツリー画面が返る(self):
+        self.client.force_login(self.login_user)
+        res = self.client.get(
+            reverse('expenses:settings_master_list', args=['m_group']))
+        self.assertEqual(res.status_code, 200)
+        self.assertTemplateUsed(res, 'expenses/group_manager_list.html')
+        self.assertContains(res, '経理部')
+        self.assertContains(res, '所属花子')  # 展開用に埋め込まれる所属ユーザー名
+
+    def test_他のマスタキーは従来の汎用画面のまま(self):
+        self.client.force_login(self.login_user)
+        res = self.client.get(
+            reverse('expenses:settings_master_list', args=['m_bumon']))
+        self.assertEqual(res.status_code, 200)
+        self.assertTemplateUsed(res, 'expenses/settings_master_list.html')

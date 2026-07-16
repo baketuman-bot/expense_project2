@@ -1,0 +1,105 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block content %}
+<div>
+    <!-- ページヘッド -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{% url 'expenses:settings_master_home' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>マスタ一覧
+            </a>
+            <div>
+                <h2 class="mb-0">所属部署マスタ</h2>
+                <p class="text-muted small mb-0">m_group ・ 階層ツリー表示（全 {{ total_count }} 部署）</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'expenses:settings_master_csv' 'm_group' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-download me-1"></i>データ出力
+            </a>
+            <a href="{% url 'expenses:settings_master_create' 'm_group' %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>新規追加
+            </a>
+        </div>
+    </div>
+
+    <!-- ツリーテーブル -->
+    <div class="card" style="min-width:520px; max-width:960px;">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>部署名（コード）</th>
+                        <th style="width:110px" class="text-center">所属人数</th>
+                        <th style="width:250px" class="text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for node in nodes %}
+                    <tr>
+                        <td class="small">
+                            <span style="display:inline-block; width:{{ node.indent }}px;"></span>
+                            {% if node.depth > 0 %}<i class="fas fa-level-up-alt fa-rotate-90 text-muted me-1"></i>{% endif %}
+                            <strong>{{ node.group.group_name }}</strong>
+                            <span class="text-muted">({{ node.group.group_cd }})</span>
+                            {% if node.is_orphan %}
+                                <span class="badge bg-warning text-dark ms-1"
+                                      title="上位部署コード「{{ node.group.upper_group_cd }}」が存在しないか、循環参照になっています">上位不明</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if node.members %}
+                            <button class="btn btn-outline-secondary btn-sm py-0 px-2" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#members-{{ forloop.counter }}"
+                                    title="所属ユーザーを表示">
+                                <i class="fas fa-users me-1"></i>{{ node.members|length }}
+                            </button>
+                            {% else %}
+                            <span class="text-muted small">0</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <a href="{% url 'expenses:settings_master_create' 'm_group' %}?upper_group_cd={{ node.group.group_cd }}"
+                                   class="btn btn-outline-secondary btn-sm py-0 px-2" title="この部署の配下に追加">
+                                    <i class="fas fa-plus me-1"></i>配下に追加
+                                </a>
+                                <a href="{% url 'expenses:settings_master_edit' 'm_group' node.group.group_cd %}"
+                                   class="btn btn-outline-primary btn-sm py-0 px-2" title="編集">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form method="post" action="{% url 'expenses:settings_master_delete' 'm_group' node.group.group_cd %}"
+                                      onsubmit="return confirm('「{{ node.group.group_name }}」を削除しますか？\n所属ユーザーがいる部署は削除できません。')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="削除">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% if node.members %}
+                    <tr class="collapse" id="members-{{ forloop.counter }}">
+                        <td colspan="3" class="small bg-light" style="padding-left:{{ node.indent|add:40 }}px;">
+                            {% for u in node.members %}
+                                <div class="py-1">
+                                    <i class="fas fa-user text-muted me-1"></i>
+                                    {{ u.user_name }}（{{ u.man_number }}）
+                                    {% if not u.is_active %}<span class="badge bg-secondary ms-1">無効</span>{% endif %}
+                                </div>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-4">データがありません</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
