@@ -176,3 +176,40 @@ class UserManagerListViewTests(TestCase):
         res = self._get('?status=all')
         self.assertContains(res, '経理部')      # active_user の所属部署
         self.assertContains(res, '（未所属）')  # inactive_user は未所属
+
+
+class UserToggleActiveTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.login_user = User.objects.create_user(
+            username='tester4', man_number='9005',
+            user_name='テスト四郎', password='pass')
+        cls.target = User.objects.create_user(
+            username='target1', man_number='1003',
+            user_name='対象五郎', password='pass', is_active=True)
+
+    def _url(self, pk):
+        return reverse('expenses:user_toggle_active', args=[pk])
+
+    def test_POSTで有効無効がトグルしJSONが返る(self):
+        self.client.force_login(self.login_user)
+        res = self.client.post(self._url(self.target.pk))
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.json()['is_active'])
+        self.target.refresh_from_db()
+        self.assertFalse(self.target.is_active)
+        # もう一度で戻る
+        res = self.client.post(self._url(self.target.pk))
+        self.assertTrue(res.json()['is_active'])
+
+    def test_自分自身は無効化できない(self):
+        self.client.force_login(self.login_user)
+        res = self.client.post(self._url(self.login_user.pk))
+        self.assertEqual(res.status_code, 400)
+        self.login_user.refresh_from_db()
+        self.assertTrue(self.login_user.is_active)
+
+    def test_GETは405(self):
+        self.client.force_login(self.login_user)
+        res = self.client.get(self._url(self.target.pk))
+        self.assertEqual(res.status_code, 405)
