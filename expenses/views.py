@@ -4879,9 +4879,9 @@ def settlement_menu(request):
         'payroll':     base_qs.filter(settle_kbn='SAL_PRE').count(),
         'auto_debit':  base_qs.filter(settle_kbn='AUT_PRE').count(),
         'journal':     base_qs.filter(settle_kbn__in=journal_kbns).count(),
-        'journal_done': base_qs.filter(settle_kbn__in=journal_kbns, journal_done=True).count(),
+        'journal_done': base_qs.filter(settle_kbn__in=journal_kbns, journal_done=1).count(),
         'debt':        base_qs.filter(settle_kbn__in=debt_kbns).count(),
-        'debt_done':   base_qs.filter(settle_kbn__in=debt_kbns, journal_done=True).count(),
+        'debt_done':   base_qs.filter(settle_kbn__in=debt_kbns, journal_done=1).count(),
     }
     return render(request, 'expenses/settlement_menu.html', {
         'current': 'settlement_menu',
@@ -5208,6 +5208,7 @@ _JOURNAL_MODES = {
         'output_title': '仕訳出力',
         'output_url':   'expenses:settlement_journal',
         'csv_url':      'expenses:journal_csv',
+        'complete_url': 'expenses:journal_complete',
         'from_param':   'settlement_journal',
         'current':      'settlement_journal',
         'filename_prefix': '仕訳',
@@ -5218,6 +5219,7 @@ _JOURNAL_MODES = {
         'output_title': '債務管理出力',
         'output_url':   'expenses:settlement_debt',
         'csv_url':      'expenses:debt_csv',
+        'complete_url': 'expenses:debt_complete',
         'from_param':   'settlement_debt',
         'current':      'settlement_debt',
         'filename_prefix': '債務',
@@ -5316,7 +5318,7 @@ def _journal_output_view(request, mode):
     parents = list(
         T_DocumentContent.objects
         .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
-        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=True)
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=1)
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
 
@@ -5345,11 +5347,12 @@ def _journal_output_view(request, mode):
                 'parent_pk':    c.split_from_id,
             })
     return render(request, 'expenses/settlement_journal.html', {
-        'rows':       rows,
-        'page_title': mode['output_title'],
-        'csv_url':    reverse(mode['csv_url']),
-        'from_param': mode['from_param'],
-        'current':    mode['current'],
+        'rows':         rows,
+        'page_title':   mode['output_title'],
+        'csv_url':      reverse(mode['csv_url']),
+        'complete_url': reverse(mode['complete_url']),
+        'from_param':   mode['from_param'],
+        'current':      mode['current'],
     })
 
 
@@ -5935,7 +5938,7 @@ def journal_save(request, pk):
                 reason = '未入力'
             missing.append({'field': key, 'label': label, 'reason': reason})
 
-    content.journal_done = not missing
+    content.journal_done = 1 if not missing else 0
 
     update_fields = [
         'hojo_cd', 'journal_amont', 'journal_tax',
@@ -6113,7 +6116,7 @@ def _journal_csv_view(request, mode):
 
     qs = (
         T_DocumentContent.all_objects
-        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=True)
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=1)
     )
     if selected_ids:
         # 元行のidだけ指定された場合でも、その分割行を自動的に含める
@@ -6196,8 +6199,12 @@ def _journal_csv_view(request, mode):
             yield writer.writerow(['' if v is None else v for v in row])
 
     response = StreamingHttpResponse(_rows(), content_type='text/csv; charset=utf-8-sig')
+    # 日本語ファイル名は RFC 5987 (filename*=UTF-8''...) で出力する。
+    # f'filename="{fname}"' 直書きだと Django が非Latin-1ヘッダを RFC 2047 で
+    # エンコードし、ブラウザが解釈できず既定名（ダウンロード.csv）になる。
+    from django.utils.http import content_disposition_header
     fname = f"{mode['filename_prefix']}_{timezone.now():%Y%m%d}.csv"
-    response['Content-Disposition'] = f'attachment; filename="{fname}"'
+    response['Content-Disposition'] = content_disposition_header(as_attachment=True, filename=fname)
     return response
 
 
@@ -6211,6 +6218,56 @@ def journal_csv(request):
 def debt_csv(request):
     """債務管理CSV出力: LON_INPRO(口座振込) 対象"""
     return _journal_csv_view(request, _JOURNAL_MODES['debt'])
+
+
+def _journal_complete_view(request, mode):
+    """仕訳/債務管理CSV出力後の精算処理完了 共通:
+    CSV出力と同一の対象選定ロジックで明細を確定し、
+    journal_done=2(仕訳取込済み)・journal_at=実行日時 をセットする。
+    仕訳取込済みになった明細は出力一覧・CSV対象(journal_done=1)から外れる。
+    """
+    journal_kbns = mode['kbns']
+
+    raw_ids = request.POST.get('ids', '')
+    try:
+        selected_ids = [int(x) for x in raw_ids.split(',') if x.strip().isdigit()]
+    except Exception:
+        selected_ids = []
+    if not selected_ids:
+        return JsonResponse({'updated': 0, 'error': '対象明細が指定されていません。'}, status=400)
+
+    qs = (
+        T_DocumentContent.all_objects
+        .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS', journal_done=1)
+        .filter(Q(document_detail_id__in=selected_ids) | Q(split_from_id__in=selected_ids))
+    )
+    contents = list(
+        qs.order_by('document__document_type_id', 'document__document_id', 'date')
+          .only('document_detail_id', 'split_from')
+    )
+    contents = _filter_complete_journal_groups(contents)
+    detail_ids = [c.document_detail_id for c in contents]
+
+    updated = 0
+    if detail_ids:
+        updated = T_DocumentContent.all_objects.filter(
+            document_detail_id__in=detail_ids
+        ).update(journal_done=2, journal_at=timezone.now())
+    return JsonResponse({'updated': updated})
+
+
+@login_required
+@require_POST
+def journal_complete(request):
+    """仕訳CSV出力後の精算処理完了: CAS/SAL/COC_INPRO 対象"""
+    return _journal_complete_view(request, _JOURNAL_MODES['journal'])
+
+
+@login_required
+@require_POST
+def debt_complete(request):
+    """債務管理CSV出力後の精算処理完了: LON_INPRO(口座振込) 対象"""
+    return _journal_complete_view(request, _JOURNAL_MODES['debt'])
 
 
 @login_required

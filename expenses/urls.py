@@ -76,6 +76,7 @@ urlpatterns = [
     path("settings/settlement/journal/",                views.settlement_journal,  name="settlement_journal"),
     path("settings/settlement/journal/entry/",          views.journal_entry,       name="journal_entry"),
     path("settings/settlement/journal/csv/",            views.journal_csv,         name="journal_csv"),
+    path("settings/settlement/journal/complete/",       views.journal_complete,    name="journal_complete"),
     path("settings/settlement/journal/<int:pk>/",       views.journal_detail_api,  name="journal_detail_api"),
     path("settings/settlement/journal/<int:pk>/save/",  views.journal_save,        name="journal_save"),
     path("settings/settlement/journal/<int:pk>/split/",  views.journal_split,        name="journal_split"),
@@ -84,6 +85,7 @@ urlpatterns = [
     path("settings/settlement/debt/",       views.settlement_debt, name="settlement_debt"),
     path("settings/settlement/debt/entry/", views.debt_entry,      name="debt_entry"),
     path("settings/settlement/debt/csv/",   views.debt_csv,        name="debt_csv"),
+    path("settings/settlement/debt/complete/", views.debt_complete, name="debt_complete"),
     # マスタ設定
     path("settings/master/m_user/<int:pk>/toggle_active/", views.user_toggle_active, name="user_toggle_active"),
     path("settings/master/", views.settings_master_home, name="settings_master_home"),

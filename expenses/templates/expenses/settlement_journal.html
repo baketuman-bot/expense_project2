@@ -98,6 +98,9 @@
     </button>
   </div>
 
+  {# 精算処理完了API用 CSRFトークン #}
+  <form id="complete-csrf" class="d-none">{% csrf_token %}</form>
+
   {% else %}
   <div class="card">
     <div class="card-body text-center text-muted py-5">
@@ -111,7 +114,8 @@
 
 <script>
 (function () {
-  var CSV_URL = "{{ csv_url }}";
+  var CSV_URL      = "{{ csv_url }}";
+  var COMPLETE_URL = "{{ complete_url }}";
 
   function getChecks() {
     return document.querySelectorAll('.journal-check');
@@ -140,6 +144,25 @@
     if (!c.dataset.parent) c.addEventListener('change', syncSplitChecks);
   });
 
+  function completeSettlement(ids) {
+    var token = document.querySelector('#complete-csrf [name=csrfmiddlewaretoken]').value;
+    fetch(COMPLETE_URL, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': token,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'ids=' + encodeURIComponent(ids.join(','))
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function () {
+      window.location.reload();
+    }).catch(function () {
+      alert('精算処理完了の更新に失敗しました。');
+    });
+  }
+
   function openCsv() {
     var ids = checkedIds();
     if (ids.length === 0) {
@@ -147,6 +170,12 @@
       return;
     }
     window.location.href = CSV_URL + '?ids=' + ids.join(',');
+    /* ダウンロード開始後に精算処理完了の確認プロンプトを表示 */
+    setTimeout(function () {
+      if (confirm('CSVを出力しました。精算処理を完了しますか？\n（OKすると対象明細が仕訳取込済みになり、この一覧から除外されます）')) {
+        completeSettlement(ids);
+      }
+    }, 800);
   }
 
   ['btn-open-csv', 'btn-open-csv-bottom'].forEach(function (id) {
