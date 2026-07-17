@@ -63,7 +63,7 @@
                             <tr><th>{{ bumon_label|default:"負担部門" }}</th><td colspan="3">{{ expense.bumon_cd.bumon_name|default:"-" }}</td></tr>
                             {% if not is_asset %}<tr><th>通貨</th><td colspan="3">{% if expense.tsuka_cd %}{{ expense.tsuka_cd }}{% if currency_name %}（{{ currency_name }}）{% endif %}{% else %}-{% endif %}</td></tr>{% endif %}
                             <tr><th>備考</th><td colspan="3">{{ expense.memo|default:"-" }}</td></tr>
-                            {% if expense.ringi_no %}<tr><th>稟議No</th><td colspan="3">{{ expense.ringi_no }}</td></tr>{% endif %}
+                            <tr><th>稟議No</th><td>{{ expense.ringi_no|default:"-" }}</td><th>稟議件名</th><td>{{ rng_title|default:"-" }}</td></tr>
                             {% if is_asset %}
                             <tr><th>ステータス</th><td colspan="3"><span class="{{ expense.status_cd.status_cd|status_badge_class }}">{% status_label expense progress %}</span></td></tr>
                             {% else %}

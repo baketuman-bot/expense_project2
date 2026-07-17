@@ -418,6 +418,8 @@ body.journal-page .precision-shell {
           <tr><td>通貨</td><td><span id="ref-tsuka"></span>　<span id="ref-tsuka-name" style="color:var(--sub);"></span></td></tr>
           <tr><td>摘要</td><td id="ref-purpose"></td></tr>
           <tr><td>支払先</td><td id="ref-shiharaisaki"></td></tr>
+          <tr><td>稟議No</td><td id="ref-ringi-no"></td></tr>
+          <tr><td>稟議タイトル</td><td id="ref-rng-title"></td></tr>
         </table>
       </div>
 
@@ -491,7 +493,7 @@ body.journal-page .precision-shell {
           <span style="font-size:10px;color:#9ca3af;">外貨のみ</span>
         </div>
         <div class="jnl-input-row">
-          <span class="jnl-lbl">借方適用</span>
+          <span class="jnl-lbl">借方摘要</span>
           <input type="text" class="jnl-ctrl" id="inp-jnl-desc-deb" maxlength="50" placeholder="" style="flex:1;">
           <span id="inp-jnl-desc-deb-warn" class="jnl-badge jnl-badge-warn" style="display:none;white-space:nowrap;">40文字以上</span>
         </div>
@@ -674,6 +676,8 @@ body.journal-page .precision-shell {
     setText('ref-tsuka-name',        ref.tsuka_name);
     setText('ref-purpose',           ref.purpose);
     setText('ref-shiharaisaki',      ref.shiharaisaki);
+    setText('ref-ringi-no',          ref.ringi_no);
+    setText('ref-rng-title',         ref.rng_title);
 
     /* ヘッダラベル */
     document.getElementById('jnl-form-label').textContent = '— 明細 #' + pk;

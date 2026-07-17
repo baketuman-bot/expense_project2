@@ -191,6 +191,7 @@ SELECT
   dc.journal_tax_rate,
   dc.journal_fx_rate,
   dc.journal_done,
+  ijnl.content         AS journal_done_name,
   dc.journal_at,
   dc.journal_amont,
   dc.journal_tax,
@@ -217,6 +218,8 @@ LEFT JOIN m_account_sub    asub ON asub.account_cd     = dc.account_id
                                 AND asub.sub_account_cd = dc.hojo_cd
 LEFT JOIN m_item           itax ON itax.key             = dc.journal_tax_kbn
                                 AND itax.data_kbn        = 'TAX_C'
+LEFT JOIN m_item           ijnl ON ijnl.key             = CAST(dc.journal_done AS CHAR)
+                                AND ijnl.data_kbn        = 'JNL'
 LEFT JOIN m_account        aa   ON aa.account_cd        = dc.account_cd_cre
 LEFT JOIN m_account_sub    asub_cre ON asub_cre.account_cd     = dc.account_cd_cre
                                     AND asub_cre.sub_account_cd = dc.account_sub_cd_cre
@@ -310,6 +313,7 @@ SELECT
   d.document_id,
   d.title,
   d.ringi_no,
+  r.rng_title,
   d.document_type_id,
   dt.document_type_name,
   g.menu_group_name,
@@ -331,6 +335,7 @@ LEFT JOIN m_document_group g  ON g.menu_group        = dt.menu_group
 LEFT JOIN m_user           u  ON u.man_number        = d.man_number
 LEFT JOIN m_bumon          b  ON b.bumon_cd          = d.bumon_cd
 LEFT JOIN m_status         s  ON s.status_cd         = d.status_cd_id
+LEFT JOIN gs_ringi         r  ON r.rng_id            = d.ringi_no
 """
 
 _V_FEEDBACK = """

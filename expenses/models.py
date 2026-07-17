@@ -656,15 +656,16 @@ class DocumentContentManager(models.Manager):
 
 # ドキュメント明細
 class T_DocumentContent(models.Model):
-    document_detail_id = models.AutoField("明細ID", primary_key=True, db_column='document_detail_id')
+    document_detail_id = models.AutoField("明細ID", primary_key=True, db_column='document_detail_id', db_comment='明細ID')
     document = models.ForeignKey(
         'T_Document',
         verbose_name="文書",
         on_delete=models.CASCADE,
         db_column='document_id',
-        related_name='contents'
+        related_name='contents',
+        db_comment='文書ID'
     )
-    date = models.DateField("日付", null=True, blank=True)
+    date = models.DateField("日付", null=True, blank=True, db_comment='日付')
     account = models.ForeignKey(
         M_Account,
         verbose_name="勘定科目",
@@ -672,43 +673,44 @@ class T_DocumentContent(models.Model):
         db_column='account_id',
         null=True,
         blank=True,
-        related_name='document_contents'
+        related_name='document_contents',
+        db_comment='勘定科目ID'
     )
-    tekikaku_cd = models.CharField("登録番号", max_length=15, null=True, blank=True)
-    shiharaisaki = models.CharField("支払先", max_length=255, null=True, blank=True)
-    purpose = models.CharField("目的", max_length=255, null=True, blank=True)
-    amount = models.DecimalField("金額", max_digits=10, decimal_places=2, null=True, blank=True)
-    content = models.JSONField("内容JSON", null=True, blank=True)
-    corpo_card = models.IntegerField("コーポレートカード支払い", null=True, blank=True)
-    corpo_card_no = models.CharField("カード番号", max_length=10, null=True, blank=True)
-    settle_kbn = models.CharField("精算区分", max_length=10, null=True, blank=True, db_column='settle_kbn')
-    consumption_tax = models.DecimalField("消費税額", max_digits=10, decimal_places=2, null=True, blank=True)
-    consumption_kbn = models.SmallIntegerField("内外税区分", null=True, blank=True)
+    tekikaku_cd = models.CharField("登録番号", max_length=15, null=True, blank=True, db_comment='登録番号（インボイス）')
+    shiharaisaki = models.CharField("支払先", max_length=255, null=True, blank=True, db_comment='支払先')
+    purpose = models.CharField("目的", max_length=255, null=True, blank=True, db_comment='目的')
+    amount = models.DecimalField("金額", max_digits=10, decimal_places=2, null=True, blank=True, db_comment='金額')
+    content = models.JSONField("内容JSON", null=True, blank=True, db_comment='内容JSON')
+    corpo_card = models.IntegerField("コーポレートカード支払い", null=True, blank=True, db_comment='コーポレートカード支払い')
+    corpo_card_no = models.CharField("カード番号", max_length=10, null=True, blank=True, db_comment='カード番号')
+    settle_kbn = models.CharField("精算区分", max_length=10, null=True, blank=True, db_column='settle_kbn', db_comment='精算区分')
+    consumption_tax = models.DecimalField("消費税額", max_digits=10, decimal_places=2, null=True, blank=True, db_comment='消費税額')
+    consumption_kbn = models.SmallIntegerField("内外税区分", null=True, blank=True, db_comment='内外税区分')
     # 仕訳作成フィールド
-    hojo_cd        = models.CharField("補助科目コード", max_length=10,  null=True, blank=True)
-    journal_tax_kbn  = models.CharField("仕訳税区分",   max_length=10,  null=True, blank=True)
-    journal_tax_rate = models.CharField("仕訳税率",      max_length=10,  null=True, blank=True)
-    journal_fx_rate  = models.CharField("換算レート",    max_length=20,  null=True, blank=True)
-    journal_done     = models.SmallIntegerField("仕訳入力済", default=0)  # 0=未入力, 1=入力済, 2=仕訳取込済み
-    journal_at       = models.DateTimeField("仕訳処理日時", null=True, blank=True)
+    hojo_cd        = models.CharField("補助科目コード", max_length=10,  null=True, blank=True, db_comment='補助科目コード')
+    journal_tax_kbn  = models.CharField("仕訳税区分",   max_length=10,  null=True, blank=True, db_comment='仕訳税区分')
+    journal_tax_rate = models.CharField("仕訳税率",      max_length=10,  null=True, blank=True, db_comment='仕訳税率')
+    journal_fx_rate  = models.CharField("換算レート",    max_length=20,  null=True, blank=True, db_comment='換算レート')
+    journal_done     = models.SmallIntegerField("仕訳入力ステータス", default=0, db_comment='仕訳入力ステータス（0=未入力, 1=入力済, 2=仕訳取込済み）')
+    journal_at       = models.DateTimeField("仕訳処理日時", null=True, blank=True, db_comment='仕訳処理日時')
     # 仕訳借方フィールド
-    journal_amont           = models.DecimalField("借方税抜金額",    max_digits=10, decimal_places=2, null=True, blank=True)
-    journal_tax             = models.DecimalField("借方税額",        max_digits=10, decimal_places=2, null=True, blank=True)
-    journal_amont_fx        = models.DecimalField("借方税抜外貨",    max_digits=10, decimal_places=2, null=True, blank=True)
-    journal_tax_fx          = models.DecimalField("借方税額外貨",    max_digits=10, decimal_places=2, null=True, blank=True)
-    journal_discription_deb = models.CharField("借方適用",          max_length=50,  null=True, blank=True)
+    journal_amont           = models.DecimalField("借方税抜金額",    max_digits=10, decimal_places=2, null=True, blank=True, db_comment='借方税抜金額')
+    journal_tax             = models.DecimalField("借方税額",        max_digits=10, decimal_places=2, null=True, blank=True, db_comment='借方税額')
+    journal_amont_fx        = models.DecimalField("借方税抜外貨",    max_digits=10, decimal_places=2, null=True, blank=True, db_comment='借方税抜外貨')
+    journal_tax_fx          = models.DecimalField("借方税額外貨",    max_digits=10, decimal_places=2, null=True, blank=True, db_comment='借方税額外貨')
+    journal_discription_deb = models.CharField("借方摘要",          max_length=50,  null=True, blank=True, db_comment='借方摘要')
     # 仕訳貸方フィールド
-    account_cd_cre          = models.CharField("貸方科目コード",     max_length=20,  null=True, blank=True)
-    account_sub_cd_cre      = models.CharField("貸方補助科目コード", max_length=10,  null=True, blank=True)
-    journal_amount_cre      = models.DecimalField("貸方税抜金額",    max_digits=10, decimal_places=2, null=True, blank=True)
-    journal_amont_fx_cre    = models.DecimalField("貸方税抜外貨",    max_digits=10, decimal_places=2, null=True, blank=True)
-    journal_tori_cd_cre     = models.CharField("貸方取引先コード",   max_length=10,  null=True, blank=True)
-    journal_discription_cre = models.CharField("貸方摘要",          max_length=50,  null=True, blank=True)
+    account_cd_cre          = models.CharField("貸方科目コード",     max_length=20,  null=True, blank=True, db_comment='貸方科目コード')
+    account_sub_cd_cre      = models.CharField("貸方補助科目コード", max_length=10,  null=True, blank=True, db_comment='貸方補助科目コード')
+    journal_amount_cre      = models.DecimalField("貸方税抜金額",    max_digits=10, decimal_places=2, null=True, blank=True, db_comment='貸方税抜金額')
+    journal_amont_fx_cre    = models.DecimalField("貸方税抜外貨",    max_digits=10, decimal_places=2, null=True, blank=True, db_comment='貸方税抜外貨')
+    journal_tori_cd_cre     = models.CharField("貸方取引先コード",   max_length=10,  null=True, blank=True, db_comment='貸方取引先コード')
+    journal_discription_cre = models.CharField("貸方摘要",          max_length=50,  null=True, blank=True, db_comment='貸方摘要')
 
     # 債務管理データ作成用フィールド
-    supplier_cd = models.CharField("仕入先コード", max_length=10, null=True, blank=True)
-    item_cd     = models.CharField("品目コード",   max_length=30, null=True, blank=True)
-    qty         = models.IntegerField("数量", null=True, blank=True, db_column='Qty')
+    supplier_cd = models.CharField("仕入先コード", max_length=10, null=True, blank=True, db_comment='仕入先コード')
+    item_cd     = models.CharField("品目コード",   max_length=30, null=True, blank=True, db_comment='品目コード')
+    qty         = models.IntegerField("数量", null=True, blank=True, db_column='Qty', db_comment='数量')
 
     # 仕訳分割: 元明細への自己参照（NULL=通常明細、非NULL=仕訳入力で作られた分割行）
     split_from = models.ForeignKey(

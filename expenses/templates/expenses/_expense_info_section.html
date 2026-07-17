@@ -79,9 +79,15 @@
                 <div class="form-group">
                     <label for="ringi_no">稟議No</label>
                     <input type="text" id="ringi_no" name="ringi_no" class="form-control" maxlength="20" value="{{ request.POST.ringi_no|default:copy_from_ringi_no|default:init_ringi_no }}" placeholder="例: W20251203">
+                    <div id="ringi-title-display" class="form-text small mt-1"></div>
                 </div>
             </div>
         </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            window.initRingiTitleLookup('ringi_no', 'ringi-title-display', '{% url "expenses:ringi_title_api" %}');
+        });
+        </script>
         {% endif %}
     </div>
 </div>

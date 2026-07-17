@@ -25,6 +25,7 @@ from .models import (
     M_AccountSub,
     T_Settle, T_DocumentEditHistory,
     M_ExchangeRate,
+    GS_Ringi,
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -184,6 +185,35 @@ def _asset_detail_context(expense):
     }
 
 
+def _get_rng_title(ringi_no):
+    """稟議No（gs_ringi.rng_id）から稟議件名（rng_title）を取得する。未登録なら空文字。"""
+    if not ringi_no:
+        return ''
+    try:
+        return (
+            GS_Ringi.objects.filter(rng_id=ringi_no)
+            .values_list('rng_title', flat=True).first()
+        ) or ''
+    except Exception:
+        return ''
+
+
+@login_required
+def ringi_title_api(request):
+    """AJAX: 稟議No（gs_ringi.rng_id）から稟議件名を返す。
+
+    レスポンス: {'found': bool, 'title': str}
+    found=False は gs_ringi に該当稟議が存在しない（画面側で「該当稟議未登録」表示）。
+    """
+    ringi_no = request.GET.get('ringi_no', '').strip()
+    if not ringi_no:
+        return JsonResponse({'found': False, 'title': ''})
+    row = GS_Ringi.objects.filter(rng_id=ringi_no).values_list('rng_title').first()
+    if row is None:
+        return JsonResponse({'found': False, 'title': ''})
+    return JsonResponse({'found': True, 'title': row[0] or ''})
+
+
 def _build_expense_detail_context(expense):
     """申請詳細画面・印刷帳票で共通のコンテキストを構築する。
 
@@ -250,6 +280,7 @@ def _build_expense_detail_context(expense):
         "travel_route_subtotal": travel_route_subtotal,
         "tax_label_map": _item_label_map('TAX'),
         "coc_label_map": _item_label_map('COC'),
+        "rng_title": _get_rng_title(expense.ringi_no),
         **_asset_detail_context(expense),
     }
 
@@ -3643,6 +3674,7 @@ def approval_detail(request, pk):
         "edit_histories": edit_histories,
         "tax_label_map": _item_label_map('TAX'),
         "coc_label_map": _item_label_map('COC'),
+        "rng_title": _get_rng_title(expense.ringi_no),
         **_asset_detail_context(expense),
     })
 
@@ -4294,6 +4326,7 @@ def settings_approval_detail(request, pk):
         'dynamic_fields_display': dynamic_fields_display,
         'progress': progress,
         'return_qs': request.GET.get('return_qs', ''),
+        'rng_title': _get_rng_title(expense.ringi_no),
         'is_travel': is_travel,
         'is_asset': _is_asset_doc_type(expense.document_type),
         'travel_route_details': travel_route_details,
@@ -5562,6 +5595,14 @@ def journal_detail_api(request, pk):
     # tekikaku_cd に 'T' を付与
     tekikaku_display = ('T' + str(content.tekikaku_cd)) if content.tekikaku_cd else ''
 
+    # 稟議タイトル（gs_ringi.rng_id = 申請の稟議No で参照）
+    rng_title = ''
+    if doc.ringi_no:
+        rng_title = (
+            GS_Ringi.objects.filter(rng_id=doc.ringi_no)
+            .values_list('rng_title', flat=True).first()
+        ) or ''
+
     # デフォルト税区分: consumption_kbn が 0 or 1 のみ課税対象
     if content.consumption_kbn in (0, 1):
         bumon_tax_kbn = doc.bumon_cd.consumption_tax_kbn if doc.bumon_cd else None
@@ -5767,6 +5808,8 @@ def journal_detail_api(request, pk):
             'consumption_kbn':    str(content.consumption_kbn) if content.consumption_kbn is not None else '',
             'consumption_kbn_name': c_kbn_name,
             'tekikaku_cd':        tekikaku_display,
+            'ringi_no':           doc.ringi_no or '',
+            'rng_title':          rng_title,
         },
         'entry': {
             'hojo_cd':               content.hojo_cd or '',
@@ -5925,7 +5968,7 @@ def journal_save(request, pk):
         ('consumption_tax',         '消費税（借方）',   content.journal_tax is not None),
         ('journal_tax_kbn',         '税区分',           bool(content.journal_tax_kbn)),
         ('journal_tax_rate',        '税率',             bool(content.journal_tax_rate)),
-        ('journal_discription_deb', '借方適用',         bool(content.journal_discription_deb)),
+        ('journal_discription_deb', '借方摘要',         bool(content.journal_discription_deb)),
     ]
     if not is_split:
         required_checks += [

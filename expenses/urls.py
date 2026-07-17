@@ -30,6 +30,7 @@ urlpatterns = [
     path("api/check_mobile_uploads/", views.check_mobile_uploads, name="check_mobile_uploads"),
     # API: 固定資産番号オートフィル
     path("api/asset_lookup/", views.api_asset_lookup, name="api_asset_lookup"),
+    path("api/ringi_title/", views.ringi_title_api, name="ringi_title_api"),
     # 固定資産
     path("assets/", views.asset_home, name="asset_home"),
     path("assets/list/", views.asset_list, name="asset_list"),

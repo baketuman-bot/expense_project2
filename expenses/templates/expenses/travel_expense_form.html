@@ -156,7 +156,13 @@
                             <input type="text" id="ringi_no" name="ringi_no" class="form-control" maxlength="20"
                                    value="{% if is_edit_mode and expense %}{{ expense.ringi_no|default:'' }}{% else %}{{ request.POST.ringi_no }}{% endif %}"
                                    placeholder="例: W20251203">
+                            <div id="ringi-title-display" class="form-text small mt-1"></div>
                         </div>
+                        <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            window.initRingiTitleLookup('ringi_no', 'ringi-title-display', '{% url "expenses:ringi_title_api" %}');
+                        });
+                        </script>
                     </div>
                 </div>
             </div>

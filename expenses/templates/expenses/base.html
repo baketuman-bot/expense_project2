@@ -392,6 +392,39 @@
     })();
     </script>
     <script>
+// ======= 稟議No → 稟議件名 表示（申請フォーム共通） =======
+(function(){
+  window.initRingiTitleLookup = function(inputId, displayId, apiUrl) {
+    var inp  = document.getElementById(inputId);
+    var disp = document.getElementById(displayId);
+    if (!inp || !disp) return;
+    var timer = null;
+    function lookup() {
+      var v = inp.value.trim();
+      if (!v) { disp.textContent = ''; return; }
+      fetch(apiUrl + '?ringi_no=' + encodeURIComponent(v))
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (inp.value.trim() !== v) return;  // 入力が変わっていたら破棄
+          if (d.found) {
+            disp.textContent = d.title;
+            disp.className = 'form-text small mt-1 text-muted';
+          } else {
+            disp.textContent = '該当稟議未登録';
+            disp.className = 'form-text small mt-1 text-danger';
+          }
+        })
+        .catch(function() {});
+    }
+    inp.addEventListener('input', function() {
+      clearTimeout(timer);
+      timer = setTimeout(lookup, 400);
+    });
+    lookup();  // 編集・コピー時の初期表示
+  };
+})();
+    </script>
+    <script>
 // ======= フォーム送信中の二重送信防止 =======
 (function(){
   window.bindFormSubmitLock = function(form) {
