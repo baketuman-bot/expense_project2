@@ -5210,7 +5210,7 @@ _JOURNAL_MODES = {
         'csv_url':      'expenses:journal_csv',
         'from_param':   'settlement_journal',
         'current':      'settlement_journal',
-        'filename':     '仕訳取込.csv',
+        'filename_prefix': '仕訳',
     },
     'debt': {
         'kbns':         ['LON_INPRO'],
@@ -5220,7 +5220,7 @@ _JOURNAL_MODES = {
         'csv_url':      'expenses:debt_csv',
         'from_param':   'settlement_debt',
         'current':      'settlement_debt',
-        'filename':     '債務管理取込.csv',
+        'filename_prefix': '債務',
         'is_debt':      True,
     },
 }
@@ -6079,6 +6079,24 @@ def _aggregate_journal_credit_rows(rows):
     return out
 
 
+def _passthrough_journal_rows(rows):
+    """債務管理CSV用: 貸方を集約せず、借方・貸方を明細行のまま出力する。
+
+    - 伝票区切: _aggregate_journal_credit_rows と同様、伝票(settled_at, document_id)が
+      変わる先頭行にのみ '*' を出力（rows は settled_at, document_id 昇順が前提）
+    - 末尾のsettled_at列（集約キー専用、CSV非表示）は出力直前に取り除く
+    """
+    from itertools import groupby
+
+    out = []
+    for _key, grp in groupby(rows, key=lambda r: (r[_JNL_IDX_SETTLED_AT], r[_JNL_IDX_DOC_ID])):
+        for i, r in enumerate(grp):
+            row = list(r)
+            row[_JNL_IDX_DENPYO] = '*' if i == 0 else ''
+            out.append(row[:_JNL_IDX_SETTLED_AT])
+    return out
+
+
 def _journal_csv_view(request, mode):
     """仕訳/債務管理CSV出力 共通: v_journaldocuments を参照してダウンロード"""
     from django.db import connection
@@ -6149,7 +6167,11 @@ def _journal_csv_view(request, mode):
             cur.execute(sql, detail_ids)
             raw_rows = cur.fetchall()
 
-    agg_rows = _aggregate_journal_credit_rows(raw_rows) if raw_rows else []
+    # 債務管理は貸方を集約せず明細行のまま、仕訳は伝票単位で貸方を集約
+    if mode.get('is_debt'):
+        agg_rows = _passthrough_journal_rows(raw_rows) if raw_rows else []
+    else:
+        agg_rows = _aggregate_journal_credit_rows(raw_rows) if raw_rows else []
 
     class _Echo:
         def write(self, value):
@@ -6174,7 +6196,8 @@ def _journal_csv_view(request, mode):
             yield writer.writerow(['' if v is None else v for v in row])
 
     response = StreamingHttpResponse(_rows(), content_type='text/csv; charset=utf-8-sig')
-    response['Content-Disposition'] = 'attachment; filename="%s"' % mode['filename']
+    fname = f"{mode['filename_prefix']}_{timezone.now():%Y%m%d}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{fname}"'
     return response
 
 

@@ -128,5 +128,5 @@ class JournalCsvSettledAtGroupingTest(TestCase):
         text = b''.join(res.streaming_content).decode('utf-8-sig')
         rows = list(_csv.reader(StringIO(text)))
         header_len = len(rows[0])
-        self.assertEqual(header_len, 38)
+        self.assertEqual(header_len, 43)
         self.assertEqual(len(rows[1]), header_len)
