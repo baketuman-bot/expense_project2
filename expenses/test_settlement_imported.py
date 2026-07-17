@@ -69,9 +69,10 @@ class SettlementImportedTest(TestCase):
         self.assertContains(res, f'jnl-item-{done1.pk}')
         self.assertNotContains(res, f'jnl-item-{done2.pk}')
 
-        res = self.client.get('/settings/settlement/debt/entry/')
-        # LON側は journal_done=2 のみ → 対象なしで精算メニューへリダイレクト
-        self.assertEqual(res.status_code, 302)
+        res = self.client.get('/settings/settlement/debt/entry/', follow=True)
+        # LON側は journal_done=2 のみ → 対象なしで精算メニューへリダイレクトし、メッセージを表示
+        self.assertEqual(res.redirect_chain[-1][0], '/settings/settlement/')
+        self.assertContains(res, '債務管理データ作成の対象データはありません。')
         lon1 = self._content(doc, settle_kbn='LON_INPRO', journal_done=1, journal_at=None)
         res = self.client.get('/settings/settlement/debt/entry/')
         self.assertContains(res, f'jnl-item-{lon1.pk}')

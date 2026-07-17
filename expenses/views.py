@@ -5408,6 +5408,8 @@ def _journal_entry_view(request, mode):
         contents.extend(splits_map.get(p.document_detail_id, []))
 
     if not contents:
+        from django.contrib import messages as dj_messages
+        dj_messages.info(request, f"{mode['entry_title']}の対象データはありません。")
         return redirect('expenses:settlement_menu')
 
     total = len(contents)
