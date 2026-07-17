@@ -82,7 +82,8 @@ DATABASES = {
         'PASSWORD': 'Django3592',
 #        'HOST': '192.168.0.128',
 #        'HOST': '172.16.100.149',
-        'HOST': '172.16.100.150',
+#        'HOST': '172.16.100.150',
+        'HOST': '172.16.100.152',
         'PORT': '3306',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",

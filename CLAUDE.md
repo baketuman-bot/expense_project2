@@ -14,7 +14,7 @@
 ## Tech Stack
 
 - **Backend:** Django 5.2.6 / Python 3.12+
-- **Database:** MySQL 8.0 (社内LAN・172.16.100.150、本番・開発共通)
+- **Database:** MySQL 8.0 (社内LAN・172.16.100.152、本番・開発共通。2026-07-17に172.16.100.150から移行)
 - **Server:** Gunicorn + Uvicorn (ASGI)
 - **Frontend:** Django Templates + Bootstrap CSS + JavaScript
 - **Storage:** Google Cloud Storage (領収書), ローカル `/media/` (開発時)
