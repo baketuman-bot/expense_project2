@@ -17,7 +17,7 @@
 - **Database:** MySQL 8.0 (社内LAN・172.16.100.152、本番・開発共通。2026-07-17に172.16.100.150から移行)
 - **Server:** Gunicorn + Uvicorn (ASGI)
 - **Frontend:** Django Templates + Bootstrap CSS + JavaScript
-- **Storage:** Google Cloud Storage (領収書), ローカル `/media/` (開発時)
+- **Storage:** `MEDIA_ROOT` はローカル `/media/`（WSL側）。保存直後に Windows 側 robocopy 経由で経理ファイルサーバー共有 `\\172.16.100.15\keirifile\DATA\expense_project2\media` へ自動ミラーされる（`expenses/media_sync.py`、詳細は「申請画像(media)の経理ファイルサーバー同期」セクション参照）。Google Cloud Storage はモバイルQRアップロードの一時中継のみ（`cloud_receipts.py`、最終的にDjangoがダウンロードしてローカルmediaへ保存）
 - **Deploy:** `build.sh`（社内サーバーへの手動/スクリプトデプロイ）
 
 ## Project Structure
@@ -526,6 +526,28 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 - `feedback_detail` / `feedback_edit` は `is_admin = bool(request.user.is_superuser)` をテンプレートに渡す
 - テンプレート内で `{% if is_admin %}` を使って回答・状況フォームを出し分ける
 - **注意**: `is_admin` を渡し忘れると Django テンプレートが未定義変数を空文字（falsy）として評価し、ボタンが表示されなくなる
+
+## 申請画像(media)の経理ファイルサーバー同期
+
+申請で受け取った領収書等の画像（`T_DocumentAttachment.file` / `thumbnail`）は、Django からは従来通りローカル `MEDIA_ROOT`（`BASE_DIR/media`、WSL側）に保存される。これを経理ファイルサーバー共有 `\\172.16.100.15\keirifile\DATA\expense_project2\media` へも自動でミラーする。
+
+### 経緯（WSL→CIFS直接マウントを断念した理由）
+
+当初はこの共有を CIFS で `/mnt/keirifile` にマウントし、`MEDIA_ROOT` をそこに直接切り替える方式を試みたが、**WSL2からのSMB通信（445/139番ポート）がネットワーク経路上で遮断されており、マウント不可**だった。切り分けの結果:
+- Windows本体（同じPC）からは同じ共有に正常アクセス可能
+- WSL側は mirrored networking mode（`.wslconfig` の `networkingMode=mirrored`、Windowsホストと同一IPを共有）に変更しても不可
+- Windows Defender Firewall を全プロファイル停止しても不可（クライアント側Firewallが原因ではないことを確認）
+
+以上より、WSL2のネットワークスタック（Hyper-V仮想スイッチ経由）からのSMB通信のみを狙い撃ちで遮断する、法人向けアンチウイルス/EDR等のセキュリティ製品が原因である可能性が高いと判断し、CIFSマウント方式は断念した。
+
+### 採用した方式（robocopy + WSL interop）
+
+WSLからは直接SMBが使えないが、**Windows自身のネイティブSMB経路は正常に動く**ことを利用し、WindowsのrobocopyをWSLのinterop機能（`cmd.exe` 呼び出し）経由で起動する方式を採用。
+
+- `expenses/media_sync.py`: `sync_file_to_share(relative_path)` が対象ファイル1件分の robocopy を `/mnt/c/Windows/System32/cmd.exe /c robocopy ...` として `subprocess.Popen`（非同期・fire-and-forget）で起動する
+- `T_DocumentAttachment.save()`（`models.py`）が保存直後に `file` / `thumbnail` それぞれに対して `sync_file_to_share()` を呼ぶ
+- ベストエフォート処理: 同期起動に失敗してもログに記録するのみで、申請保存自体は失敗させない（アプリの正データはあくまでローカル `MEDIA_ROOT`）
+- `deploy/windows_sync/sync_media.bat`: 既存の過去ファイルの初回一括移行、および同期に失敗した分の手動リカバリ用（通常運用では実行不要）
 
 ## 固定資産台帳 (T_Assets)
 

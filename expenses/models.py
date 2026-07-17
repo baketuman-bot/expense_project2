@@ -848,6 +848,17 @@ class T_DocumentAttachment(models.Model):
             except Exception:
                 pass
         super().save(*args, **kwargs)
+        self._sync_to_share()
+
+    def _sync_to_share(self):
+        from .media_sync import sync_file_to_share
+        try:
+            if self.file:
+                sync_file_to_share(self.file.name)
+            if self.thumbnail:
+                sync_file_to_share(self.thumbnail.name)
+        except Exception:
+            pass
 
 # 組織関係ビュー
 class V_Group(models.Model):

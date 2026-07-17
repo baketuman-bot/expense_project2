@@ -14,6 +14,12 @@ if 'DEBUG' not in os.environ:
 MEDIA_URL = "/media/"
 # ローカルの実ファイル配置に合わせて media をルートにする
 # 既存ファイルが BASE_DIR/media 配下にあるため、ここを参照先に設定
+# 申請画像は Django からはここに保存され、経理ファイルサーバー共有
+# (\\172.16.100.15\keirifile\DATA\expense_project2\media) へは
+# T_DocumentAttachment.save() が保存直後にWindows側のrobocopyを
+# 呼び出して自動反映する（expenses/media_sync.py、ベストエフォート）。
+# 過去ファイルの初回移行・手動再同期用に deploy/windows_sync/sync_media.bat もある。
+# （WSLからのCIFS直接マウントはSMB通信がブロックされ利用不可だったため、この方式を採用）
 MEDIA_ROOT = BASE_DIR / "media"
 
 ALLOWED_HOSTS = [
