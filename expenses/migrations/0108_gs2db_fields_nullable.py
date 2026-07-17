@@ -180,26 +180,26 @@ class Migration(migrations.Migration):
             name='usr_lgid',
             field=models.CharField(blank=True, max_length=256, null=True, verbose_name='ログインID'),
         ),
-        # GS_* テーブルは新規作成時にDjangoが utf8mb4_unicode_ci 以外のコレーションで
+        # GS_* テーブルは新規作成時にDjangoが utf8mb4_0900_ai_ci 以外のコレーションで
         # 作成する場合があるため、他の既存テーブルと統一する（CLAUDE.md「MySQLコレーション注意」参照）。
         migrations.RunSQL(
-            sql="ALTER TABLE GS_RINGI CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+            sql="ALTER TABLE GS_RINGI CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            sql="ALTER TABLE GS_USR CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+            sql="ALTER TABLE GS_USR CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            sql="ALTER TABLE GS_GROUP CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+            sql="ALTER TABLE GS_GROUP CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            sql="ALTER TABLE GS_BELONG CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+            sql="ALTER TABLE GS_BELONG CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            sql="ALTER TABLE GS_POSITION CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+            sql="ALTER TABLE GS_POSITION CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
             reverse_sql=migrations.RunSQL.noop,
         ),
     ]

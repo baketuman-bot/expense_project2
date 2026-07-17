@@ -10,7 +10,7 @@ def fix_collation_and_recreate_views(apps, schema_editor):
         try:
             cur.execute(
                 "ALTER TABLE m_document_group "
-                "CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                "CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
             )
         except Exception as e:
             warnings.warn(f"[0052] m_document_group コレーション修正スキップ: {e}")

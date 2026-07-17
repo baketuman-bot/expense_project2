@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
         migrations.RunSQL(
             sql=[
                 "SET FOREIGN_KEY_CHECKS=0;",
-                "ALTER TABLE t_assets_sync_queue CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+                "ALTER TABLE t_assets_sync_queue CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
                 "SET FOREIGN_KEY_CHECKS=1;",
             ],
             reverse_sql=migrations.RunSQL.noop,

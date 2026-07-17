@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            sql="ALTER TABLE t_feedback CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;",
+            sql="ALTER TABLE t_feedback CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
             reverse_sql=migrations.RunSQL.noop,
         ),
     ]

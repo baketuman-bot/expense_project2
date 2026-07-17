@@ -95,7 +95,12 @@ DATABASES = {
         # 誤ってテストを実行すると本番DBが削除される。
         # テストDB名を明示しない場合、Django は 'test_expense_db' を自動使用する。
         # 'TEST': {'NAME': 'expense_db'},  # ← 絶対に設定しないこと
-        'TEST': {'NAME': _test_db_name},
+        # コレーションは utf8mb4_0900_ai_ci で統一（本番DBの既定と同一ルール）
+        'TEST': {
+            'NAME': _test_db_name,
+            'CHARSET': 'utf8mb4',
+            'COLLATION': 'utf8mb4_0900_ai_ci',
+        },
     }
 }
 

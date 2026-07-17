@@ -256,7 +256,7 @@ class T_Feedback(models.Model):
     status_cd    = CharField(max_length=2, choices=STATUS_CHOICES, default='00')
     created_at   = DateField(auto_now_add=True)
     updated_at   = DateField(auto_now=True)
-    # db_table = 't_feedback' (utf8mb4_unicode_ci で統一済み)
+    # db_table = 't_feedback' (utf8mb4_0900_ai_ci で統一済み)
 ```
 
 **T_Assets モデル:**
@@ -284,8 +284,10 @@ settled_at = DateTimeField("精算日時", null=True, blank=True)
 - `settlement_toggle` ビュー（AJAX POST）でトグル。`settled_at` は自動設定
 
 **MySQL コレーション注意:**
-- 既存テーブルは `utf8mb4_unicode_ci`
-- 新テーブル作成時に Django が別コレーションで作る場合がある → migration で `ALTER TABLE ... CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci` を実行して統一すること（0045, 0046 参照）
+- **統一ルール: `utf8mb4_0900_ai_ci`**（2026-07-17 にDB既定・全テーブルを統一。migration 0114 参照）
+- DB既定 (`expense_db`) が `utf8mb4_0900_ai_ci` のため、新テーブルは通常このコレーションで作成される
+- 新テーブル作成後は `information_schema.TABLES` の `TABLE_COLLATION` を確認し、別コレーションになっていた場合は migration で `ALTER TABLE ... CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci` を実行して統一すること
+- テストDBも同ルール（settings.py の `TEST['COLLATION']` に設定済み）
 
 **M_Item (data_kbn) の種別一覧:**
 
