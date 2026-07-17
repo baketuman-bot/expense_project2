@@ -1,0 +1,187 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}取込済みデータ検索 — {% endblock %}
+
+{% block content %}
+<div class="mt-4" style="max-width:1200px;">
+
+  <div class="page-head mb-3">
+    <h2 class="page-title mb-0">
+      <span class="pt-ico"><i class="fas fa-search"></i></span>
+      取込済みデータ検索
+    </h2>
+    <div class="page-actions">
+      <a href="{% url 'expenses:settlement_menu' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>精算処理メニューへ
+      </a>
+    </div>
+  </div>
+
+  {# 検索フォーム #}
+  <div class="card mb-3">
+    <div class="card-body py-3">
+      <form method="get" class="row g-2 align-items-end">
+        <input type="hidden" name="search" value="1">
+        <div class="col-md-2">
+          <label class="form-label small mb-1">伝票日付（から）</label>
+          <input type="date" name="vdate_from" class="form-control form-control-sm" value="{{ filters.vdate_from }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">伝票日付（まで）</label>
+          <input type="date" name="vdate_to" class="form-control form-control-sm" value="{{ filters.vdate_to }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">取込日（から）</label>
+          <input type="date" name="journal_at_from" class="form-control form-control-sm" value="{{ filters.journal_at_from }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">取込日（まで）</label>
+          <input type="date" name="journal_at_to" class="form-control form-control-sm" value="{{ filters.journal_at_to }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">精算方法</label>
+          <select name="settle_kbn" class="form-select form-select-sm">
+            <option value="">すべて</option>
+            {% for opt in kbn_options %}
+            <option value="{{ opt.kbn }}" {% if filters.settle_kbn == opt.kbn %}selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-1">
+          <label class="form-label small mb-1">申請ID</label>
+          <input type="text" name="document_id" inputmode="numeric" class="form-control form-control-sm" value="{{ filters.document_id }}">
+        </div>
+        <div class="col-md-1">
+          <button type="submit" class="btn btn-primary btn-sm w-100">
+            <i class="fas fa-search me-1"></i>検索
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if searched %}
+    {% if rows %}
+    <form method="post" id="revert-form">
+      {% csrf_token %}
+      <input type="hidden" name="query" value="{{ query }}">
+
+      <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
+        <span class="text-muted small">{{ rows|length }} 件</span>
+        <a href="#" id="select-all" class="small">全選択</a>
+        <a href="#" id="deselect-all" class="small">全解除</a>
+        <div class="ms-auto d-flex gap-2">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="fas fa-rotate-left me-1"></i>実行（入力済に戻す）
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 small">
+            <thead>
+              <tr>
+                <th class="text-nowrap">申請ID</th>
+                <th class="text-nowrap">申請種別</th>
+                <th class="text-nowrap">伝票日付</th>
+                <th>申請件名</th>
+                <th>支払先</th>
+                <th>目的</th>
+                <th class="text-end text-nowrap">金額</th>
+                <th class="text-nowrap">精算方法</th>
+                <th class="text-nowrap">取込日時</th>
+                <th class="text-center text-nowrap">選択</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              {% with c=row.content %}
+              <tr>
+                <td class="text-nowrap">
+                  <a href="{% url 'expenses:expense_detail' c.document_id %}?from=settlement_imported">
+                    {{ c.document_id }}
+                  </a>
+                </td>
+                <td class="text-nowrap">{{ c.document.document_type.document_type_name }}</td>
+                <td class="text-nowrap">{{ c.voucher_date|date:"Y/m/d" }}</td>
+                <td>{{ c.document.title }}</td>
+                <td>{{ c.shiharaisaki|default:"-" }}</td>
+                <td>{{ c.purpose|default:"-" }}</td>
+                <td class="text-end text-nowrap">
+                  {% if c.amount %}{{ c.amount|floatformat:"0" }}{% else %}-{% endif %}
+                </td>
+                <td class="text-nowrap">{{ row.settle_label }}</td>
+                <td class="text-nowrap">{{ c.journal_at|date:"Y/m/d H:i"|default:"-" }}</td>
+                <td class="text-center">
+                  <input type="checkbox" class="form-check-input imported-check"
+                         name="ids" value="{{ c.document_detail_id }}">
+                </td>
+              </tr>
+              {% endwith %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-2 d-flex justify-content-end gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-rotate-left me-1"></i>実行（入力済に戻す）
+        </button>
+      </div>
+    </form>
+    {% else %}
+    <div class="card">
+      <div class="card-body text-center text-muted py-5">
+        <i class="fas fa-check-circle fa-2x mb-2 d-block" style="color:var(--primary);"></i>
+        条件に一致する取込済みデータはありません。
+      </div>
+    </div>
+    {% endif %}
+  {% else %}
+  <div class="card">
+    <div class="card-body text-center text-muted py-5">
+      <i class="fas fa-search fa-2x mb-2 d-block" style="color:var(--primary);"></i>
+      検索条件を指定して「検索」を押してください。
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('revert-form');
+  if (!form) return;
+
+  function getChecks() {
+    return document.querySelectorAll('.imported-check');
+  }
+
+  form.addEventListener('submit', function (e) {
+    var checked = 0;
+    getChecks().forEach(function (c) { if (c.checked) checked++; });
+    if (checked === 0) {
+      e.preventDefault();
+      alert('対象行を1件以上選択してください。');
+      return;
+    }
+    if (!confirm('選択した ' + checked + ' 件を入力済に戻します。よろしいですか？\n（仕訳作成／債務管理データ作成メニューに再表示されます）')) {
+      e.preventDefault();
+    }
+  });
+
+  var selAll = document.getElementById('select-all');
+  var deselAll = document.getElementById('deselect-all');
+  if (selAll) selAll.addEventListener('click', function (e) {
+    e.preventDefault();
+    getChecks().forEach(function (c) { c.checked = true; });
+  });
+  if (deselAll) deselAll.addEventListener('click', function (e) {
+    e.preventDefault();
+    getChecks().forEach(function (c) { c.checked = false; });
+  });
+})();
+</script>
+{% endblock %}

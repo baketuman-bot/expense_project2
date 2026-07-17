@@ -4878,10 +4878,11 @@ def settlement_menu(request):
         'corp_card':   base_qs.filter(settle_kbn='COC_PRE').count(),
         'payroll':     base_qs.filter(settle_kbn='SAL_PRE').count(),
         'auto_debit':  base_qs.filter(settle_kbn='AUT_PRE').count(),
-        'journal':     base_qs.filter(settle_kbn__in=journal_kbns).count(),
+        'journal':     base_qs.filter(settle_kbn__in=journal_kbns).exclude(journal_done=2).count(),
         'journal_done': base_qs.filter(settle_kbn__in=journal_kbns, journal_done=1).count(),
-        'debt':        base_qs.filter(settle_kbn__in=debt_kbns).count(),
+        'debt':        base_qs.filter(settle_kbn__in=debt_kbns).exclude(journal_done=2).count(),
         'debt_done':   base_qs.filter(settle_kbn__in=debt_kbns, journal_done=1).count(),
+        'imported':    base_qs.filter(settle_kbn__in=journal_kbns + debt_kbns, journal_done=2).count(),
     }
     return render(request, 'expenses/settlement_menu.html', {
         'current': 'settlement_menu',
@@ -5382,6 +5383,7 @@ def _journal_entry_view(request, mode):
         T_DocumentContent.objects
         .select_related('document', 'document__document_type', 'document__man_number', 'document__bumon_cd', 'account')
         .filter(settle_kbn__in=journal_kbns, document__status_cd_id='FNS')
+        .exclude(journal_done=2)   # 仕訳取込済みは作成リストに含めない（取込済みデータ検索で戻せる）
         .order_by('document__document_type_id', 'document__document_id', 'date')
     )
     if selected_ids:
@@ -6268,6 +6270,84 @@ def journal_complete(request):
 def debt_complete(request):
     """債務管理CSV出力後の精算処理完了: LON_INPRO(口座振込) 対象"""
     return _journal_complete_view(request, _JOURNAL_MODES['debt'])
+
+
+@login_required
+def settlement_imported(request):
+    """取込済みデータ検索: 仕訳取込済み(journal_done=2)の明細を検索し、
+    選択行を入力済(journal_done=1)へ戻す。戻した明細は仕訳作成/債務管理データ作成に再表示される。
+    """
+    from django.db.models.functions import Coalesce, TruncDate
+
+    all_kbns = _JOURNAL_MODES['journal']['kbns'] + _JOURNAL_MODES['debt']['kbns']
+
+    # POST: 選択行を入力済(journal_done=1)へ戻す。分割行も追随し、journal_at はクリアする
+    if request.method == 'POST':
+        ids = [int(x) for x in request.POST.getlist('ids') if str(x).strip().isdigit()]
+        if ids:
+            T_DocumentContent.all_objects.filter(
+                Q(document_detail_id__in=ids) | Q(split_from_id__in=ids),
+                journal_done=2,
+            ).update(journal_done=1, journal_at=None)
+        # 検索条件を維持して一覧へ戻る
+        query = request.POST.get('query', '')
+        return redirect(reverse('expenses:settlement_imported') + ('?' + query if query else ''))
+
+    q_vdate_from = request.GET.get('vdate_from', '')
+    q_vdate_to   = request.GET.get('vdate_to', '')
+    q_jat_from   = request.GET.get('journal_at_from', '')
+    q_jat_to     = request.GET.get('journal_at_to', '')
+    q_kbn        = request.GET.get('settle_kbn', '')
+    q_doc_id     = request.GET.get('document_id', '')
+    searched     = request.GET.get('search', '')
+
+    rows = []
+    if searched:
+        qs = (
+            T_DocumentContent.objects
+            .select_related('document', 'document__document_type', 'document__man_number', 'account')
+            .filter(settle_kbn__in=all_kbns, journal_done=2)
+            .annotate(vdate=Coalesce(TruncDate('document__settled_at'), 'date'))
+            .order_by('document__document_id', 'date')
+        )
+        if q_kbn:
+            qs = qs.filter(settle_kbn=q_kbn)
+        if q_doc_id.strip().isdigit():
+            qs = qs.filter(document_id=int(q_doc_id))
+        try:
+            if q_vdate_from:
+                qs = qs.filter(vdate__gte=q_vdate_from)
+            if q_vdate_to:
+                qs = qs.filter(vdate__lte=q_vdate_to)
+            if q_jat_from:
+                qs = qs.filter(journal_at__date__gte=q_jat_from)
+            if q_jat_to:
+                qs = qs.filter(journal_at__date__lte=q_jat_to)
+        except Exception:
+            pass
+        rows = [
+            {
+                'content':      c,
+                'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn or ''),
+            }
+            for c in qs
+        ]
+
+    return render(request, 'expenses/settlement_imported.html', {
+        'rows':        rows,
+        'searched':    bool(searched),
+        'kbn_options': [{'kbn': k, 'label': v} for k, v in _JOURNAL_KBN_LABEL.items()],
+        'query':       request.GET.urlencode(),
+        'filters': {
+            'vdate_from':      q_vdate_from,
+            'vdate_to':        q_vdate_to,
+            'journal_at_from': q_jat_from,
+            'journal_at_to':   q_jat_to,
+            'settle_kbn':      q_kbn,
+            'document_id':     q_doc_id,
+        },
+        'current': 'settlement_imported',
+    })
 
 
 @login_required
