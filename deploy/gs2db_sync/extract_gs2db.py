@@ -99,7 +99,9 @@ def main():
     workdir = args.workdir or (Path(__file__).parent / 'work')
     workdir.mkdir(parents=True, exist_ok=True)
     db_name = 'gs2db_src'
-    shutil.copy(args.h2_db_path, workdir / f'{db_name}.h2.db')
+    staged_path = workdir / f'{db_name}.h2.db'
+    if args.h2_db_path.resolve() != staged_path.resolve():
+        shutil.copy(args.h2_db_path, staged_path)
 
     sql_path = run_recover(args.h2_jar, args.java, workdir, db_name)
     print(f'Recoverダンプ生成: {sql_path}')

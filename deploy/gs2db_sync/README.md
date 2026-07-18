@@ -24,7 +24,7 @@ PageStore形式）から、稟議データ・ユーザー・組織情報を抽�
    （このjarは個人情報を含まないが、リポジトリ容量の都合上gitignore対象。
    セットアップの都度ダウンロードすること）
 
-## 使い方
+## 使い方（手動）
 
 ```bash
 # 1. gs2db.h2.db の最新コピーを用意する（例: tmp/gs2db.h2.db）
@@ -42,6 +42,28 @@ python manage.py import_gs2db deploy/gs2db_sync/csv/
 `gs2db.h2.db`の新しいコピーが提供されるたびに、上記2〜3を再実行すれば
 `GS_*`テーブルが最新化される（`update_or_create`によるupsertのみ。
 DELETE/TRUNCATEは一切行わない）。
+
+## 使い方（自動 / sync_gs2db.bat）
+
+`sync_gs2db.bat` は「共有からのコピー → CSV抽出 → MySQL取込」を1本で実行する
+Windowsバッチ。WSLからは経理ファイルサーバー共有
+（`\\172.16.100.15\keirifile\...`）へ直接アクセスできないため（CIFSマウント
+不可の経緯は プロジェクトCLAUDE.md の「media共有ストレージ化」参照）、
+Windows側のrobocopyで中継してからWSL側の処理を`wsl.exe`経由で呼び出す構成。
+
+```
+実行: deploy/gs2db_sync/sync_gs2db.bat をダブルクリック
+  1. \\172.16.100.15\keirifile\DATA\Dump\GropuSession\db\gs2db\gs2db.h2.db
+     -> deploy/gs2db_sync/work/gs2db_src.h2.db にコピー
+  2. WSL上で extract_gs2db.py を実行しCSVを再生成
+  3. WSL上で manage.py import_gs2db を実行しMySQLへupsert取込（本番実行、
+     --dry-runなし。upsertのみで安全なため）
+```
+
+- 実行結果・エラーは `sync_gs2db.log`（batと同じディレクトリ）に記録される。
+- 定期的に無人実行したい場合は、このbatをWindowsタスクスケジューラに登録する
+  （`deploy/register-wsl-autostart.ps1` と同様に `Register-ScheduledTask` で
+  トリガーを設定する想定。頻度は要件に応じて別途決定）。
 
 ## 制約・既知の制限
 
