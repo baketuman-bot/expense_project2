@@ -62,6 +62,15 @@ class M_Status(models.Model):
 
 # ユーザーマスタ（AbstractUser拡張）
 class M_User(AbstractUser):
+    # AbstractUser.username はデフォルトで UnicodeUsernameValidator（半角スペース等を含む文字列を拒否）
+    # が付与されるが、本アプリでは man_number でログインするため username は表示目的の予備フィールドに
+    # 過ぎず、実データも「姓 名」の間に半角スペースを含む形式（例: '松田 弘幸'）で登録されている。
+    # そのままではマスタ新規登録フォームで既存データと同じ値を入力してもバリデーションに引っかかるため、
+    # 文字種チェックを行わない CharField として上書きする。
+    username = models.CharField(
+        "ユーザー名", max_length=150, unique=True,
+        help_text="150文字以内で入力してください。",
+    )
     # Django 標準の username, password, email などに加えて独自フィールドを追加
     man_number = models.CharField("社員番号", max_length=20, unique=True)
     user_name = models.CharField("氏名", max_length=30)
