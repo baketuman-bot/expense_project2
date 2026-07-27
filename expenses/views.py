@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.views.decorators.http import require_POST
 from django.conf import settings
 from .views_assets_register import (
@@ -6645,7 +6645,15 @@ def settings_master_list(request, master_key):
     rows = []
     for obj in page_obj:
         pk_val = str(getattr(obj, pk_attr, obj.pk))
-        vals = [str(getattr(obj, fn, '') or '') for fn, _ in list_fields]
+        vals = []
+        for fn, _ in list_fields:
+            try:
+                val = getattr(obj, fn, '')
+            except ObjectDoesNotExist:
+                # FK参照先が削除済み等で存在しない場合、生のID値を表示してクラッシュを防ぐ
+                raw_id = getattr(obj, f'{fn}_id', None)
+                val = f'(データなし: {raw_id})' if raw_id is not None else '(データなし)'
+            vals.append(str(val or ''))
         rows.append({'pk': pk_val, 'values': vals})
 
     return render(request, 'expenses/settings_master_list.html', {
@@ -6777,10 +6785,21 @@ def settings_master_csv(request, master_key):
 
     writer = _csv.writer(EchoBuffer())
 
+    def row_values(obj):
+        vals = []
+        for fn, _ in list_fields:
+            try:
+                val = getattr(obj, fn, '')
+            except ObjectDoesNotExist:
+                raw_id = getattr(obj, f'{fn}_id', None)
+                val = f'(データなし: {raw_id})' if raw_id is not None else '(データなし)'
+            vals.append(str(val or ''))
+        return vals
+
     def rows():
         yield writer.writerow(headers)
         for obj in qs.iterator():
-            yield writer.writerow([str(getattr(obj, fn, '') or '') for fn, _ in list_fields])
+            yield writer.writerow(row_values(obj))
 
     item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
     display_name = item.content2 if item else master_key
