@@ -33,6 +33,7 @@ from .forms import (
     TravelDetailFormSet, TravelDetailEditFormSet,
     AccommodationFormSet, AccommodationEditFormSet,
     AllowanceFormSet, AllowanceEditFormSet,
+    MUserMasterForm,
 )
 from .utils import (
     send_notification, steps_with_candidates, get_pending_approvers, candidates_for_step,
@@ -4735,6 +4736,9 @@ MASTER_INFO_LINKS = {
 def _master_get_form_class(cfg, is_create):
     """ModelFormClassを生成。編集時はユーザー定義PKフィールドを除外。"""
     from django import forms as dj_forms
+    if cfg['model'] is M_User:
+        # ユーザーマスタのみ専用フォーム（所属部署の同時設定）を使用
+        return MUserMasterForm
     form_fields = list(cfg['form_fields'])
     pk_attr = cfg['pk_attr']
     if not is_create and pk_attr != 'pk' and pk_attr in form_fields:

@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import modelformset_factory, BaseModelFormSet
-from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets
+from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets, M_User, M_Group, M_BelongTo
 
 
 def _get_item_choices(data_kbn, empty_label='選択してください', fallback=None):
@@ -914,3 +914,49 @@ def get_asset_register_form(data=None, instance=None, is_edit=False):
             w.attrs['class'] = (w.attrs.get('class', '') + ' form-control').strip()
 
     return form
+
+
+class MUserMasterForm(forms.ModelForm):
+    """マスタ設定のユーザー新規登録/編集フォーム。
+
+    M_User本体に加えて所属部署（M_Group）を同時に設定できるようにする。
+    所属部署の実体は M_BelongTo（man_number, group_cd）だが、現状全ユーザーが
+    所属0件または1件のみのため、単一選択のフィールドとして扱いsave()内で
+    M_BelongToの作成・更新・削除を行う。
+    """
+    group_cd = forms.ModelChoiceField(
+        label="所属部署",
+        queryset=M_Group.objects.order_by('group_cd'),
+        required=False,
+        empty_label="（未設定）",
+    )
+
+    class Meta:
+        model = M_User
+        fields = ['man_number', 'username', 'user_name', 'email', 'bumon_cd', 'post_cd', 'is_active']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            belong = M_BelongTo.objects.filter(man_number=self.instance).first()
+            if belong:
+                self.fields['group_cd'].initial = belong.group_cd_id
+
+    def save(self, commit=True):
+        user = super().save(commit=commit)
+        if commit:
+            self._save_belong_to(user)
+        return user
+
+    def _save_belong_to(self, user):
+        group = self.cleaned_data.get('group_cd')
+        existing = M_BelongTo.objects.filter(man_number=user).first()
+        if group is None:
+            if existing:
+                existing.delete()
+        elif existing:
+            if existing.group_cd_id != group.group_cd:
+                existing.group_cd = group
+                existing.save(update_fields=['group_cd'])
+        else:
+            M_BelongTo.objects.create(man_number=user, group_cd=group)
