@@ -304,16 +304,15 @@ body.no-sidebar .precision-sidebar{display:none;}
   align-items:center;
   gap:7px;
 }
-.precision-group-toggle i{
-  width:16px;
-  text-align:center;
-  font-size:14px;
+.precision-group-toggle svg.grp-ico{
+  width:17px;
+  height:17px;
   color:var(--sub);
   flex-shrink:0;
   transition:color .12s;
 }
-.precision-group-toggle:hover i,
-.precision-group-toggle:not(.collapsed) i{
+.precision-group-toggle:hover svg.grp-ico,
+.precision-group-toggle:not(.collapsed) svg.grp-ico{
   color:var(--primary);
 }
 
