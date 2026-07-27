@@ -1,0 +1,163 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}GroupSessionとのデータ整合性チェック | {% endblock %}
+
+{% block content %}
+<div class="mt-4">
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-exchange-alt"></i></span>
+            GroupSessionとのデータ整合性チェック
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:settings_master_home' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> マスタ設定へ戻る
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-info d-flex align-items-start gap-2" role="alert">
+        <i class="fas fa-circle-info mt-1"></i>
+        <div>
+            このアプリのマスタ（<code>m_user</code> / <code>m_post</code> / <code>m_belong_to</code>）と、
+            現在も別システムとして並行運用している<strong>GroupSession</strong>側のマスタ
+            （<code>GS_USR</code> / <code>GS_POSITION</code> / <code>GS_BELONG</code>）との間で、
+            <strong>コード・コードの組み合わせの有無</strong>だけを突合します。氏名や部署名など値の内容は比較しません。
+        </div>
+    </div>
+
+    <!-- ユーザー -->
+    <div class="card mb-3">
+        <div class="card-header tint-primary d-flex align-items-center justify-content-between">
+            <strong><i class="fas fa-user me-1"></i>ユーザー（社員番号）</strong>
+            <span class="text-muted small">m_user.man_number ⇔ GS_USR.usi_syain_no</span>
+        </div>
+        <div class="card-body">
+            {% if not user_only_in_app and not user_only_in_gs %}
+            <p class="text-success mb-0"><i class="fas fa-check-circle me-1"></i>差分なし</p>
+            {% else %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-semibold small">このアプリのみに存在</span>
+                        <span class="badge bg-secondary">{{ user_only_in_app|length }} 件</span>
+                    </div>
+                    {% include "expenses/_gs2db_code_list.html" with codes=user_only_in_app %}
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-semibold small">GroupSessionのみに存在</span>
+                        <span class="badge bg-secondary">{{ user_only_in_gs|length }} 件</span>
+                    </div>
+                    <div class="gs2db-code-list">
+                        {% for u in user_only_in_gs %}
+                        <div class="gs2db-code-item d-flex align-items-center justify-content-between gap-2">
+                            <span>{{ u.code }}{% if u.name %} <span class="text-muted">{{ u.name }}</span>{% endif %}</span>
+                            <a href="{{ u.create_url }}" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:11px; white-space:nowrap;">
+                                <i class="fas fa-user-plus me-1"></i>新規登録
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 役職 -->
+    <div class="card mb-3">
+        <div class="card-header tint-primary d-flex align-items-center justify-content-between">
+            <strong><i class="fas fa-id-badge me-1"></i>役職コード</strong>
+            <span class="text-muted small">m_post.post_cd ⇔ GS_POSITION.pos_code</span>
+        </div>
+        <div class="card-body">
+            {% if not post_only_in_app and not post_only_in_gs %}
+            <p class="text-success mb-0"><i class="fas fa-check-circle me-1"></i>差分なし</p>
+            {% else %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-semibold small">このアプリのみに存在</span>
+                        <span class="badge bg-secondary">{{ post_only_in_app|length }} 件</span>
+                    </div>
+                    {% include "expenses/_gs2db_code_list.html" with codes=post_only_in_app %}
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-semibold small">GroupSessionのみに存在</span>
+                        <span class="badge bg-secondary">{{ post_only_in_gs|length }} 件</span>
+                    </div>
+                    {% include "expenses/_gs2db_code_list.html" with codes=post_only_in_gs %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 所属 -->
+    <div class="card mb-3">
+        <div class="card-header tint-primary d-flex align-items-center justify-content-between">
+            <strong><i class="fas fa-sitemap me-1"></i>所属（社員番号 × グループコード）</strong>
+            <span class="text-muted small">m_belong_to(man_number, group_cd) ⇔ GS_BELONG(usr_sid→usi_syain_no, grp_sid→grp_id)</span>
+        </div>
+        <div class="card-body">
+            {% if belong_unresolved_count %}
+            <p class="text-muted small mb-2">
+                <i class="fas fa-triangle-exclamation me-1"></i>
+                GroupSession側で社員番号またはグループコードに解決できなかった所属行 {{ belong_unresolved_count }} 件は突合対象から除外しています。
+            </p>
+            {% endif %}
+            {% if not belong_only_in_app and not belong_only_in_gs %}
+            <p class="text-success mb-0"><i class="fas fa-check-circle me-1"></i>差分なし</p>
+            {% else %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-semibold small">このアプリのみに存在</span>
+                        <span class="badge bg-secondary">{{ belong_only_in_app|length }} 件</span>
+                    </div>
+                    <div class="gs2db-code-list">
+                        {% for man_number, group_cd in belong_only_in_app %}
+                        <div class="gs2db-code-item">{{ man_number }} <i class="fas fa-arrow-right mx-1 text-muted"></i> {{ group_cd }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-semibold small">GroupSessionのみに存在</span>
+                        <span class="badge bg-secondary">{{ belong_only_in_gs|length }} 件</span>
+                    </div>
+                    <div class="gs2db-code-list">
+                        {% for man_number, group_cd in belong_only_in_gs %}
+                        <div class="gs2db-code-item">{{ man_number }} <i class="fas fa-arrow-right mx-1 text-muted"></i> {{ group_cd }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.gs2db-code-list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel);
+}
+.gs2db-code-item {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-family: monospace;
+    border-bottom: 1px solid var(--line);
+}
+.gs2db-code-item:last-child {
+    border-bottom: none;
+}
+</style>
+{% endblock %}

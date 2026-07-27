@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
+from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.views.decorators.http import require_POST
@@ -25,7 +26,7 @@ from .models import (
     M_AccountSub,
     T_Settle, T_DocumentEditHistory,
     M_ExchangeRate,
-    GS_Ringi,
+    GS_Ringi, GS_Usr, GS_Group, GS_Belong, GS_Position,
 )
 from .forms import (
     ExpenseDetailFormSet, ExpenseDetailEditFormSet, ApprovalForm,
@@ -4632,6 +4633,48 @@ MASTER_REGISTRY = {
         'form_fields': ['account_cd', 'sub_account_cd', 'sub_account_name', 'pr_kbn'],
         'pk_attr': 'pk',
     },
+    # GroupSession連携データ（現在も別システムとして並行運用中のGroupSessionから import_gs2db で
+    # 取り込む参照専用データ。新規追加/編集/削除は不可）
+    'gs_ringi': {
+        'model': GS_Ringi,
+        'display_name': '稟議データ(GSESSION)',
+        'list_fields': [('rng_sid', 'SID'), ('rng_id', '表示用ID'), ('rng_title', '件名'), ('rng_status', 'ステータス'), ('rng_makedate', '作成日時'), ('rng_appldate', '申請日時')],
+        'form_fields': [],
+        'pk_attr': 'rng_sid',
+        'read_only': True,
+    },
+    'gs_usr': {
+        'model': GS_Usr,
+        'display_name': 'ユーザー(GSESSION)',
+        'list_fields': [('usr_sid', 'SID'), ('usr_lgid', 'ログインID'), ('usi_sei', '姓'), ('usi_mei', '名'), ('usi_syain_no', '社員番号'), ('usi_syozoku', '所属名'), ('usi_yakusyoku', '役職名')],
+        'form_fields': [],
+        'pk_attr': 'usr_sid',
+        'read_only': True,
+    },
+    'gs_group': {
+        'model': GS_Group,
+        'display_name': '組織グループ(GSESSION)',
+        'list_fields': [('grp_sid', 'SID'), ('grp_id', 'グループID'), ('grp_name', 'グループ名'), ('grp_name_kn', 'グループ名カナ'), ('grp_sort', '表示順'), ('grp_jkbn', '状態区分')],
+        'form_fields': [],
+        'pk_attr': 'grp_sid',
+        'read_only': True,
+    },
+    'gs_belong': {
+        'model': GS_Belong,
+        'display_name': '所属(GSESSION)',
+        'list_fields': [('id', 'ID'), ('grp_sid', 'グループSID'), ('usr_sid', 'ユーザーSID'), ('beg_defgrp', 'デフォルトグループ区分'), ('beg_grpkbn', 'グループ区分')],
+        'form_fields': [],
+        'pk_attr': 'id',
+        'read_only': True,
+    },
+    'gs_position': {
+        'model': GS_Position,
+        'display_name': '役職(GSESSION)',
+        'list_fields': [('pos_sid', 'SID'), ('pos_code', '役職コード'), ('pos_name', '役職名'), ('pos_sort', '表示順')],
+        'form_fields': [],
+        'pk_attr': 'pos_sid',
+        'read_only': True,
+    },
 }
 
 # マスタをカテゴリ別に表示するための定義
@@ -4663,7 +4706,30 @@ MASTER_CATEGORIES = [
         ('m_item',        'fas fa-database'),
         ('m_mail_manage', 'fas fa-envelope'),
     ]),
+    ('GroupSession連携データ', [
+        ('gs_ringi',              'fas fa-file-signature'),
+        ('gs_usr',                'fas fa-user-clock'),
+        ('gs_group',              'fas fa-sitemap'),
+        ('gs_belong',             'fas fa-user-friends'),
+        ('gs_position',           'fas fa-id-badge'),
+        ('gs2db_sync_info',       'fas fa-circle-info'),
+        ('gs2db_consistency_check', 'fas fa-exchange-alt'),
+    ]),
 ]
+
+# MASTER_REGISTRY に対応するモデルを持たず、案内ページ等へリンクするだけの項目
+MASTER_INFO_LINKS = {
+    'gs2db_sync_info': {
+        'display_name': 'データコンバート手順',
+        'subtitle': '仕組み・実行手順の案内',
+        'url_name': 'expenses:gs2db_sync_info',
+    },
+    'gs2db_consistency_check': {
+        'display_name': 'データ整合性チェック',
+        'subtitle': 'GroupSessionとのコード不一致確認',
+        'url_name': 'expenses:gs2db_consistency_check',
+    },
+}
 
 
 def _master_get_form_class(cfg, is_create):
@@ -6511,8 +6577,18 @@ def settings_master_home(request):
         items = []
         for key, icon in entries:
             categorized_keys.add(key)
-            display_name = db_map.get(key, key)
-            items.append({'key': key, 'display_name': display_name, 'in_registry': key in MASTER_REGISTRY, 'icon': icon})
+            if key in MASTER_INFO_LINKS:
+                info = MASTER_INFO_LINKS[key]
+                items.append({
+                    'key': key, 'display_name': info['display_name'], 'in_registry': False,
+                    'icon': icon, 'info_url': reverse(info['url_name']), 'subtitle': info.get('subtitle', ''),
+                })
+                continue
+            display_name = db_map.get(key) or MASTER_REGISTRY.get(key, {}).get('display_name') or key
+            items.append({
+                'key': key, 'display_name': display_name, 'in_registry': key in MASTER_REGISTRY,
+                'icon': icon, 'read_only': MASTER_REGISTRY.get(key, {}).get('read_only', False),
+            })
         groups.append({'name': cat_name, 'items': items})
 
     others = [
@@ -6538,7 +6614,7 @@ def settings_master_list(request, master_key):
     if not cfg:
         raise Http404
     item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
-    display_name = item.content2 if item else master_key
+    display_name = (item.content2 if item else None) or cfg.get('display_name') or master_key
 
     qs = cfg['model'].objects.all()
 
@@ -6580,6 +6656,7 @@ def settings_master_list(request, master_key):
         'page_obj': page_obj,
         'q': q,
         'total_count': total_count,
+        'read_only': cfg.get('read_only', False),
     })
 
 
@@ -6587,10 +6664,10 @@ def settings_master_list(request, master_key):
 def settings_master_create(request, master_key):
     """マスタ新規作成"""
     cfg = MASTER_REGISTRY.get(master_key)
-    if not cfg:
+    if not cfg or cfg.get('read_only'):
         raise Http404
     item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
-    display_name = item.content2 if item else master_key
+    display_name = (item.content2 if item else None) or cfg.get('display_name') or master_key
     FormClass = _master_get_form_class(cfg, is_create=True)
 
     if request.method == 'POST':
@@ -6620,11 +6697,11 @@ def settings_master_create(request, master_key):
 def settings_master_edit(request, master_key, pk):
     """マスタ編集"""
     cfg = MASTER_REGISTRY.get(master_key)
-    if not cfg:
+    if not cfg or cfg.get('read_only'):
         raise Http404
     obj = _master_get_obj(cfg, pk)
     item = M_Item.objects.filter(data_kbn='MST', content=master_key).first()
-    display_name = item.content2 if item else master_key
+    display_name = (item.content2 if item else None) or cfg.get('display_name') or master_key
     FormClass = _master_get_form_class(cfg, is_create=False)
 
     if request.method == 'POST':
@@ -6650,7 +6727,7 @@ def settings_master_edit(request, master_key, pk):
 def settings_master_delete(request, master_key, pk):
     """マスタ削除（POSTのみ）"""
     cfg = MASTER_REGISTRY.get(master_key)
-    if not cfg:
+    if not cfg or cfg.get('read_only'):
         raise Http404
     if request.method == 'POST':
         obj = _master_get_obj(cfg, pk)
@@ -6711,6 +6788,112 @@ def settings_master_csv(request, master_key):
     response = StreamingHttpResponse(rows(), content_type='text/csv; charset=utf-8-sig')
     response['Content-Disposition'] = f'attachment; filename="{fname}"'
     return response
+
+
+@login_required
+def gs2db_sync_info(request):
+    """GroupSession(GS_*)データコンバートの案内（仕組み・実行手順・注意事項）。
+
+    実際のコンバート（robocopy中継 → extract_gs2db.py → import_gs2db）は
+    deploy/gs2db_sync/sync_gs2db.bat をWindows機で手動実行するスタンドアロン処理であり、
+    Web（Django）からは起動できない。このページはその手順の案内のみを目的とする。
+    """
+    counts = {
+        'gs_ringi': GS_Ringi.objects.count(),
+        'gs_usr': GS_Usr.objects.count(),
+        'gs_group': GS_Group.objects.count(),
+        'gs_belong': GS_Belong.objects.count(),
+        'gs_position': GS_Position.objects.count(),
+    }
+    return render(request, 'expenses/gs2db_sync_info.html', {
+        'counts': counts,
+        'total_count': sum(counts.values()),
+    })
+
+
+@login_required
+def gs2db_consistency_check(request):
+    """このアプリのマスタ（m_user / m_post / m_belong_to）と、別システムとして並行運用中の
+    GroupSessionのマスタ（GS_Usr / GS_Position / GS_Belong）との間で、コードおよびコードの
+    組み合わせに不一致がないかを確認する。
+
+    必要最小限のチェックのみを行う: 値の内容（氏名・部署名等）は比較せず、
+    「コードが存在するかしないか」「コードの組み合わせが存在するかしないか」だけを対象とする。
+    """
+    # 1. ユーザー: man_number（このアプリ） vs usi_syain_no（GroupSession・社員番号）
+    app_user_codes = set(M_User.objects.values_list('man_number', flat=True))
+    gs_user_codes = set(
+        GS_Usr.objects.exclude(usi_syain_no__isnull=True).exclude(usi_syain_no='')
+        .values_list('usi_syain_no', flat=True)
+    )
+
+    # 2. 役職: post_cd（このアプリ） vs pos_code（GroupSession）
+    app_post_codes = set(M_Post.objects.values_list('post_cd', flat=True))
+    gs_post_codes = set(
+        GS_Position.objects.exclude(pos_code__isnull=True).exclude(pos_code='')
+        .values_list('pos_code', flat=True)
+    )
+
+    # GroupSessionのみに存在するユーザーは、判明している情報を初期値として
+    # ユーザー新規登録画面（settings_master_create）へ遷移できるようにする。
+    # 氏名・社員番号のみを補完対象とする（部門はコード体系が異なり突合できないため対象外、
+    # 在籍区分(usr_jkbn)は意味が不確定なため使用しない）。
+    user_only_in_gs_codes = sorted(gs_user_codes - app_user_codes)
+    pos_sid_to_code = dict(
+        GS_Position.objects.exclude(pos_code__isnull=True).exclude(pos_code='')
+        .values_list('pos_sid', 'pos_code')
+    )
+    gs_usr_by_code = {}
+    for row in GS_Usr.objects.filter(usi_syain_no__in=user_only_in_gs_codes).order_by('usi_syain_no', '-usr_sid'):
+        gs_usr_by_code.setdefault(row.usi_syain_no, row)
+
+    user_only_in_gs = []
+    for code in user_only_in_gs_codes:
+        row = gs_usr_by_code.get(code)
+        initial = {'man_number': code}
+        name = ''
+        if row:
+            name = f"{(row.usi_sei or '').strip()} {(row.usi_mei or '').strip()}".strip()
+            if name:
+                initial['user_name'] = name
+                initial['username'] = name
+            pos_code = pos_sid_to_code.get(row.pos_sid) if row.pos_sid is not None else None
+            if pos_code and pos_code in app_post_codes:
+                initial['post_cd'] = pos_code
+        create_url = reverse('expenses:settings_master_create', args=['m_user']) + '?' + urlencode(initial)
+        user_only_in_gs.append({'code': code, 'name': name, 'create_url': create_url})
+
+    # 3. 所属: (man_number, group_cd) vs (usi_syain_no, grp_id)
+    # GS_Belong は usr_sid/grp_sid（SID）のみを持つため、GS_Usr/GS_Groupで
+    # 社員番号・グループコードへ変換してから組み合わせを突合する。
+    usr_sid_to_no = dict(
+        GS_Usr.objects.exclude(usi_syain_no__isnull=True).exclude(usi_syain_no='')
+        .values_list('usr_sid', 'usi_syain_no')
+    )
+    grp_sid_to_id = dict(
+        GS_Group.objects.exclude(grp_id__isnull=True).exclude(grp_id='')
+        .values_list('grp_sid', 'grp_id')
+    )
+    app_belong_combos = set(M_BelongTo.objects.values_list('man_number_id', 'group_cd_id'))
+    gs_belong_combos = set()
+    gs_belong_unresolved = 0
+    for usr_sid, grp_sid in GS_Belong.objects.values_list('usr_sid', 'grp_sid'):
+        usi_syain_no = usr_sid_to_no.get(usr_sid)
+        grp_id = grp_sid_to_id.get(grp_sid)
+        if usi_syain_no and grp_id:
+            gs_belong_combos.add((usi_syain_no, grp_id))
+        else:
+            gs_belong_unresolved += 1
+
+    return render(request, 'expenses/gs2db_consistency_check.html', {
+        'user_only_in_app': sorted(app_user_codes - gs_user_codes),
+        'user_only_in_gs': user_only_in_gs,
+        'post_only_in_app': sorted(app_post_codes - gs_post_codes),
+        'post_only_in_gs': sorted(gs_post_codes - app_post_codes),
+        'belong_only_in_app': sorted(app_belong_combos - gs_belong_combos),
+        'belong_only_in_gs': sorted(gs_belong_combos - app_belong_combos),
+        'belong_unresolved_count': gs_belong_unresolved,
+    })
 
 
 # ─── 改善要望 ────────────────────────────────────────────────────────────────

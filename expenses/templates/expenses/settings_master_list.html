@@ -19,9 +19,11 @@
                class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-download me-1"></i>データ出力
             </a>
+            {% if not read_only %}
             <a href="{% url 'expenses:settings_master_create' master_key %}" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus me-1"></i>新規追加
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -68,7 +70,9 @@
                         {% for h in headers %}
                             <th>{{ h }}</th>
                         {% endfor %}
+                        {% if not read_only %}
                         <th style="width:100px" class="text-center">操作</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -77,6 +81,7 @@
                         {% for val in row.values %}
                             <td class="small">{{ val }}</td>
                         {% endfor %}
+                        {% if not read_only %}
                         <td class="text-center">
                             <div class="d-flex gap-1 justify-content-center">
                                 <a href="{% url 'expenses:settings_master_edit' master_key row.pk %}"
@@ -92,10 +97,11 @@
                                 </form>
                             </div>
                         </td>
+                        {% endif %}
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="{{ headers|length|add:1 }}" class="text-center text-muted py-4">
+                        <td colspan="{% if read_only %}{{ headers|length }}{% else %}{{ headers|length|add:1 }}{% endif %}" class="text-center text-muted py-4">
                             {% if q %}
                                 <i class="fas fa-search me-1"></i>「{{ q }}」に一致するデータがありません
                             {% else %}

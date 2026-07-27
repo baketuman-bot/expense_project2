@@ -1,0 +1,129 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}GroupSessionデータコンバートについて | {% endblock %}
+
+{% block content %}
+<div class="mt-4">
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-circle-info"></i></span>
+            GroupSessionデータコンバートについて
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:settings_master_home' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left"></i> マスタ設定へ戻る
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+        <i class="fas fa-triangle-exclamation mt-1"></i>
+        <div>
+            このコンバートは<strong>Web画面から起動することはできません</strong>。
+            実際の処理は、経理ファイルサーバーへアクセスできる Windows 機の
+            <code>deploy/gs2db_sync/sync_gs2db.bat</code> を、担当者が手動でダブルクリックして実行します。
+            このページは仕組みと注意事項の案内のみを目的としています。
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">
+            稟議データ {{ counts.gs_ringi }} 件
+        </span>
+        <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">
+            ユーザー {{ counts.gs_usr }} 件
+        </span>
+        <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">
+            組織グループ {{ counts.gs_group }} 件
+        </span>
+        <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">
+            所属 {{ counts.gs_belong }} 件
+        </span>
+        <span class="badge" style="background:var(--primary-soft);color:var(--primary);border:1px solid var(--primary);">
+            役職 {{ counts.gs_position }} 件
+        </span>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header tint-primary">
+            <strong>仕組み</strong>
+        </div>
+        <div class="card-body">
+            <p class="mb-2">
+                現在も別システムとして並行運用しているグループウェア「GroupSession」のH2データベースファイル
+                （<code>gs2db.h2.db</code>、レガシーPageStore形式）から、稟議データ・ユーザー・組織情報を抽出し、MySQLの
+                <code>GS_RINGI</code> / <code>GS_USR</code> / <code>GS_GROUP</code> / <code>GS_BELONG</code> /
+                <code>GS_POSITION</code> テーブルへ参照専用データとして取り込みます。
+                パスワード不明でも読める「フォレンジック復元」方式（<code>org.h2.tools.Recover</code>）を使うため、
+                GroupSession側のDB認証情報は不要です。
+            </p>
+            <pre class="bg-light p-3 rounded small mb-2" style="white-space:pre; overflow-x:auto;">\\172.16.100.15\keirifile\...\gs2db\gs2db.h2.db
+      │  ① Windows robocopy（WSLからは共有へ直接アクセス不可のため中継）
+      ▼
+deploy/gs2db_sync/work/gs2db_src.h2.db
+      │  ② extract_gs2db.py（WSL / H2フォレンジック復元）
+      ▼
+deploy/gs2db_sync/csv/*.csv
+      │  ③ manage.py import_gs2db（WSL / upsert）
+      ▼
+MySQL GS_RINGI / GS_USR / GS_GROUP / GS_BELONG / GS_POSITION</pre>
+            <ul class="mb-0">
+                <li><strong>① 共有からのコピー</strong>: WSLからは経理ファイルサーバー共有へ直接アクセスできないため、
+                    Windows側のrobocopyで作業用ディレクトリへ中継します。</li>
+                <li><strong>② CSV抽出</strong>: <code>extract_gs2db.py</code> がH2データベースファイルを解析し、
+                    5テーブル分のCSVを再生成します。</li>
+                <li><strong>③ MySQL取込</strong>: <code>import_gs2db</code> 管理コマンドが CSV を読み込み、
+                    <code>update_or_create</code> による <strong>upsertのみ</strong>で取り込みます
+                    （DELETE/TRUNCATEは一切行いません）。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header tint-neutral">
+            <strong>実行手順</strong>
+        </div>
+        <div class="card-body">
+            <p class="mb-2"><strong>自動実行（通常はこちら）</strong></p>
+            <ol>
+                <li>経理ファイルサーバー共有へアクセスできる Windows 機にログインする。</li>
+                <li><code>deploy/gs2db_sync/sync_gs2db.bat</code> をダブルクリックする。</li>
+                <li>共有からのコピー → CSV抽出 → MySQL取込が自動で順に実行されます。
+                    結果は <code>sync_gs2db.log</code>（batと同じディレクトリ）に記録されます。</li>
+            </ol>
+            <p class="mb-2 mt-3"><strong>手動実行（個別に確認したい場合）</strong></p>
+            <pre class="bg-light p-3 rounded small mb-0" style="white-space:pre; overflow-x:auto;"># 1. gs2db.h2.db の最新コピーを用意する
+
+# 2. CSV抽出
+cd deploy/gs2db_sync
+python3 extract_gs2db.py ../../tmp/gs2db.h2.db csv/
+
+# 3. 件数・先頭数件を確認してから本実行
+cd ../..
+python manage.py import_gs2db deploy/gs2db_sync/csv/ --dry-run
+python manage.py import_gs2db deploy/gs2db_sync/csv/</pre>
+        </div>
+    </div>
+
+    <div class="card accent-warning mb-3">
+        <div class="card-header tint-warning">
+            <strong>注意事項</strong>
+        </div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li>取り込みは<strong>upsertのみ</strong>です。GS_*テーブルへのDELETE/TRUNCATEは一切行われません。</li>
+                <li>パスワードハッシュ（<code>USR_PSWD</code>）は取り込み対象外です。</li>
+                <li>H2ページストア内部にLOBとして保存されている大きなテキスト値（例:
+                    <code>RNG_TEMPLATE.RTP_FORM</code>）はテキスト解析だけでは復元できません。ただし今回の
+                    取り込み対象5テーブルにはCLOB列を含まないため実害はありません。</li>
+                <li>抽出元ファイル・CSV出力には実在従業員の氏名・社員番号等が含まれるため、
+                    リポジトリには含めず（<code>.gitignore</code>対象）、取り扱いに注意してください。</li>
+                <li><code>gs2db.h2.db</code>の新しいコピーが提供されるたびに <code>sync_gs2db.bat</code> を
+                    再実行すれば、GS_*テーブルが最新化されます。</li>
+                <li>セットアップ手順（Java・H2 jarの準備等）の詳細は
+                    <code>deploy/gs2db_sync/README.md</code> を参照してください。</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

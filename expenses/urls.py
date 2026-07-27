@@ -90,6 +90,8 @@ urlpatterns = [
     path("settings/settlement/imported/",   views.settlement_imported, name="settlement_imported"),
     # マスタ設定
     path("settings/master/m_user/<int:pk>/toggle_active/", views.user_toggle_active, name="user_toggle_active"),
+    path("settings/master/gs2db/sync-info/", views.gs2db_sync_info, name="gs2db_sync_info"),
+    path("settings/master/gs2db/consistency-check/", views.gs2db_consistency_check, name="gs2db_consistency_check"),
     path("settings/master/", views.settings_master_home, name="settings_master_home"),
     path("settings/master/<str:master_key>/", views.settings_master_list, name="settings_master_list"),
     path("settings/master/<str:master_key>/csv/", views.settings_master_csv, name="settings_master_csv"),
