@@ -1,0 +1,89 @@
+{% extends "expenses/base.html" %}
+{% load expense_extras %}
+
+{% block title %}中国輸出実績報告 | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-ship"></i></span>
+            中国輸出実績報告
+        </h2>
+        <div class="page-actions">
+            {% if show_all %}
+            <a href="{% url 'expenses:china_export_list' %}" class="btn btn-outline-secondary btn-sm">未輸出のみ表示</a>
+            {% else %}
+            <a href="{% url 'expenses:china_export_list' %}?show=all" class="btn btn-outline-secondary btn-sm">全件表示</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <p class="text-muted small mb-3">
+        {% if show_all %}全件表示中（{{ records|length }}件）{% else %}未輸出のみ表示中（{{ records|length }}件）{% endif %}
+    </p>
+
+    {% if records %}
+    <div class="row g-3">
+        {% for record in records %}
+        <div class="col-12 col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">{{ record.order_no|default:"（注文番号未設定）" }}</span>
+                    {% if record.export_date %}
+                    <span class="status-pill status-pill-approved">輸出済</span>
+                    {% else %}
+                    <span class="status-pill status-pill-pending">未輸出</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <dl class="row small mb-3">
+                        <dt class="col-5">仕入先</dt><dd class="col-7">{{ record.supplier_name|default:"-" }}（{{ record.supplier_cd|default:"-" }}）</dd>
+                        <dt class="col-5">品目コード</dt><dd class="col-7">{{ record.item_cd|default:"-" }}</dd>
+                        <dt class="col-5">品目名1</dt><dd class="col-7">{{ record.item_name1 }}</dd>
+                        <dt class="col-5">品目名2</dt><dd class="col-7">{{ record.item_name2|default:"-" }}</dd>
+                        <dt class="col-5">仕入単価</dt><dd class="col-7">{{ record.unit_price|default:"-" }}</dd>
+                        <dt class="col-5">購入日</dt><dd class="col-7">{{ record.purchase_date|date:"Y/m/d"|default:"-" }}</dd>
+                        <dt class="col-5">数量</dt><dd class="col-7">{{ record.quantity|default:"-" }}</dd>
+                        <dt class="col-5">金額</dt><dd class="col-7">{{ record.amount }}</dd>
+                        <dt class="col-5">科目</dt><dd class="col-7">{{ record.account_name|default:"-" }}（{{ record.account_cd|default:"-" }}）</dd>
+                        <dt class="col-5">負担部門</dt><dd class="col-7">{{ record.burden_bumon_name|default:"-" }}（{{ record.burden_bumon_cd|default:"-" }}）</dd>
+                        <dt class="col-5">発注部署</dt><dd class="col-7">{{ record.order_bumon_name|default:"-" }}</dd>
+                        <dt class="col-5">発注担当</dt><dd class="col-7">{{ record.order_staff_name|default:"-" }}</dd>
+                    </dl>
+                    <form method="post" action="{% url 'expenses:china_export_update' record.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="show" value="{% if show_all %}all{% endif %}">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small mb-1">輸出予定日</label>
+                                <input type="date" name="export_planned_date" class="form-control form-control-sm" value="{{ record.export_planned_date|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <label class="form-label small mb-1">輸出日</label>
+                                <input type="date" name="export_date" class="form-control form-control-sm" value="{{ record.export_date|date:'Y-m-d' }}">
+                            </div>
+                            <div class="col-8 col-md-3">
+                                <label class="form-label small mb-1">インボイスNo</label>
+                                <input type="text" name="invoice_no" class="form-control form-control-sm" value="{{ record.invoice_no|default:'' }}" maxlength="30">
+                            </div>
+                            <div class="col-4 col-md-1">
+                                <button type="submit" class="btn btn-primary btn-sm w-100">保存</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-ship fa-4x text-muted mb-3 d-block"></i>
+        <h4 class="text-muted">{% if show_all %}データがありません{% else %}未輸出のデータはありません{% endif %}</h4>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

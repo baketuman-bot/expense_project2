@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import modelformset_factory, BaseModelFormSet
-from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets, M_User, M_Group, M_BelongTo
+from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets, M_User, M_Group, M_BelongTo, T_ChinaExport
 
 
 def _get_item_choices(data_kbn, empty_label='選択してください', fallback=None):
@@ -960,3 +960,14 @@ class MUserMasterForm(forms.ModelForm):
                 existing.save(update_fields=['group_cd'])
         else:
             M_BelongTo.objects.create(man_number=user, group_cd=group)
+
+
+class ChinaExportUpdateForm(forms.ModelForm):
+    class Meta:
+        model = T_ChinaExport
+        fields = ['export_planned_date', 'export_date', 'invoice_no']
+        widgets = {
+            'export_planned_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control form-control-sm'}),
+            'export_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control form-control-sm'}),
+            'invoice_no': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'maxlength': 30}),
+        }

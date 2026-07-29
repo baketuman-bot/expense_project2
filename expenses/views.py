@@ -18,6 +18,10 @@ from .views_org_manager import (
     user_manager_list,
     user_toggle_active,
 )
+from .views_china_export import (
+    china_export_list,
+    china_export_update,
+)  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,
