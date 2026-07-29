@@ -66,11 +66,10 @@ class ChinaExportListViewTests(TestCase):
         res = self.client.get(reverse('expenses:china_export_list'))
         self.assertEqual(res.status_code, 403)
 
-    def test_adminロールを持っていてもexportロールがなければ403(self):
-        # 設計上の制約: exportロールのみ許可、管理者バイパスなし
+    def test_adminロールを持っていればexportロールがなくても閲覧できる(self):
         self.client.force_login(self.admin_user)
         res = self.client.get(reverse('expenses:china_export_list'))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200)
 
     def test_経理入力項目がテンプレートに表示される(self):
         self.client.force_login(self.export_user)
@@ -126,15 +125,14 @@ class ChinaExportUpdateViewTests(TestCase):
             {'export_planned_date': '2026-08-01', 'export_date': '', 'invoice_no': 'INV-001'})
         self.assertEqual(res.status_code, 403)
 
-    def test_adminロールを持っていてもexportロールがなければ更新不可(self):
-        # 設計上の制約: exportロールのみ許可、管理者バイパスなし
+    def test_adminロールを持っていればexportロールがなくても更新できる(self):
         self.client.force_login(self.admin_user)
         res = self.client.post(
             reverse('expenses:china_export_update', args=[self.record.pk]),
             {'export_planned_date': '2026-08-01', 'export_date': '', 'invoice_no': 'INV-001'})
-        self.assertEqual(res.status_code, 403)
+        self.assertRedirects(res, reverse('expenses:china_export_list'))
         self.record.refresh_from_db()
-        self.assertIsNone(self.record.export_planned_date)
+        self.assertEqual(self.record.export_planned_date, date(2026, 8, 1))
 
     def test_輸出予定日と輸出日とインボイスNoが保存されupdated_byが記録される(self):
         original_updated_at = self.record.updated_at
@@ -181,13 +179,22 @@ class ChinaExportSidebarTests(TestCase):
         cls.other_user = User.objects.create_user(
             username='other_tester3', man_number='9106',
             user_name='権限なし3', password='pass')
+        cls.admin_user = User.objects.create_user(
+            username='admin_tester3', man_number='9109',
+            user_name='管理者3', password='pass')
+        M_UserRole.objects.create(man_number=cls.admin_user, role='admin')
 
     def test_exportロール保持者はサイドバーにメニューが出る(self):
         self.client.force_login(self.export_user)
         res = self.client.get(reverse('expenses:home'))
         self.assertContains(res, '中国輸出実績報告')
 
-    def test_exportロールがないユーザーには出ない(self):
+    def test_adminロール保持者もサイドバーにメニューが出る(self):
+        self.client.force_login(self.admin_user)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertContains(res, '中国輸出実績報告')
+
+    def test_exportロールもadminロールもないユーザーには出ない(self):
         self.client.force_login(self.other_user)
         res = self.client.get(reverse('expenses:home'))
         self.assertNotContains(res, '中国輸出実績報告')

@@ -11,7 +11,7 @@ from .models import T_ChinaExport
 
 @login_required
 def china_export_list(request):
-    if not request.user.has_role('export'):
+    if not (request.user.has_role('export') or request.user.has_role('admin')):
         raise PermissionDenied()
     show_all = request.GET.get('show') == 'all'
     records = T_ChinaExport.objects.order_by('purchase_date', 'pk')
@@ -27,7 +27,7 @@ def china_export_list(request):
 @login_required
 @require_POST
 def china_export_update(request, pk):
-    if not request.user.has_role('export'):
+    if not (request.user.has_role('export') or request.user.has_role('admin')):
         raise PermissionDenied()
     record = get_object_or_404(T_ChinaExport, pk=pk)
     form = ChinaExportUpdateForm(request.POST, instance=record)

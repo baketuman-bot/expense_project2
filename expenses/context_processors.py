@@ -67,7 +67,7 @@ def sidebar_context(request):
 
     can_view_china_export = False
     try:
-        can_view_china_export = request.user.has_role('export')
+        can_view_china_export = request.user.has_role('export') or request.user.has_role('admin')
     except Exception:
         pass
 
