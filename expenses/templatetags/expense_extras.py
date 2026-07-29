@@ -118,3 +118,14 @@ def amount_format(amount, tsuka_cd):
         return '{:,.0f}'.format(amount)
     else:
         return '{:,.2f}'.format(amount)
+
+
+@register.filter
+def comma0(value):
+    """整数カンマ区切り表示（通貨コード不要）: {{ amount|comma0 }} → 1,234"""
+    if value is None:
+        return ''
+    try:
+        return '{:,.0f}'.format(value)
+    except (TypeError, ValueError):
+        return value
