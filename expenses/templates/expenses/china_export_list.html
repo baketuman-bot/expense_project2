@@ -35,25 +35,25 @@
                     <thead class="table-light">
                         <tr>
                             <th>状態</th>
-                            <th>注文番号</th>
-                            <th>仕入先コード</th>
-                            <th>仕入先名</th>
-                            <th>品目コード</th>
-                            <th>品目名1</th>
-                            <th>品目名2</th>
-                            <th class="text-end">仕入単価</th>
-                            <th>購入日</th>
-                            <th class="text-end">数量</th>
-                            <th class="text-end">金額</th>
-                            <th>科目コード</th>
-                            <th>科目名</th>
-                            <th>負担部門コード</th>
-                            <th>負担部署名</th>
-                            <th>発注部署名</th>
-                            <th>発注担当名</th>
-                            <th>輸出予定日</th>
-                            <th>輸出日</th>
-                            <th>インボイスNo</th>
+                            {% include "expenses/_china_export_sort_th.html" with field="order_no" label="注文番号" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="supplier_cd" label="仕入先コード" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="supplier_name" label="仕入先名" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="item_cd" label="品目コード" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="item_name1" label="品目名1" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="item_name2" label="品目名2" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="unit_price" label="仕入単価" extra_class="text-end" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="purchase_date" label="購入日" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="quantity" label="数量" extra_class="text-end" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="amount" label="金額" extra_class="text-end" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="account_cd" label="科目コード" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="account_name" label="科目名" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="burden_bumon_cd" label="負担部門コード" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="burden_bumon_name" label="負担部署名" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="order_bumon_name" label="発注部署名" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="order_staff_name" label="発注担当名" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="export_planned_date" label="輸出予定日" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="export_date" label="輸出日" %}
+                            {% include "expenses/_china_export_sort_th.html" with field="invoice_no" label="インボイスNo" %}
                             <th>操作</th>
                         </tr>
                     </thead>

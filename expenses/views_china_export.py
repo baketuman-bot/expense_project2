@@ -1,4 +1,6 @@
 """各部報告: 中国輸出実績報告 (T_ChinaExport) の一覧・入力・Excel出力ビュー"""
+from urllib.parse import urlencode
+
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -13,26 +15,67 @@ from django.views.decorators.http import require_POST
 from .forms import ChinaExportUpdateForm
 from .models import T_ChinaExport
 
+_SORT_FIELDS = {
+    'order_no', 'supplier_cd', 'supplier_name', 'item_cd', 'item_name1', 'item_name2',
+    'unit_price', 'purchase_date', 'quantity', 'amount', 'account_cd', 'account_name',
+    'burden_bumon_cd', 'burden_bumon_name', 'order_bumon_name', 'order_staff_name',
+    'export_planned_date', 'export_date', 'invoice_no',
+}
+_DEFAULT_SORT = 'purchase_date'
+
 
 def _require_china_export_access(user):
     if not (user.has_role('export') or user.has_role('admin')):
         raise PermissionDenied()
 
 
-def _china_export_queryset(show_all):
-    records = T_ChinaExport.objects.order_by('purchase_date', 'pk')
+def _resolve_sort(request):
+    """GETの`sort`パラメータを検証する。'-field'は降順。不正/未知の値はデフォルトにフォールバック。"""
+    raw = request.GET.get('sort', _DEFAULT_SORT)
+    field = raw[1:] if raw.startswith('-') else raw
+    if field not in _SORT_FIELDS:
+        return _DEFAULT_SORT
+    return raw
+
+
+def _china_export_queryset(show_all, sort=_DEFAULT_SORT):
+    records = T_ChinaExport.objects.order_by(sort, 'pk')
     if not show_all:
         records = records.filter(export_date__isnull=True)
     return records
+
+
+def _build_sort_links(show_all, sort_raw):
+    """各列見出し用のソートリンク情報を組み立てる。"""
+    links = {}
+    for field in _SORT_FIELDS:
+        next_sort = f'-{field}' if sort_raw == field else field
+        params = {'sort': next_sort}
+        if show_all:
+            params['show'] = 'all'
+        if sort_raw == field:
+            arrow = '▲'
+        elif sort_raw == f'-{field}':
+            arrow = '▼'
+        else:
+            arrow = ''
+        links[field] = {
+            'url': f'?{urlencode(params)}',
+            'arrow': arrow,
+            'active': arrow != '',
+        }
+    return links
 
 
 @login_required
 def china_export_list(request):
     _require_china_export_access(request.user)
     show_all = request.GET.get('show') == 'all'
+    sort_raw = _resolve_sort(request)
     return render(request, 'expenses/china_export_list.html', {
-        'records': _china_export_queryset(show_all),
+        'records': _china_export_queryset(show_all, sort_raw),
         'show_all': show_all,
+        'sort_links': _build_sort_links(show_all, sort_raw),
         'current': 'china_export_list',
     })
 

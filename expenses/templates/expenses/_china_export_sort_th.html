@@ -1,0 +1,8 @@
+{% load expense_extras %}
+{% with s=sort_links|get_item:field %}
+<th class="{{ extra_class }}">
+    <a href="{{ s.url }}" class="text-decoration-none {% if s.active %}fw-bold text-dark{% else %}text-muted{% endif %}" title="{{ label }}でソート">
+        {{ label }}{% if s.arrow %} {{ s.arrow }}{% endif %}
+    </a>
+</th>
+{% endwith %}

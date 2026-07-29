@@ -102,6 +102,38 @@ class ChinaExportListViewTests(TestCase):
             [r.pk for r in records],
             [self.exported.pk, self.unexported.pk])
 
+    def test_sortパラメータで指定フィールド昇順に並ぶ(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list') + '?show=all&sort=amount')
+        records = list(res.context['records'])
+        self.assertEqual(
+            [r.pk for r in records],
+            [self.exported.pk, self.unexported.pk])  # amount: 3000(exported) < 5000(unexported)
+
+    def test_sortパラメータの先頭にマイナスを付けると降順に並ぶ(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list') + '?show=all&sort=-amount')
+        records = list(res.context['records'])
+        self.assertEqual(
+            [r.pk for r in records],
+            [self.unexported.pk, self.exported.pk])  # amount: 5000(unexported) > 3000(exported)
+
+    def test_不正なsortパラメータはデフォルト順にフォールバックする(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list') + '?show=all&sort=__class__')
+        self.assertEqual(res.status_code, 200)
+        records = list(res.context['records'])
+        self.assertEqual(
+            [r.pk for r in records],
+            [self.exported.pk, self.unexported.pk])  # purchase_date昇順(デフォルト)
+
+    def test_ソート中の列見出しにアクティブ状態が反映される(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list') + '?sort=amount')
+        self.assertTrue(res.context['sort_links']['amount']['active'])
+        self.assertEqual(res.context['sort_links']['amount']['arrow'], '▲')
+        self.assertFalse(res.context['sort_links']['order_no']['active'])
+
     def test_exportロールを持たないユーザーはExcel出力不可(self):
         self.client.force_login(self.other_user)
         res = self.client.get(reverse('expenses:china_export_excel'))
