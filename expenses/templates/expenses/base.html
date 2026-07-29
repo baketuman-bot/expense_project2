@@ -327,6 +327,26 @@
             </ul>
         </div>
 
+        {% if can_view_china_export %}
+        <div class="precision-section">
+            <div class="precision-section-label">各部報告</div>
+            <ul class="precision-nav">
+                <li>
+                    <a class="precision-link {% if current == 'china_export_list' %}is-active{% endif %}" href="{% url 'expenses:china_export_list' %}">
+                        <span class="precision-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 12s2-7 10-7 10 7 10 7-2 7-10 7-10-7-10-7Z"></path>
+                                <path d="M12 8v8"></path>
+                                <path d="M8 12h8"></path>
+                            </svg>
+                        </span>
+                        <span>中国輸出実績報告</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+
         <div class="precision-user">
             <div class="precision-user-row">
                 <div class="precision-avatar" aria-hidden="true">{{ user.user_name|default:"?"|slice:":1" }}</div>

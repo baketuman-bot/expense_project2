@@ -131,3 +131,25 @@ class ChinaExportUpdateViewTests(TestCase):
             reverse('expenses:china_export_update', args=[self.record.pk]),
             {'export_planned_date': '', 'export_date': '', 'invoice_no': '', 'show': 'all'})
         self.assertRedirects(res, reverse('expenses:china_export_list') + '?show=all')
+
+
+class ChinaExportSidebarTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.export_user = User.objects.create_user(
+            username='export_tester3', man_number='9105',
+            user_name='輸出担当3', password='pass')
+        M_UserRole.objects.create(man_number=cls.export_user, role='export')
+        cls.other_user = User.objects.create_user(
+            username='other_tester3', man_number='9106',
+            user_name='権限なし3', password='pass')
+
+    def test_exportロール保持者はサイドバーにメニューが出る(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertContains(res, '中国輸出実績報告')
+
+    def test_exportロールがないユーザーには出ない(self):
+        self.client.force_login(self.other_user)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertNotContains(res, '中国輸出実績報告')

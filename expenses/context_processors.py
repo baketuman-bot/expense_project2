@@ -65,9 +65,16 @@ def sidebar_context(request):
     except Exception:
         pass
 
+    can_view_china_export = False
+    try:
+        can_view_china_export = request.user.has_role('export')
+    except Exception:
+        pass
+
     return {
         'sidebar_expense_groups': sidebar_groups,
         'pending_approval_count': pending_approval_count,
         'settlement_pending_count': settlement_pending_count,
         'can_manage_assets': can_manage_assets,
+        'can_view_china_export': can_view_china_export,
     }
