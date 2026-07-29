@@ -1383,7 +1383,7 @@ class T_ChinaExport(models.Model):
     item_cd = models.CharField("品目コード", max_length=15, null=True, blank=True)
     item_name1 = models.CharField("品目名1", max_length=50)
     item_name2 = models.CharField("品目名2", max_length=50, null=True, blank=True)
-    unit_price = models.DecimalField("仕入単価", max_digits=10, decimal_places=5, null=True, blank=True)
+    unit_price = models.DecimalField("仕入単価", max_digits=15, decimal_places=2, null=True, blank=True)
     purchase_date = models.DateField("購入日", null=True, blank=True)
     quantity = models.DecimalField("数量", max_digits=10, decimal_places=2, null=True, blank=True)
     amount = models.DecimalField("金額", max_digits=10, decimal_places=2)
