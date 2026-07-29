@@ -1372,3 +1372,42 @@ class GS_Position(models.Model):
         verbose_name_plural = '旧役職(GSESSION)'
         ordering = ['pos_sort', 'pos_sid']
 
+
+class T_ChinaExport(models.Model):
+    """中国輸出実績報告: 経理が輸出目的の購入データを直接投入し、
+    担当社員が輸出予定日・輸出日・インボイスNoを入力してフォローする。"""
+
+    order_no = models.CharField("注文番号", max_length=15, null=True, blank=True)
+    supplier_cd = models.CharField("仕入先コード", max_length=10, null=True, blank=True)
+    supplier_name = models.CharField("仕入先名", max_length=30, null=True, blank=True)
+    item_cd = models.CharField("品目コード", max_length=15, null=True, blank=True)
+    item_name1 = models.CharField("品目名1", max_length=50)
+    item_name2 = models.CharField("品目名2", max_length=50, null=True, blank=True)
+    unit_price = models.DecimalField("仕入単価", max_digits=10, decimal_places=5, null=True, blank=True)
+    purchase_date = models.DateField("購入日", null=True, blank=True)
+    quantity = models.DecimalField("数量", max_digits=10, decimal_places=2, null=True, blank=True)
+    amount = models.DecimalField("金額", max_digits=10, decimal_places=2)
+    account_cd = models.CharField("科目コード", max_length=10, null=True, blank=True)
+    account_name = models.CharField("科目名", max_length=30, null=True, blank=True)
+    burden_bumon_cd = models.CharField("負担部門コード", max_length=10, null=True, blank=True)
+    burden_bumon_name = models.CharField("負担部署名", max_length=20, null=True, blank=True)
+    order_bumon_name = models.CharField("発注部署名", max_length=20, null=True, blank=True)
+    order_staff_name = models.CharField("発注担当名", max_length=20, null=True, blank=True)
+
+    export_planned_date = models.DateField("輸出予定日", null=True, blank=True)
+    export_date = models.DateField("輸出日", null=True, blank=True)
+    invoice_no = models.CharField("インボイスNo", max_length=30, null=True, blank=True)
+
+    updated_by = models.ForeignKey(
+        M_User, verbose_name="最終更新者", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    updated_at = models.DateTimeField("最終更新日時", auto_now=True)
+
+    def __str__(self):
+        return f"{self.order_no or '(注文番号未設定)'} {self.item_name1}"
+
+    class Meta:
+        db_table = 't_china_export'
+        verbose_name = '中国輸出実績報告'
+        verbose_name_plural = '中国輸出実績報告'
