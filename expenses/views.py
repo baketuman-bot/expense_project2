@@ -20,6 +20,7 @@ from .views_org_manager import (
 )
 from .views_china_export import (
     china_export_list,
+    china_export_csv,
     china_export_update,
 )  # noqa: F401
 from .models import (

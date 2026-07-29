@@ -53,6 +53,7 @@ urlpatterns = [
     path("feedback/<int:pk>/delete/", views.feedback_delete, name="feedback_delete"),
     # 各部報告: 中国輸出実績報告
     path("china_export/", views.china_export_list, name="china_export_list"),
+    path("china_export/csv/", views.china_export_csv, name="china_export_csv"),
     path("china_export/<int:pk>/update/", views.china_export_update, name="china_export_update"),
     # 管理者画面 (設定)
     path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),

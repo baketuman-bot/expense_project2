@@ -100,6 +100,26 @@ class ChinaExportListViewTests(TestCase):
             [r.pk for r in records],
             [self.exported.pk, self.unexported.pk])
 
+    def test_exportロールを持たないユーザーはCSV出力不可(self):
+        self.client.force_login(self.other_user)
+        res = self.client.get(reverse('expenses:china_export_csv'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_CSV出力は未輸出のみデフォルト表示され経理項目を含む(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_csv'))
+        content = b''.join(res.streaming_content).decode('utf-8-sig')
+        self.assertIn('注文番号', content)
+        self.assertIn('上海サプライヤー', content)
+        self.assertNotIn('輸出済品', content)
+
+    def test_CSV出力はshow_allで全件含む(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_csv') + '?show=all')
+        content = b''.join(res.streaming_content).decode('utf-8-sig')
+        self.assertIn('未輸出品', content)
+        self.assertIn('輸出済品', content)
+
 
 class ChinaExportUpdateViewTests(TestCase):
     @classmethod

@@ -14,8 +14,10 @@
         <div class="page-actions">
             {% if show_all %}
             <a href="{% url 'expenses:china_export_list' %}" class="btn btn-outline-secondary btn-sm">未輸出のみ表示</a>
+            <a href="{% url 'expenses:china_export_csv' %}?show=all" class="btn btn-outline-secondary btn-sm"><i class="fas fa-download"></i> CSV出力</a>
             {% else %}
             <a href="{% url 'expenses:china_export_list' %}?show=all" class="btn btn-outline-secondary btn-sm">全件表示</a>
+            <a href="{% url 'expenses:china_export_csv' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-download"></i> CSV出力</a>
             {% endif %}
         </div>
     </div>
