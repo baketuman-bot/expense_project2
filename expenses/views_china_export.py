@@ -20,6 +20,7 @@ def china_export_list(request):
     return render(request, 'expenses/china_export_list.html', {
         'records': records,
         'show_all': show_all,
+        'current': 'china_export_list',
     })
 
 
@@ -33,7 +34,10 @@ def china_export_update(request, pk):
     if form.is_valid():
         updated = form.save(commit=False)
         updated.updated_by = request.user
-        updated.save()
+        updated.save(update_fields=[
+            'export_planned_date', 'export_date', 'invoice_no',
+            'updated_by', 'updated_at',
+        ])
     base_url = reverse('expenses:china_export_list')
     if request.POST.get('show') == 'all':
         return redirect(f'{base_url}?show=all')

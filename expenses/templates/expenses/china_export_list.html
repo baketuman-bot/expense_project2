@@ -43,10 +43,10 @@
                         <dt class="col-5">品目コード</dt><dd class="col-7">{{ record.item_cd|default:"-" }}</dd>
                         <dt class="col-5">品目名1</dt><dd class="col-7">{{ record.item_name1 }}</dd>
                         <dt class="col-5">品目名2</dt><dd class="col-7">{{ record.item_name2|default:"-" }}</dd>
-                        <dt class="col-5">仕入単価</dt><dd class="col-7">{{ record.unit_price|default:"-" }}</dd>
+                        <dt class="col-5">仕入単価</dt><dd class="col-7">{{ record.unit_price|floatformat:"2"|default:"-" }}</dd>
                         <dt class="col-5">購入日</dt><dd class="col-7">{{ record.purchase_date|date:"Y/m/d"|default:"-" }}</dd>
-                        <dt class="col-5">数量</dt><dd class="col-7">{{ record.quantity|default:"-" }}</dd>
-                        <dt class="col-5">金額</dt><dd class="col-7">{{ record.amount }}</dd>
+                        <dt class="col-5">数量</dt><dd class="col-7">{{ record.quantity|default_if_none:"-" }}</dd>
+                        <dt class="col-5">金額</dt><dd class="col-7">{{ record.amount|floatformat:"0" }}</dd>
                         <dt class="col-5">科目</dt><dd class="col-7">{{ record.account_name|default:"-" }}（{{ record.account_cd|default:"-" }}）</dd>
                         <dt class="col-5">負担部門</dt><dd class="col-7">{{ record.burden_bumon_name|default:"-" }}（{{ record.burden_bumon_cd|default:"-" }}）</dd>
                         <dt class="col-5">発注部署</dt><dd class="col-7">{{ record.order_bumon_name|default:"-" }}</dd>

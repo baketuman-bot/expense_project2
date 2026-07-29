@@ -46,9 +46,16 @@ class ChinaExportListViewTests(TestCase):
             username='other_tester', man_number='9102',
             user_name='権限なし', password='pass')
 
+        cls.admin_user = User.objects.create_user(
+            username='admin_tester', man_number='9107',
+            user_name='管理者', password='pass')
+        M_UserRole.objects.create(man_number=cls.admin_user, role='admin')
+
         cls.unexported = T_ChinaExport.objects.create(
             item_name1='未輸出品', amount=Decimal('5000.00'),
-            purchase_date=date(2026, 6, 1))
+            purchase_date=date(2026, 6, 1),
+            supplier_name='上海サプライヤー', order_staff_name='山田太郎',
+            account_name='仕入高', burden_bumon_name='営業部')
         cls.exported = T_ChinaExport.objects.create(
             item_name1='輸出済品', amount=Decimal('3000.00'),
             purchase_date=date(2026, 5, 1),
@@ -58,6 +65,20 @@ class ChinaExportListViewTests(TestCase):
         self.client.force_login(self.other_user)
         res = self.client.get(reverse('expenses:china_export_list'))
         self.assertEqual(res.status_code, 403)
+
+    def test_adminロールを持っていてもexportロールがなければ403(self):
+        # 設計上の制約: exportロールのみ許可、管理者バイパスなし
+        self.client.force_login(self.admin_user)
+        res = self.client.get(reverse('expenses:china_export_list'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_経理入力項目がテンプレートに表示される(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list'))
+        self.assertContains(res, '上海サプライヤー')
+        self.assertContains(res, '山田太郎')
+        self.assertContains(res, '仕入高')
+        self.assertContains(res, '営業部')
 
     def test_デフォルトは未輸出のみ表示(self):
         self.client.force_login(self.export_user)
@@ -91,6 +112,10 @@ class ChinaExportUpdateViewTests(TestCase):
         cls.other_user = User.objects.create_user(
             username='other_tester2', man_number='9104',
             user_name='権限なし2', password='pass')
+        cls.admin_user = User.objects.create_user(
+            username='admin_tester2', man_number='9108',
+            user_name='管理者2', password='pass')
+        M_UserRole.objects.create(man_number=cls.admin_user, role='admin')
         cls.record = T_ChinaExport.objects.create(
             order_no='ORDER0001', item_name1='対象品目', amount=Decimal('1234.00'))
 
@@ -101,7 +126,18 @@ class ChinaExportUpdateViewTests(TestCase):
             {'export_planned_date': '2026-08-01', 'export_date': '', 'invoice_no': 'INV-001'})
         self.assertEqual(res.status_code, 403)
 
+    def test_adminロールを持っていてもexportロールがなければ更新不可(self):
+        # 設計上の制約: exportロールのみ許可、管理者バイパスなし
+        self.client.force_login(self.admin_user)
+        res = self.client.post(
+            reverse('expenses:china_export_update', args=[self.record.pk]),
+            {'export_planned_date': '2026-08-01', 'export_date': '', 'invoice_no': 'INV-001'})
+        self.assertEqual(res.status_code, 403)
+        self.record.refresh_from_db()
+        self.assertIsNone(self.record.export_planned_date)
+
     def test_輸出予定日と輸出日とインボイスNoが保存されupdated_byが記録される(self):
+        original_updated_at = self.record.updated_at
         self.client.force_login(self.export_user)
         res = self.client.post(
             reverse('expenses:china_export_update', args=[self.record.pk]),
@@ -112,6 +148,8 @@ class ChinaExportUpdateViewTests(TestCase):
         self.assertEqual(self.record.export_date, date(2026, 8, 10))
         self.assertEqual(self.record.invoice_no, 'INV-001')
         self.assertEqual(self.record.updated_by, self.export_user)
+        self.assertIsNotNone(self.record.updated_at)
+        self.assertNotEqual(self.record.updated_at, original_updated_at)
 
     def test_経理入力項目はPOSTに含めても更新されない(self):
         self.client.force_login(self.export_user)

@@ -966,8 +966,3 @@ class ChinaExportUpdateForm(forms.ModelForm):
     class Meta:
         model = T_ChinaExport
         fields = ['export_planned_date', 'export_date', 'invoice_no']
-        widgets = {
-            'export_planned_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control form-control-sm'}),
-            'export_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control form-control-sm'}),
-            'invoice_no': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'maxlength': 30}),
-        }
