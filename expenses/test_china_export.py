@@ -172,7 +172,7 @@ class ChinaExportListViewTests(TestCase):
         self.assertEqual(data_cell.number_format, '#,##0')
 
 
-class ChinaExportUpdateViewTests(TestCase):
+class ChinaExportBulkUpdateViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.export_user = User.objects.create_user(
@@ -188,55 +188,103 @@ class ChinaExportUpdateViewTests(TestCase):
         M_UserRole.objects.create(man_number=cls.admin_user, role='admin')
         cls.record = T_ChinaExport.objects.create(
             order_no='ORDER0001', item_name1='対象品目', amount=Decimal('1234.00'))
+        cls.record2 = T_ChinaExport.objects.create(
+            order_no='ORDER0002', item_name1='対象品目2', amount=Decimal('5678.00'))
 
-    def test_exportロールを持たないユーザーは更新不可(self):
+    def test_exportロールを持たないユーザーは一括更新不可(self):
         self.client.force_login(self.other_user)
         res = self.client.post(
-            reverse('expenses:china_export_update', args=[self.record.pk]),
-            {'export_planned_date': '2026-08-01', 'export_date': '', 'invoice_no': 'INV-001'})
+            reverse('expenses:china_export_bulk_update'),
+            {
+                'pks': [self.record.pk],
+                'export_planned_date_' + str(self.record.pk): '2026-08-01',
+                'export_date_' + str(self.record.pk): '',
+                'invoice_no_' + str(self.record.pk): 'INV-001',
+            })
         self.assertEqual(res.status_code, 403)
 
-    def test_adminロールを持っていればexportロールがなくても更新できる(self):
+    def test_adminロールを持っていればexportロールがなくても一括更新できる(self):
         self.client.force_login(self.admin_user)
         res = self.client.post(
-            reverse('expenses:china_export_update', args=[self.record.pk]),
-            {'export_planned_date': '2026-08-01', 'export_date': '', 'invoice_no': 'INV-001'})
+            reverse('expenses:china_export_bulk_update'),
+            {
+                'pks': [self.record.pk],
+                'export_planned_date_' + str(self.record.pk): '2026-08-01',
+                'export_date_' + str(self.record.pk): '',
+                'invoice_no_' + str(self.record.pk): 'INV-001',
+            })
         self.assertRedirects(res, reverse('expenses:china_export_list'))
         self.record.refresh_from_db()
         self.assertEqual(self.record.export_planned_date, date(2026, 8, 1))
 
-    def test_輸出予定日と輸出日とインボイスNoが保存されupdated_byが記録される(self):
+    def test_複数行をまとめて一括保存できる(self):
         original_updated_at = self.record.updated_at
         self.client.force_login(self.export_user)
         res = self.client.post(
-            reverse('expenses:china_export_update', args=[self.record.pk]),
-            {'export_planned_date': '2026-08-01', 'export_date': '2026-08-10', 'invoice_no': 'INV-001'})
+            reverse('expenses:china_export_bulk_update'),
+            {
+                'pks': [self.record.pk, self.record2.pk],
+                'export_planned_date_' + str(self.record.pk): '2026-08-01',
+                'export_date_' + str(self.record.pk): '2026-08-10',
+                'invoice_no_' + str(self.record.pk): 'INV-001',
+                'export_planned_date_' + str(self.record2.pk): '2026-09-01',
+                'export_date_' + str(self.record2.pk): '',
+                'invoice_no_' + str(self.record2.pk): 'INV-002',
+            })
         self.assertRedirects(res, reverse('expenses:china_export_list'))
         self.record.refresh_from_db()
+        self.record2.refresh_from_db()
         self.assertEqual(self.record.export_planned_date, date(2026, 8, 1))
         self.assertEqual(self.record.export_date, date(2026, 8, 10))
         self.assertEqual(self.record.invoice_no, 'INV-001')
         self.assertEqual(self.record.updated_by, self.export_user)
         self.assertIsNotNone(self.record.updated_at)
         self.assertNotEqual(self.record.updated_at, original_updated_at)
+        self.assertEqual(self.record2.export_planned_date, date(2026, 9, 1))
+        self.assertIsNone(self.record2.export_date)
+        self.assertEqual(self.record2.invoice_no, 'INV-002')
 
     def test_経理入力項目はPOSTに含めても更新されない(self):
         self.client.force_login(self.export_user)
         self.client.post(
-            reverse('expenses:china_export_update', args=[self.record.pk]),
+            reverse('expenses:china_export_bulk_update'),
             {
-                'export_planned_date': '', 'export_date': '', 'invoice_no': '',
+                'pks': [self.record.pk],
+                'export_planned_date_' + str(self.record.pk): '',
+                'export_date_' + str(self.record.pk): '',
+                'invoice_no_' + str(self.record.pk): '',
                 'order_no': 'HACKED', 'amount': '999999.00',
             })
         self.record.refresh_from_db()
         self.assertEqual(self.record.order_no, 'ORDER0001')
         self.assertEqual(self.record.amount, Decimal('1234.00'))
 
+    def test_pksに含まれないレコードは更新されない(self):
+        self.client.force_login(self.export_user)
+        self.client.post(
+            reverse('expenses:china_export_bulk_update'),
+            {
+                'pks': [self.record.pk],
+                'export_planned_date_' + str(self.record.pk): '2026-08-01',
+                'export_date_' + str(self.record.pk): '',
+                'invoice_no_' + str(self.record.pk): '',
+                # record2 用のフィールドを送っても pks に含めなければ更新されない
+                'export_planned_date_' + str(self.record2.pk): '2026-09-01',
+            })
+        self.record2.refresh_from_db()
+        self.assertIsNone(self.record2.export_planned_date)
+
     def test_show_allを維持したままリダイレクトされる(self):
         self.client.force_login(self.export_user)
         res = self.client.post(
-            reverse('expenses:china_export_update', args=[self.record.pk]),
-            {'export_planned_date': '', 'export_date': '', 'invoice_no': '', 'show': 'all'})
+            reverse('expenses:china_export_bulk_update'),
+            {
+                'pks': [self.record.pk],
+                'export_planned_date_' + str(self.record.pk): '',
+                'export_date_' + str(self.record.pk): '',
+                'invoice_no_' + str(self.record.pk): '',
+                'show': 'all',
+            })
         self.assertRedirects(res, reverse('expenses:china_export_list') + '?show=all')
 
 

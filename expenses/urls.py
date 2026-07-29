@@ -54,7 +54,7 @@ urlpatterns = [
     # 各部報告: 中国輸出実績報告
     path("china_export/", views.china_export_list, name="china_export_list"),
     path("china_export/excel/", views.china_export_excel, name="china_export_excel"),
-    path("china_export/<int:pk>/update/", views.china_export_update, name="china_export_update"),
+    path("china_export/bulk_update/", views.china_export_bulk_update, name="china_export_bulk_update"),
     # 管理者画面 (設定)
     path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),
     path("settings/data_view/<str:view_name>/", views.settings_data_view_browse, name="settings_data_view_browse"),

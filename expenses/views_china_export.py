@@ -8,7 +8,7 @@ from openpyxl.utils import get_column_letter
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
@@ -164,17 +164,26 @@ def china_export_excel(request):
 
 @login_required
 @require_POST
-def china_export_update(request, pk):
+def china_export_bulk_update(request):
+    """一覧に表示中の全行分の輸出予定日/輸出日/インボイスNoを一括保存する。
+    各入力欄は `<field>_<pk>` という名前で送信され、`pks` (複数値) が対象レコードの一覧を表す。"""
     _require_china_export_access(request.user)
-    record = get_object_or_404(T_ChinaExport, pk=pk)
-    form = ChinaExportUpdateForm(request.POST, instance=record)
-    if form.is_valid():
-        updated = form.save(commit=False)
-        updated.updated_by = request.user
-        updated.save(update_fields=[
-            'export_planned_date', 'export_date', 'invoice_no',
-            'updated_by', 'updated_at',
-        ])
+    pks = request.POST.getlist('pks')
+    records = T_ChinaExport.objects.filter(pk__in=pks)
+    for record in records:
+        data = {
+            'export_planned_date': request.POST.get(f'export_planned_date_{record.pk}', ''),
+            'export_date': request.POST.get(f'export_date_{record.pk}', ''),
+            'invoice_no': request.POST.get(f'invoice_no_{record.pk}', ''),
+        }
+        form = ChinaExportUpdateForm(data, instance=record)
+        if form.is_valid():
+            updated = form.save(commit=False)
+            updated.updated_by = request.user
+            updated.save(update_fields=[
+                'export_planned_date', 'export_date', 'invoice_no',
+                'updated_by', 'updated_at',
+            ])
     base_url = reverse('expenses:china_export_list')
     if request.POST.get('show') == 'all':
         return redirect(f'{base_url}?show=all')

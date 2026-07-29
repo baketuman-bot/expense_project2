@@ -19,6 +19,9 @@
             <a href="{% url 'expenses:china_export_list' %}?show=all" class="btn btn-outline-secondary btn-sm">全件表示</a>
             <a href="{% url 'expenses:china_export_excel' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-file-excel"></i> データ出力</a>
             {% endif %}
+            {% if records %}
+            <button type="submit" form="china-export-bulk-form" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> 一括保存</button>
+            {% endif %}
         </div>
     </div>
 
@@ -28,90 +31,87 @@
     </p>
 
     {% if records %}
-    <div class="card">
-        <div class="card-body p-0">
-            <div class="china-export-scrollbox">
-                <table class="table table-hover table-sm mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>状態</th>
-                            {% include "expenses/_china_export_sort_th.html" with field="order_no" label="注文番号" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="supplier_cd" label="仕入先コード" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="supplier_name" label="仕入先名" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="item_cd" label="品目コード" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="item_name1" label="品目名1" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="item_name2" label="品目名2" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="unit_price" label="仕入単価" extra_class="text-end" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="purchase_date" label="購入日" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="quantity" label="数量" extra_class="text-end" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="amount" label="金額" extra_class="text-end" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="account_cd" label="科目コード" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="account_name" label="科目名" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="burden_bumon_cd" label="負担部門コード" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="burden_bumon_name" label="負担部署名" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="order_bumon_name" label="発注部署名" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="order_staff_name" label="発注担当名" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="export_planned_date" label="輸出予定日" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="export_date" label="輸出日" %}
-                            {% include "expenses/_china_export_sort_th.html" with field="invoice_no" label="インボイスNo" %}
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for record in records %}
-                        <tr>
-                            <td>
-                                {% if record.export_date %}
-                                <span class="status-pill status-pill-approved">輸出済</span>
-                                {% else %}
-                                <span class="status-pill status-pill-pending">未輸出</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ record.order_no|default:"-" }}</td>
-                            <td>{{ record.supplier_cd|default:"-" }}</td>
-                            <td>{{ record.supplier_name|default:"-" }}</td>
-                            <td>{{ record.item_cd|default:"-" }}</td>
-                            <td>{{ record.item_name1 }}</td>
-                            <td>{{ record.item_name2|default:"-" }}</td>
-                            <td class="text-end">{{ record.unit_price|floatformat:"2"|default:"-" }}</td>
-                            <td>{{ record.purchase_date|date:"Y/m/d"|default:"-" }}</td>
-                            <td class="text-end">{{ record.quantity|default_if_none:"-" }}</td>
-                            <td class="text-end">{{ record.amount|comma0 }}</td>
-                            <td>{{ record.account_cd|default:"-" }}</td>
-                            <td>{{ record.account_name|default:"-" }}</td>
-                            <td>{{ record.burden_bumon_cd|default:"-" }}</td>
-                            <td>{{ record.burden_bumon_name|default:"-" }}</td>
-                            <td>{{ record.order_bumon_name|default:"-" }}</td>
-                            <td>{{ record.order_staff_name|default:"-" }}</td>
-                            <td>
-                                <input type="date" name="export_planned_date" form="row-{{ record.pk }}"
-                                       class="form-control form-control-sm" style="min-width:140px"
-                                       value="{{ record.export_planned_date|date:'Y-m-d' }}">
-                            </td>
-                            <td>
-                                <input type="date" name="export_date" form="row-{{ record.pk }}"
-                                       class="form-control form-control-sm" style="min-width:140px"
-                                       value="{{ record.export_date|date:'Y-m-d' }}">
-                            </td>
-                            <td>
-                                <input type="text" name="invoice_no" form="row-{{ record.pk }}"
-                                       class="form-control form-control-sm" style="min-width:120px" maxlength="30"
-                                       value="{{ record.invoice_no|default:'' }}">
-                            </td>
-                            <td>
-                                <form id="row-{{ record.pk }}" method="post" action="{% url 'expenses:china_export_update' record.pk %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="show" value="{% if show_all %}all{% endif %}">
-                                </form>
-                                <button type="submit" form="row-{{ record.pk }}" class="btn btn-primary btn-sm">保存</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <form id="china-export-bulk-form" method="post" action="{% url 'expenses:china_export_bulk_update' %}">
+        {% csrf_token %}
+        <input type="hidden" name="show" value="{% if show_all %}all{% endif %}">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="china-export-scrollbox">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>状態</th>
+                                {% include "expenses/_china_export_sort_th.html" with field="order_no" label="注文番号" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="supplier_cd" label="仕入先コード" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="supplier_name" label="仕入先名" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="item_cd" label="品目コード" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="item_name1" label="品目名1" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="item_name2" label="品目名2" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="unit_price" label="仕入単価" extra_class="text-end" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="purchase_date" label="購入日" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="quantity" label="数量" extra_class="text-end" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="amount" label="金額" extra_class="text-end" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="account_cd" label="科目コード" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="account_name" label="科目名" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="burden_bumon_cd" label="負担部門コード" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="burden_bumon_name" label="負担部署名" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="order_bumon_name" label="発注部署名" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="order_staff_name" label="発注担当名" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="export_planned_date" label="輸出予定日" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="export_date" label="輸出日" %}
+                                {% include "expenses/_china_export_sort_th.html" with field="invoice_no" label="インボイスNo" %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in records %}
+                            <tr>
+                                <td>
+                                    <input type="hidden" name="pks" value="{{ record.pk }}">
+                                    {% if record.export_date %}
+                                    <span class="status-pill status-pill-approved">輸出済</span>
+                                    {% else %}
+                                    <span class="status-pill status-pill-pending">未輸出</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.order_no|default:"-" }}</td>
+                                <td>{{ record.supplier_cd|default:"-" }}</td>
+                                <td>{{ record.supplier_name|default:"-" }}</td>
+                                <td>{{ record.item_cd|default:"-" }}</td>
+                                <td>{{ record.item_name1 }}</td>
+                                <td>{{ record.item_name2|default:"-" }}</td>
+                                <td class="text-end">{{ record.unit_price|floatformat:"2"|default:"-" }}</td>
+                                <td>{{ record.purchase_date|date:"Y/m/d"|default:"-" }}</td>
+                                <td class="text-end">{{ record.quantity|default_if_none:"-" }}</td>
+                                <td class="text-end">{{ record.amount|comma0 }}</td>
+                                <td>{{ record.account_cd|default:"-" }}</td>
+                                <td>{{ record.account_name|default:"-" }}</td>
+                                <td>{{ record.burden_bumon_cd|default:"-" }}</td>
+                                <td>{{ record.burden_bumon_name|default:"-" }}</td>
+                                <td>{{ record.order_bumon_name|default:"-" }}</td>
+                                <td>{{ record.order_staff_name|default:"-" }}</td>
+                                <td>
+                                    <input type="date" name="export_planned_date_{{ record.pk }}"
+                                           class="form-control form-control-sm" style="min-width:140px"
+                                           value="{{ record.export_planned_date|date:'Y-m-d' }}">
+                                </td>
+                                <td>
+                                    <input type="date" name="export_date_{{ record.pk }}"
+                                           class="form-control form-control-sm" style="min-width:140px"
+                                           value="{{ record.export_date|date:'Y-m-d' }}">
+                                </td>
+                                <td>
+                                    <input type="text" name="invoice_no_{{ record.pk }}"
+                                           class="form-control form-control-sm" style="min-width:120px" maxlength="30"
+                                           value="{{ record.invoice_no|default:'' }}">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+    </form>
     {% else %}
     <div class="text-center py-5">
         <i class="fas fa-ship fa-4x text-muted mb-3 d-block"></i>
