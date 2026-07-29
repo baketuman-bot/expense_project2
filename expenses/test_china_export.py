@@ -1,7 +1,9 @@
 """中国輸出実績報告 (T_ChinaExport) のテスト"""
+import io
 from datetime import date
 from decimal import Decimal
 
+import openpyxl
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
@@ -100,25 +102,42 @@ class ChinaExportListViewTests(TestCase):
             [r.pk for r in records],
             [self.exported.pk, self.unexported.pk])
 
-    def test_exportロールを持たないユーザーはCSV出力不可(self):
+    def test_exportロールを持たないユーザーはExcel出力不可(self):
         self.client.force_login(self.other_user)
-        res = self.client.get(reverse('expenses:china_export_csv'))
+        res = self.client.get(reverse('expenses:china_export_excel'))
         self.assertEqual(res.status_code, 403)
 
-    def test_CSV出力は未輸出のみデフォルト表示され経理項目を含む(self):
+    def test_Excel出力は未輸出のみデフォルト表示され経理項目を含む(self):
         self.client.force_login(self.export_user)
-        res = self.client.get(reverse('expenses:china_export_csv'))
-        content = b''.join(res.streaming_content).decode('utf-8-sig')
-        self.assertIn('注文番号', content)
-        self.assertIn('上海サプライヤー', content)
-        self.assertNotIn('輸出済品', content)
+        res = self.client.get(reverse('expenses:china_export_excel'))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(
+            res['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        values = [cell.value for row in wb.active.iter_rows() for cell in row]
+        self.assertIn('注文番号', values)
+        self.assertIn('上海サプライヤー', values)
+        self.assertNotIn('輸出済品', values)
 
-    def test_CSV出力はshow_allで全件含む(self):
+    def test_Excel出力はshow_allで全件含む(self):
         self.client.force_login(self.export_user)
-        res = self.client.get(reverse('expenses:china_export_csv') + '?show=all')
-        content = b''.join(res.streaming_content).decode('utf-8-sig')
-        self.assertIn('未輸出品', content)
-        self.assertIn('輸出済品', content)
+        res = self.client.get(reverse('expenses:china_export_excel') + '?show=all')
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        values = [cell.value for row in wb.active.iter_rows() for cell in row]
+        self.assertIn('未輸出品', values)
+        self.assertIn('輸出済品', values)
+
+    def test_Excel出力は金額列に数値とカンマ書式が設定される(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        header = [c.value for c in ws[1]]
+        amount_col = header.index('金額') + 1
+        data_cell = ws.cell(row=2, column=amount_col)
+        self.assertEqual(data_cell.value, 5000.0)
+        self.assertEqual(data_cell.number_format, '#,##0')
 
 
 class ChinaExportUpdateViewTests(TestCase):

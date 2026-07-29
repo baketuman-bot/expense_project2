@@ -1,9 +1,11 @@
-"""各部報告: 中国輸出実績報告 (T_ChinaExport) の一覧・入力・CSV出力ビュー"""
-import csv as csv_module
+"""各部報告: 中国輸出実績報告 (T_ChinaExport) の一覧・入力・Excel出力ビュー"""
+import openpyxl
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import StreamingHttpResponse
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -35,21 +37,19 @@ def china_export_list(request):
     })
 
 
-_CSV_HEADERS = [
+_EXCEL_HEADERS = [
     '状態', '注文番号', '仕入先コード', '仕入先名', '品目コード', '品目名1', '品目名2',
     '仕入単価', '購入日', '数量', '金額', '科目コード', '科目名',
     '負担部門コード', '負担部署名', '発注部署名', '発注担当名',
     '輸出予定日', '輸出日', 'インボイスNo',
 ]
+_EXCEL_COLUMN_WIDTHS = [8, 14, 12, 20, 12, 24, 24, 12, 12, 10, 12, 10, 16, 12, 14, 14, 14, 12, 12, 16]
+_EXCEL_DATE_COLS = {9, 18, 19}    # 購入日, 輸出予定日, 輸出日
+_EXCEL_MONEY_COLS = {8, 11}       # 仕入単価, 金額
+_EXCEL_QTY_COL = 10               # 数量
 
 
-def _china_export_to_row(r):
-    def d(v):
-        return v.strftime('%Y/%m/%d') if v else ''
-
-    def n(v):
-        return str(v) if v is not None else ''
-
+def _china_export_to_excel_row(r):
     return [
         '輸出済' if r.export_date else '未輸出',
         r.order_no or '',
@@ -58,41 +58,64 @@ def _china_export_to_row(r):
         r.item_cd or '',
         r.item_name1,
         r.item_name2 or '',
-        n(r.unit_price),
-        d(r.purchase_date),
-        n(r.quantity),
-        n(r.amount),
+        float(r.unit_price) if r.unit_price is not None else None,
+        r.purchase_date,
+        float(r.quantity) if r.quantity is not None else None,
+        float(r.amount),
         r.account_cd or '',
         r.account_name or '',
         r.burden_bumon_cd or '',
         r.burden_bumon_name or '',
         r.order_bumon_name or '',
         r.order_staff_name or '',
-        d(r.export_planned_date),
-        d(r.export_date),
+        r.export_planned_date,
+        r.export_date,
         r.invoice_no or '',
     ]
 
 
 @login_required
-def china_export_csv(request):
+def china_export_excel(request):
+    """一覧を成形済みのExcel(.xlsx)としてダウンロードする（表示中の未輸出のみ/全件の状態を引き継ぐ）。"""
     _require_china_export_access(request.user)
     show_all = request.GET.get('show') == 'all'
     records = _china_export_queryset(show_all)
 
-    class EchoBuffer:
-        def write(self, value):
-            return value
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '中国輸出実績報告'
 
-    writer = csv_module.writer(EchoBuffer())
+    ws.append(_EXCEL_HEADERS)
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='495057', end_color='495057', fill_type='solid')
+    for col_idx in range(1, len(_EXCEL_HEADERS) + 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
 
-    def rows():
-        yield writer.writerow(_CSV_HEADERS)
-        for r in records.iterator():
-            yield writer.writerow(_china_export_to_row(r))
+    for r in records.iterator():
+        ws.append(_china_export_to_excel_row(r))
 
-    response = StreamingHttpResponse(rows(), content_type='text/csv; charset=utf-8-sig')
-    response['Content-Disposition'] = 'attachment; filename="china_export.csv"'
+    last_row = ws.max_row
+    for row_idx in range(2, last_row + 1):
+        for col_idx in _EXCEL_DATE_COLS:
+            ws.cell(row=row_idx, column=col_idx).number_format = 'yyyy/mm/dd'
+        for col_idx in _EXCEL_MONEY_COLS:
+            ws.cell(row=row_idx, column=col_idx).number_format = '#,##0'
+        ws.cell(row=row_idx, column=_EXCEL_QTY_COL).number_format = '#,##0.00'
+
+    for col_idx, width in enumerate(_EXCEL_COLUMN_WIDTHS, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    ws.freeze_panes = 'A2'
+    ws.auto_filter.ref = ws.dimensions
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="china_export.xlsx"'
+    wb.save(response)
     return response
 
 
