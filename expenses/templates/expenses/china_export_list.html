@@ -44,7 +44,6 @@
                                 {% include "expenses/_china_export_sort_th.html" with field="order_no" label="注文番号" %}
                                 {% include "expenses/_china_export_sort_th.html" with field="supplier_cd" label="仕入先コード" %}
                                 {% include "expenses/_china_export_sort_th.html" with field="supplier_name" label="仕入先名" %}
-                                {% include "expenses/_china_export_sort_th.html" with field="item_cd" label="品目コード" %}
                                 {% include "expenses/_china_export_sort_th.html" with field="item_name1" label="品目名1" %}
                                 {% include "expenses/_china_export_sort_th.html" with field="item_name2" label="品目名2" %}
                                 {% include "expenses/_china_export_sort_th.html" with field="unit_price" label="仕入単価" extra_class="text-end" %}
@@ -76,7 +75,6 @@
                                 <td>{{ record.order_no|default:"-" }}</td>
                                 <td>{{ record.supplier_cd|default:"-" }}</td>
                                 <td>{{ record.supplier_name|default:"-" }}</td>
-                                <td>{{ record.item_cd|default:"-" }}</td>
                                 <td>{{ record.item_name1 }}</td>
                                 <td>{{ record.item_name2|default:"-" }}</td>
                                 <td class="text-end">{{ record.unit_price|floatformat:"2"|default:"-" }}</td>

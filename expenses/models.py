@@ -1380,7 +1380,6 @@ class T_ChinaExport(models.Model):
     order_no = models.CharField("注文番号", max_length=15, null=True, blank=True)
     supplier_cd = models.CharField("仕入先コード", max_length=10, null=True, blank=True)
     supplier_name = models.CharField("仕入先名", max_length=30, null=True, blank=True)
-    item_cd = models.CharField("品目コード", max_length=15, null=True, blank=True)
     item_name1 = models.CharField("品目名1", max_length=50)
     item_name2 = models.CharField("品目名2", max_length=50, null=True, blank=True)
     unit_price = models.DecimalField("仕入単価", max_digits=15, decimal_places=2, null=True, blank=True)

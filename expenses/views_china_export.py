@@ -16,7 +16,7 @@ from .forms import ChinaExportUpdateForm
 from .models import T_ChinaExport
 
 _SORT_FIELDS = {
-    'order_no', 'supplier_cd', 'supplier_name', 'item_cd', 'item_name1', 'item_name2',
+    'order_no', 'supplier_cd', 'supplier_name', 'item_name1', 'item_name2',
     'unit_price', 'purchase_date', 'quantity', 'amount', 'account_cd', 'account_name',
     'burden_bumon_cd', 'burden_bumon_name', 'order_bumon_name', 'order_staff_name',
     'export_planned_date', 'export_date', 'invoice_no',
@@ -81,15 +81,15 @@ def china_export_list(request):
 
 
 _EXCEL_HEADERS = [
-    '状態', '注文番号', '仕入先コード', '仕入先名', '品目コード', '品目名1', '品目名2',
+    '状態', '注文番号', '仕入先コード', '仕入先名', '品目名1', '品目名2',
     '仕入単価', '購入日', '数量', '金額', '科目コード', '科目名',
     '負担部門コード', '負担部署名', '発注部署名', '発注担当名',
     '輸出予定日', '輸出日', 'インボイスNo',
 ]
-_EXCEL_COLUMN_WIDTHS = [8, 14, 12, 20, 12, 24, 24, 12, 12, 10, 12, 10, 16, 12, 14, 14, 14, 12, 12, 16]
-_EXCEL_DATE_COLS = {9, 18, 19}    # 購入日, 輸出予定日, 輸出日
-_EXCEL_MONEY_COLS = {8, 11}       # 仕入単価, 金額
-_EXCEL_QTY_COL = 10               # 数量
+_EXCEL_COLUMN_WIDTHS = [8, 14, 12, 20, 24, 24, 12, 12, 10, 12, 10, 16, 12, 14, 14, 14, 12, 12, 16]
+_EXCEL_DATE_COLS = {8, 17, 18}    # 購入日, 輸出予定日, 輸出日
+_EXCEL_MONEY_COLS = {7, 10}       # 仕入単価, 金額
+_EXCEL_QTY_COL = 9                # 数量
 
 
 def _china_export_to_excel_row(r):
@@ -98,7 +98,6 @@ def _china_export_to_excel_row(r):
         r.order_no or '',
         r.supplier_cd or '',
         r.supplier_name or '',
-        r.item_cd or '',
         r.item_name1,
         r.item_name2 or '',
         float(r.unit_price) if r.unit_price is not None else None,
