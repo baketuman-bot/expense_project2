@@ -317,3 +317,95 @@ class ChinaExportSidebarTests(TestCase):
         self.client.force_login(self.other_user)
         res = self.client.get(reverse('expenses:home'))
         self.assertNotContains(res, '中国輸出実績報告')
+
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from expenses.models import M_ExchangeField
+
+
+def _build_china_export_workbook():
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(['注文番号', '品目名1', '金額', '購入日'])
+    ws.append(['UP0001', 'アップロード品目', 1500, '2026-07-10'])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return SimpleUploadedFile(
+        'upload.xlsx', buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+class ChinaExportUploadViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.export_user = User.objects.create_user(
+            username='export_tester4', man_number='9110',
+            user_name='輸出担当4', password='pass')
+        M_UserRole.objects.create(man_number=cls.export_user, role='export')
+        cls.other_user = User.objects.create_user(
+            username='other_tester4', man_number='9111',
+            user_name='権限なし4', password='pass')
+        M_ExchangeField.objects.create(
+            table_name='t_china_export', updata_title='注文番号', up_field_name='order_no')
+        M_ExchangeField.objects.create(
+            table_name='t_china_export', updata_title='品目名1', up_field_name='item_name1')
+        M_ExchangeField.objects.create(
+            table_name='t_china_export', updata_title='金額', up_field_name='amount')
+        M_ExchangeField.objects.create(
+            table_name='t_china_export', updata_title='購入日', up_field_name='purchase_date')
+
+    def test_exportロールを持たないユーザーは403(self):
+        self.client.force_login(self.other_user)
+        res = self.client.get(reverse('expenses:china_export_upload'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_GET画面表示でセッションがクリアされる(self):
+        self.client.force_login(self.export_user)
+        session = self.client.session
+        session['china_export_upload_staged'] = [{'dummy': 'x'}]
+        session.save()
+        self.client.get(reverse('expenses:china_export_upload'))
+        self.assertNotIn('china_export_upload_staged', self.client.session)
+
+    def test_xlsx以外の拡張子はエラー表示(self):
+        self.client.force_login(self.export_user)
+        bad_file = SimpleUploadedFile('upload.csv', b'a,b,c', content_type='text/csv')
+        res = self.client.post(reverse('expenses:china_export_upload'), {'excel_file': bad_file})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '.xlsxのみ')
+
+    def test_マッピング未登録の場合は案内表示(self):
+        M_ExchangeField.objects.all().delete()
+        self.client.force_login(self.export_user)
+        res = self.client.post(
+            reverse('expenses:china_export_upload'), {'excel_file': _build_china_export_workbook()})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '見出し変換マスタが未設定です')
+
+    def test_正常なファイルはプレビュー表示され保存はされない(self):
+        self.client.force_login(self.export_user)
+        res = self.client.post(
+            reverse('expenses:china_export_upload'), {'excel_file': _build_china_export_workbook()})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'アップロード品目')
+        self.assertEqual(res.context['preview_count'], 1)
+        self.assertFalse(T_ChinaExport.objects.filter(order_no='UP0001').exists())
+
+    def test_エラーがある場合はエラー一覧が表示されデータは保存されない(self):
+        self.client.force_login(self.export_user)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['注文番号', '品目名1', '金額', '購入日'])
+        ws.append(['UP0002', '', 1500, '2026-07-10'])  # 品目名1が空
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        bad_file = SimpleUploadedFile(
+            'upload2.xlsx', buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        res = self.client.post(reverse('expenses:china_export_upload'), {'excel_file': bad_file})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '品目名1')
+        self.assertFalse(T_ChinaExport.objects.filter(order_no='UP0002').exists())

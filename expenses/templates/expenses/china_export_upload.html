@@ -1,0 +1,144 @@
+{% extends "expenses/base.html" %}
+{% load expense_extras %}
+
+{% block title %}データアップロード | 中国輸出実績報告 | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-file-upload"></i></span>
+            中国輸出実績報告 データアップロード
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:china_export_list' %}" class="btn btn-outline-secondary btn-sm">一覧に戻る</a>
+        </div>
+    </div>
+
+    {% if file_error %}
+    <div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-1"></i>{{ file_error }}</div>
+    {% endif %}
+
+    {% if errors %}
+    <div class="alert alert-danger">
+        <div class="mb-2"><i class="fas fa-exclamation-triangle me-1"></i>{{ errors|length }}件のエラーがあります。ファイルを修正して再アップロードしてください。</div>
+        <table class="table table-sm table-bordered bg-white mb-0">
+            <thead class="table-light"><tr><th>行</th><th>見出し</th><th>内容</th></tr></thead>
+            <tbody>
+                {% for err in errors %}
+                <tr><td>{{ err.row }}</td><td>{{ err.title }}</td><td>{{ err.message }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if preview_rows %}
+    <div class="alert alert-success"><i class="fas fa-check-circle me-1"></i>{{ preview_count }}件を取り込みます。内容を確認してください。</div>
+    <div class="card mb-3">
+        <div class="card-body p-0">
+            <div class="china-export-scrollbox">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            {% for key in preview_rows.0.keys %}<th>{{ key }}</th>{% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in preview_rows %}
+                        <tr>{% for value in row.values %}<td>{{ value|default:"-" }}</td>{% endfor %}</tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにExcelファイルをドロップ、またはクリックして選択">
+                    <div class="drop-zone__prompt">
+                        <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
+                        ここにExcelファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択
+                    </div>
+                    <div class="drop-zone__hint text-muted small mt-1">対応形式: .xlsx（1シート目・1行目を見出しとして読み込みます）</div>
+                    <input type="file" name="excel_file" class="form-control file-input d-none" accept=".xlsx">
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>プレビュー</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.drop-zone {
+    position: relative;
+    border: 3px dashed #6c757d;
+    border-radius: .75rem;
+    padding: 18px;
+    text-align: center;
+    color: #495057;
+    background-color: #f1f3f5;
+    cursor: pointer;
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s ease-in-out;
+}
+.drop-zone:hover { border-color: #0d6efd; background-color: #e9f2ff; }
+.drop-zone.dragover { border-color: #0d6efd; background-color: #e7f1ff; color: #0d6efd; }
+.drop-zone.selected { border-color: #198754; background-color: #eef7f1; }
+.drop-zone__prompt { font-size: .95rem; line-height: 1.4; }
+.drop-zone .file-input { display: none !important; }
+.china-export-scrollbox { max-height: 60vh; overflow: auto; }
+.china-export-scrollbox thead th { position: sticky; top: 0; z-index: 1; white-space: nowrap; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const zone = document.querySelector('[data-drop-zone]');
+    if (!zone) return;
+    const input = zone.querySelector('input[type="file"]');
+    const prompt = zone.querySelector('.drop-zone__prompt');
+    const render = (file) => {
+        if (!file) {
+            zone.classList.remove('selected');
+            prompt.innerHTML = '<i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにExcelファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択';
+            return;
+        }
+        zone.classList.add('selected');
+        prompt.innerHTML = `<i class="fas fa-file-excel me-2"></i>${file.name}`;
+    };
+    const setFile = (file) => {
+        if (!file || !window.DataTransfer) return;
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        render(file);
+    };
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    zone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); });
+    zone.addEventListener('drop', e => {
+        e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover');
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) setFile(file);
+    });
+    input.addEventListener('change', () => setFile(input.files[0]));
+})();
+</script>
+{% endblock %}

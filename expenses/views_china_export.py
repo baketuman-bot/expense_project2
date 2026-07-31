@@ -1,6 +1,9 @@
 """各部報告: 中国輸出実績報告 (T_ChinaExport) の一覧・入力・Excel出力ビュー"""
 from urllib.parse import urlencode
 
+from datetime import date
+from decimal import Decimal
+
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -14,6 +17,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import ChinaExportUpdateForm
 from .models import T_ChinaExport
+from .exchange_upload import get_field_mapping, parse_excel_rows
 
 _SORT_FIELDS = {
     'order_no', 'supplier_cd', 'supplier_name', 'item_name1', 'item_name2',
@@ -187,3 +191,64 @@ def china_export_bulk_update(request):
     if request.POST.get('show') == 'all':
         return redirect(f'{base_url}?show=all')
     return redirect(base_url)
+
+
+def _serialize_staged_value(value):
+    """セッション(JSONシリアライザ)に保存できる形へ変換する。"""
+    if isinstance(value, Decimal):
+        return {'__decimal__': str(value)}
+    if isinstance(value, date):
+        return {'__date__': value.isoformat()}
+    return value
+
+
+_UPLOAD_TABLE_NAME = 't_china_export'
+_UPLOAD_SESSION_KEY = 'china_export_upload_staged'
+
+
+@login_required
+def china_export_upload(request):
+    """中国輸出実績報告: Excelファイルのドラッグ&ドロップアップロード（プレビュー段階）。
+    ファイルはメモリ上でのみ処理し、ディスクへは保存しない。"""
+    _require_china_export_access(request.user)
+
+    if request.method == 'GET':
+        request.session.pop(_UPLOAD_SESSION_KEY, None)
+        return render(request, 'expenses/china_export_upload.html', {'current': 'china_export_upload'})
+
+    upload_file = request.FILES.get('excel_file')
+    if not upload_file or not upload_file.name.lower().endswith('.xlsx'):
+        return render(request, 'expenses/china_export_upload.html', {
+            'current': 'china_export_upload',
+            'file_error': '対応形式は.xlsxのみです。',
+        })
+
+    mapping = get_field_mapping(_UPLOAD_TABLE_NAME)
+    if not mapping:
+        return render(request, 'expenses/china_export_upload.html', {
+            'current': 'china_export_upload',
+            'file_error': '見出し変換マスタが未設定です。管理者に「マスタ設定」からの登録を依頼してください。',
+        })
+
+    try:
+        valid_rows, errors = parse_excel_rows(upload_file, mapping, T_ChinaExport)
+    except Exception:
+        return render(request, 'expenses/china_export_upload.html', {
+            'current': 'china_export_upload',
+            'file_error': 'ファイルの読み込みに失敗しました。ファイル形式をご確認ください。',
+        })
+
+    if errors:
+        return render(request, 'expenses/china_export_upload.html', {
+            'current': 'china_export_upload',
+            'errors': errors,
+        })
+
+    request.session[_UPLOAD_SESSION_KEY] = [
+        {k: _serialize_staged_value(v) for k, v in row.items()} for row in valid_rows
+    ]
+    return render(request, 'expenses/china_export_upload.html', {
+        'current': 'china_export_upload',
+        'preview_rows': valid_rows,
+        'preview_count': len(valid_rows),
+    })
