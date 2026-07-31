@@ -4,7 +4,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 
-from expenses.models import M_ExchangeField
+from expenses.models import M_ExchangeField, T_ChinaExport
 
 User = get_user_model()
 
@@ -51,3 +51,133 @@ class MExchangeFieldMasterSettingsTests(TestCase):
             res, reverse('expenses:settings_master_list', args=['m_exchange_fields']))
         self.assertTrue(
             M_ExchangeField.objects.filter(table_name='t_china_export', updata_title='金額').exists())
+
+
+from expenses.exchange_upload import get_field_mapping, resolve_model
+
+
+class GetFieldMappingTests(TestCase):
+    def test_table_nameに一致するマッピングのみ辞書で返る(self):
+        M_ExchangeField.objects.create(
+            table_name='t_china_export', updata_title='注文番号', up_field_name='order_no')
+        M_ExchangeField.objects.create(
+            table_name='t_china_export', updata_title='金額', up_field_name='amount')
+        M_ExchangeField.objects.create(
+            table_name='t_other_table', updata_title='注文番号', up_field_name='order_no')
+        mapping = get_field_mapping('t_china_export')
+        self.assertEqual(mapping, {'注文番号': 'order_no', '金額': 'amount'})
+
+    def test_マッピングが無ければ空辞書(self):
+        self.assertEqual(get_field_mapping('t_nonexistent'), {})
+
+
+class ResolveModelTests(TestCase):
+    def test_db_tableが一致するモデルを返す(self):
+        self.assertIs(resolve_model('t_china_export'), T_ChinaExport)
+
+    def test_一致するモデルが無ければNone(self):
+        self.assertIsNone(resolve_model('t_nonexistent_table'))
+
+
+import io
+from decimal import Decimal
+from datetime import date
+
+import openpyxl
+
+from expenses.exchange_upload import parse_excel_rows
+
+
+def _build_workbook(header, rows):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(header)
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+class ParseExcelRowsTests(TestCase):
+    def setUp(self):
+        self.mapping = {
+            '注文番号': 'order_no',
+            '品目名1': 'item_name1',
+            '金額': 'amount',
+            '購入日': 'purchase_date',
+            '無関係の列': 'no_such_field_should_be_ignored_by_mapping_absence',
+        }
+        # マッピングに存在しない列は mapping.get() で None になるため、
+        # このテストでは「マッピングされている4列」のみを対象にする
+        del self.mapping['無関係の列']
+
+    def test_正常な行が検証済みデータとして返る(self):
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日', '無視される列'],
+            [['ORDER001', 'テスト品目', 1000, '2026-07-01', 'ignore-me']],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(valid_rows), 1)
+        self.assertEqual(valid_rows[0]['order_no'], 'ORDER001')
+        self.assertEqual(valid_rows[0]['item_name1'], 'テスト品目')
+        self.assertEqual(valid_rows[0]['amount'], Decimal('1000'))
+        self.assertEqual(valid_rows[0]['purchase_date'], date(2026, 7, 1))
+
+    def test_スラッシュ区切りの日付も解析できる(self):
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日'],
+            [['ORDER002', 'テスト品目2', 500, '2026/07/02']],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(errors, [])
+        self.assertEqual(valid_rows[0]['purchase_date'], date(2026, 7, 2))
+
+    def test_カンマ区切りの金額も解析できる(self):
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日'],
+            [['ORDER003', 'テスト品目3', '1,234', '2026-07-03']],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(errors, [])
+        self.assertEqual(valid_rows[0]['amount'], Decimal('1234'))
+
+    def test_必須項目が空だとエラーになり全件保存されない(self):
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日'],
+            [
+                ['ORDER004', 'テスト品目4', 2000, '2026-07-04'],
+                ['ORDER005', '', 3000, '2026-07-05'],  # 品目名1が空
+            ],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(valid_rows, [])
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]['row'], 3)  # ヘッダーが1行目、データは2行目起算+1
+        self.assertEqual(errors[0]['title'], '品目名1')
+
+    def test_マッピングに無い見出し列は無視される(self):
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日', '未定義列'],
+            [['ORDER006', 'テスト品目6', 4000, '2026-07-06', 'なにか']],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(valid_rows), 1)
+
+    def test_データ行が無ければ空リストが返る(self):
+        wb_file = _build_workbook(['注文番号', '品目名1', '金額', '購入日'], [])
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(valid_rows, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn('ありません', errors[0]['message'])
+
+    def test_マッピング先のフィールド名がモデルに存在しないと設定エラーになる(self):
+        bad_mapping = {'注文番号': 'this_field_does_not_exist'}
+        wb_file = _build_workbook(['注文番号'], [['ORDER007']])
+        valid_rows, errors = parse_excel_rows(wb_file, bad_mapping, T_ChinaExport)
+        self.assertEqual(valid_rows, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn('マスタ設定', errors[0]['message'])
