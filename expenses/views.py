@@ -31,6 +31,7 @@ from .models import (
     M_AccountSub,
     T_Settle, T_DocumentEditHistory,
     M_ExchangeRate,
+    M_ExchangeField,
     GS_Ringi, GS_Usr, GS_Group, GS_Belong, GS_Position,
 )
 from .forms import (
@@ -4567,6 +4568,15 @@ MASTER_REGISTRY = {
         'form_fields': ['data_kbn', 'key', 'content', 'content2', 'content3', 'order_by'],
         'pk_attr': 'pk',
     },
+    'm_exchange_fields': {
+        'model': M_ExchangeField,
+        'list_fields': [
+            ('table_name', 'テーブル名'), ('updata_title', '読み込み見出し'), ('up_field_name', '書き出し先フィールド'),
+        ],
+        'form_fields': ['table_name', 'updata_title', 'up_field_name'],
+        'pk_attr': 'pk',
+        'display_name': '見出し変換マスタ',
+    },
     'm_group': {
         'model': M_Group,
         'list_fields': [('group_cd', '部署コード'), ('group_name', '部署名'), ('upper_group_cd', '上位部署コード')],
@@ -4711,6 +4721,7 @@ MASTER_CATEGORIES = [
         ('m_status',      'fas fa-toggle-on'),
         ('m_item',        'fas fa-database'),
         ('m_mail_manage', 'fas fa-envelope'),
+        ('m_exchange_fields', 'fas fa-random'),
     ]),
     ('GroupSession連携データ', [
         ('gs_ringi',              'fas fa-file-signature'),

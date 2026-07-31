@@ -1373,6 +1373,22 @@ class GS_Position(models.Model):
         ordering = ['pos_sort', 'pos_sid']
 
 
+# 見出し⇔フィールド変換マスタ（アップロード機能で汎用的に使用。テーブル非依存）
+class M_ExchangeField(models.Model):
+    table_name = models.CharField("アップロード先テーブル", max_length=100)
+    updata_title = models.CharField("読み込みファイルの見出し名", max_length=100)
+    up_field_name = models.CharField("書き出し先フィールド名", max_length=100)
+
+    def __str__(self):
+        return f"{self.table_name}: {self.updata_title} → {self.up_field_name}"
+
+    class Meta:
+        db_table = 'm_exchange_fields'
+        unique_together = [('table_name', 'updata_title')]
+        verbose_name = '見出し変換マスタ'
+        verbose_name_plural = '見出し変換マスタ'
+
+
 class T_ChinaExport(models.Model):
     """中国輸出実績報告: 経理が輸出目的の購入データを直接投入し、
     担当社員が輸出予定日・輸出日・インボイスNoを入力してフォローする。"""
