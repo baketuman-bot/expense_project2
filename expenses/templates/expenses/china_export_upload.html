@@ -6,6 +6,15 @@
 {% block content %}
 <div class="mt-2">
 
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-1"></i>{{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="閉じる"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
     <div class="page-head mb-3">
         <h2 class="page-title mb-0">
             <span class="pt-ico"><i class="fas fa-file-upload"></i></span>
@@ -47,7 +56,7 @@
                     </thead>
                     <tbody>
                         {% for row in preview_rows %}
-                        <tr>{% for value in row.values %}<td>{{ value|default:"-" }}</td>{% endfor %}</tr>
+                        <tr>{% for value in row.values %}<td>{{ value|default_if_none:"-" }}</td>{% endfor %}</tr>
                         {% endfor %}
                     </tbody>
                 </table>

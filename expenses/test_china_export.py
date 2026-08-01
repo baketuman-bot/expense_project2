@@ -324,9 +324,14 @@ class ChinaExportSidebarTests(TestCase):
         self.assertNotContains(res, '中国輸出実績報告')
 
 
+import json
+from datetime import datetime
+
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import SimpleTestCase
 
 from expenses.models import M_ExchangeField
+from expenses.views_china_export import _deserialize_staged_value, _serialize_staged_value
 
 
 def _build_china_export_workbook():
@@ -417,9 +422,68 @@ class ChinaExportUploadViewTests(TestCase):
 
     def test_プレビューなしでconfirmにPOSTしても保存されず案内される(self):
         self.client.force_login(self.export_user)
-        res = self.client.post(reverse('expenses:china_export_upload_confirm'))
+        res = self.client.post(reverse('expenses:china_export_upload_confirm'), follow=True)
         self.assertRedirects(res, reverse('expenses:china_export_upload'))
         self.assertEqual(T_ChinaExport.objects.filter(order_no='UP0001').count(), 0)
+        # リダイレクト先でメッセージが実際に表示され、Bootstrapのクラスも正しいこと
+        self.assertContains(res, 'アップロードするデータがありません')
+        self.assertContains(res, 'alert-danger')
+        self.assertNotContains(res, 'alert-error')
+
+    def test_アップロード画面はサイドバーの中国輸出実績報告を選択状態にする(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_upload'))
+        self.assertEqual(res.context['current'], 'china_export_list')
+        res = self.client.post(
+            reverse('expenses:china_export_upload'), {'excel_file': _build_china_export_workbook()})
+        self.assertEqual(res.context['current'], 'china_export_list')
+
+    def test_アップロード失敗時は以前ステージしたデータが破棄される(self):
+        self.client.force_login(self.export_user)
+        # 1回目: 正常なファイル → セッションにステージされる
+        self.client.post(
+            reverse('expenses:china_export_upload'), {'excel_file': _build_china_export_workbook()})
+        self.assertIn('china_export_upload_staged', self.client.session)
+        # 2回目: 不正なファイル → 以前のステージデータは残らない
+        bad_file = SimpleUploadedFile('upload.csv', b'a,b,c', content_type='text/csv')
+        res = self.client.post(reverse('expenses:china_export_upload'), {'excel_file': bad_file})
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn('china_export_upload_staged', self.client.session)
+        # 確定しても何も保存されない
+        self.client.post(reverse('expenses:china_export_upload_confirm'))
+        self.assertEqual(T_ChinaExport.objects.filter(order_no='UP0001').count(), 0)
+
+    def test_上限件数を超えるファイルはエラー表示されステージされない(self):
+        from expenses.views_china_export import _UPLOAD_MAX_ROWS
+
+        self.client.force_login(self.export_user)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['注文番号', '品目名1', '金額', '購入日'])
+        for i in range(_UPLOAD_MAX_ROWS + 1):
+            ws.append([f'UPMAX{i:05d}', '大量品目', 100, '2026-07-10'])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        big_file = SimpleUploadedFile(
+            'upload_big.xlsx', buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        res = self.client.post(reverse('expenses:china_export_upload'), {'excel_file': big_file})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, f'一度にアップロードできるのは{_UPLOAD_MAX_ROWS}件までです')
+        self.assertNotIn('china_export_upload_staged', self.client.session)
+        self.assertEqual(T_ChinaExport.objects.filter(item_name1='大量品目').count(), 0)
+
+    def test_xlsx拡張子でも中身が壊れていればエラー表示される(self):
+        self.client.force_login(self.export_user)
+        broken = SimpleUploadedFile(
+            'upload.xlsx', b'this is not a real xlsx file',
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        with self.assertLogs('expenses.views_china_export', level='ERROR'):
+            res = self.client.post(reverse('expenses:china_export_upload'), {'excel_file': broken})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'ファイルの読み込みに失敗しました')
+        self.assertNotIn('china_export_upload_staged', self.client.session)
 
     def test_プレビュー後に確定するとDBへ保存される(self):
         self.client.force_login(self.export_user)
@@ -445,3 +509,27 @@ class ChinaExportUploadViewTests(TestCase):
         self.client.force_login(self.other_user)
         res = self.client.post(reverse('expenses:china_export_upload_confirm'))
         self.assertEqual(res.status_code, 403)
+
+
+class StagedValueSerializationTests(SimpleTestCase):
+    """セッション保存用の値変換 (_serialize_staged_value / _deserialize_staged_value)"""
+
+    def _roundtrip(self, value):
+        return _deserialize_staged_value(json.loads(json.dumps(_serialize_staged_value(value))))
+
+    def test_Decimalが往復できる(self):
+        self.assertEqual(self._roundtrip(Decimal('1234.56')), Decimal('1234.56'))
+
+    def test_dateが往復できる(self):
+        self.assertEqual(self._roundtrip(date(2026, 7, 10)), date(2026, 7, 10))
+
+    def test_datetimeがdateとして壊れず往復できる(self):
+        # datetime は date のサブクラスなので、date 分岐が先だと復元に失敗する
+        value = datetime(2026, 7, 10, 13, 45, 30)
+        restored = self._roundtrip(value)
+        self.assertIsInstance(restored, datetime)
+        self.assertEqual(restored, value)
+
+    def test_文字列やNoneはそのまま(self):
+        self.assertEqual(self._roundtrip('ORDER001'), 'ORDER001')
+        self.assertIsNone(self._roundtrip(None))

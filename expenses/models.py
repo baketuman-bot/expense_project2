@@ -1385,6 +1385,7 @@ class M_ExchangeField(models.Model):
     class Meta:
         db_table = 'm_exchange_fields'
         unique_together = [('table_name', 'updata_title')]
+        ordering = ['table_name', 'updata_title']
         verbose_name = '見出し変換マスタ'
         verbose_name_plural = '見出し変換マスタ'
 

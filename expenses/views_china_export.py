@@ -1,7 +1,8 @@
 """各部報告: 中国輸出実績報告 (T_ChinaExport) の一覧・入力・Excel出力ビュー"""
+import logging
 from urllib.parse import urlencode
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 import openpyxl
@@ -11,6 +12,7 @@ from openpyxl.utils import get_column_letter
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.contrib import messages
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -19,6 +21,8 @@ from django.views.decorators.http import require_POST
 from .forms import ChinaExportUpdateForm
 from .models import T_ChinaExport
 from .exchange_upload import get_field_mapping, parse_excel_rows
+
+logger = logging.getLogger(__name__)
 
 _SORT_FIELDS = {
     'order_no', 'supplier_cd', 'supplier_name', 'item_name1', 'item_name2',
@@ -198,6 +202,9 @@ def _serialize_staged_value(value):
     """セッション(JSONシリアライザ)に保存できる形へ変換する。"""
     if isinstance(value, Decimal):
         return {'__decimal__': str(value)}
+    # datetime は date のサブクラスなので、必ず date より先に判定する
+    if isinstance(value, datetime):
+        return {'__datetime__': value.isoformat()}
     if isinstance(value, date):
         return {'__date__': value.isoformat()}
     return value
@@ -207,6 +214,8 @@ def _deserialize_staged_value(value):
     if isinstance(value, dict):
         if '__decimal__' in value:
             return Decimal(value['__decimal__'])
+        if '__datetime__' in value:
+            return datetime.fromisoformat(value['__datetime__'])
         if '__date__' in value:
             return date.fromisoformat(value['__date__'])
     return value
@@ -214,6 +223,7 @@ def _deserialize_staged_value(value):
 
 _UPLOAD_TABLE_NAME = 't_china_export'
 _UPLOAD_SESSION_KEY = 'china_export_upload_staged'
+_UPLOAD_MAX_ROWS = 2000
 
 
 @login_required
@@ -221,44 +231,53 @@ def china_export_upload(request):
     """中国輸出実績報告: Excelファイルのドラッグ&ドロップアップロード（プレビュー段階）。
     ファイルはメモリ上でのみ処理し、ディスクへは保存しない。"""
     _require_china_export_access(request.user)
+    # GET/POST を問わず、まず以前ステージしたデータを破棄する。
+    # 今回のPOSTの解析・検証が成功した場合にのみ再度ステージされる。
+    request.session.pop(_UPLOAD_SESSION_KEY, None)
 
     if request.method == 'GET':
-        request.session.pop(_UPLOAD_SESSION_KEY, None)
-        return render(request, 'expenses/china_export_upload.html', {'current': 'china_export_upload'})
+        return render(request, 'expenses/china_export_upload.html', {'current': 'china_export_list'})
 
     upload_file = request.FILES.get('excel_file')
     if not upload_file or not upload_file.name.lower().endswith('.xlsx'):
         return render(request, 'expenses/china_export_upload.html', {
-            'current': 'china_export_upload',
+            'current': 'china_export_list',
             'file_error': '対応形式は.xlsxのみです。',
         })
 
     mapping = get_field_mapping(_UPLOAD_TABLE_NAME)
     if not mapping:
         return render(request, 'expenses/china_export_upload.html', {
-            'current': 'china_export_upload',
+            'current': 'china_export_list',
             'file_error': '見出し変換マスタが未設定です。管理者に「マスタ設定」からの登録を依頼してください。',
         })
 
     try:
         valid_rows, errors = parse_excel_rows(upload_file, mapping, T_ChinaExport)
     except Exception:
+        logger.exception('中国輸出実績報告アップロード: ファイル読み込みに失敗')
         return render(request, 'expenses/china_export_upload.html', {
-            'current': 'china_export_upload',
+            'current': 'china_export_list',
             'file_error': 'ファイルの読み込みに失敗しました。ファイル形式をご確認ください。',
         })
 
     if errors:
         return render(request, 'expenses/china_export_upload.html', {
-            'current': 'china_export_upload',
+            'current': 'china_export_list',
             'errors': errors,
+        })
+
+    if len(valid_rows) > _UPLOAD_MAX_ROWS:
+        return render(request, 'expenses/china_export_upload.html', {
+            'current': 'china_export_list',
+            'file_error': f'一度にアップロードできるのは{_UPLOAD_MAX_ROWS}件までです（{len(valid_rows)}件検出）。ファイルを分割してアップロードしてください。',
         })
 
     request.session[_UPLOAD_SESSION_KEY] = [
         {k: _serialize_staged_value(v) for k, v in row.items()} for row in valid_rows
     ]
     return render(request, 'expenses/china_export_upload.html', {
-        'current': 'china_export_upload',
+        'current': 'china_export_list',
         'preview_rows': valid_rows,
         'preview_count': len(valid_rows),
     })
@@ -269,7 +288,8 @@ def china_export_upload(request):
 def china_export_upload_confirm(request):
     """プレビューで検証済みのデータ(セッション)を確定保存する。"""
     _require_china_export_access(request.user)
-    staged = request.session.get(_UPLOAD_SESSION_KEY)
+    # 二重送信でバッチが重複挿入されるのを防ぐため、読み出しと同時にセッションから除去する
+    staged = request.session.pop(_UPLOAD_SESSION_KEY, None)
     if not staged:
         messages.error(request, 'アップロードするデータがありません。ファイルを再度アップロードしてください。')
         return redirect('expenses:china_export_upload')
@@ -278,7 +298,7 @@ def china_export_upload_confirm(request):
         T_ChinaExport(**{k: _deserialize_staged_value(v) for k, v in row.items()})
         for row in staged
     ]
-    T_ChinaExport.objects.bulk_create(records)
-    del request.session[_UPLOAD_SESSION_KEY]
+    with transaction.atomic():
+        T_ChinaExport.objects.bulk_create(records, batch_size=500)
     messages.success(request, f'{len(records)}件を取り込みました。')
     return redirect('expenses:china_export_list')

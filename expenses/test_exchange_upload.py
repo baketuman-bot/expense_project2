@@ -100,6 +100,15 @@ def _build_workbook(header, rows):
     return buf
 
 
+def _build_empty_workbook():
+    """見出し行すら持たない完全に空のブックを作る（iter_rowsが1行も返さない）。"""
+    wb = openpyxl.Workbook()
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
 class ParseExcelRowsTests(TestCase):
     def setUp(self):
         self.mapping = {
@@ -181,3 +190,57 @@ class ParseExcelRowsTests(TestCase):
         self.assertEqual(valid_rows, [])
         self.assertEqual(len(errors), 1)
         self.assertIn('マスタ設定', errors[0]['message'])
+
+    def test_小数を含むfloatセルが誤差なくDecimalに変換される(self):
+        # openpyxl は小数を含む数値セルを Python の float で返す。
+        # float をそのまま DecimalField に渡すと2進浮動小数の誤差が展開され
+        # decimal_places 検証に落ちてファイル全体が弾かれてしまう。
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日'],
+            [['ORDER008', 'テスト品目8', 1234.56, '2026-07-08']],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(valid_rows), 1)
+        self.assertEqual(valid_rows[0]['amount'], Decimal('1234.56'))
+
+    def test_整数値のfloatセルも小数誤差なく解析される(self):
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日'],
+            [['ORDER009', 'テスト品目9', 1500.0, '2026-07-09']],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(errors, [])
+        self.assertEqual(valid_rows[0]['amount'], Decimal('1500'))
+
+    def test_小数2桁のfloatセルが複数行あっても全て解析される(self):
+        wb_file = _build_workbook(
+            ['注文番号', '品目名1', '金額', '購入日'],
+            [
+                ['ORDER010', 'テスト品目10', 99.99, '2026-07-10'],
+                ['ORDER011', 'テスト品目11', 0.1, '2026-07-11'],
+                ['ORDER012', 'テスト品目12', 1234.56, '2026-07-12'],
+            ],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            [r['amount'] for r in valid_rows],
+            [Decimal('99.99'), Decimal('0.1'), Decimal('1234.56')])
+
+    def test_マッピングに一致する列が1つも無ければエラーになる(self):
+        wb_file = _build_workbook(
+            ['未定義列A', '未定義列B'],
+            [['なにか', 'なにか2']],
+        )
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(valid_rows, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn('有効な列が見つかりません', errors[0]['message'])
+
+    def test_見出し行すら無い空のブックはデータなしエラーになる(self):
+        wb_file = _build_empty_workbook()
+        valid_rows, errors = parse_excel_rows(wb_file, self.mapping, T_ChinaExport)
+        self.assertEqual(valid_rows, [])
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]['message'], 'ファイルにデータがありません')
