@@ -63,7 +63,7 @@
             </div>
         </div>
         <div class="card-footer d-flex gap-2">
-            <form method="post" action="{% url 'expenses:china_export_upload_confirm' %}">
+            <form method="post" action="{% url 'expenses:china_export_upload_confirm' %}" data-confirm-form>
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>この内容で確定</button>
             </form>
@@ -156,5 +156,16 @@
     });
     input.addEventListener('change', () => setFile(input.files[0]));
 })();
+
+// 確定ボタンの二重クリック・二重送信防止
+document.querySelectorAll('[data-confirm-form]').forEach(form => {
+    form.addEventListener('submit', () => {
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>確定中...';
+        }
+    });
+});
 </script>
 {% endblock %}

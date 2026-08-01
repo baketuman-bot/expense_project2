@@ -403,6 +403,12 @@ class ChinaExportUploadViewTests(TestCase):
         self.assertEqual(res.context['preview_count'], 1)
         self.assertFalse(T_ChinaExport.objects.filter(order_no='UP0001').exists())
 
+    def test_プレビュー画面の確定フォームに二重送信防止属性がある(self):
+        self.client.force_login(self.export_user)
+        res = self.client.post(
+            reverse('expenses:china_export_upload'), {'excel_file': _build_china_export_workbook()})
+        self.assertContains(res, 'data-confirm-form')
+
     def test_エラーがある場合はエラー一覧が表示されデータは保存されない(self):
         self.client.force_login(self.export_user)
         wb = openpyxl.Workbook()
