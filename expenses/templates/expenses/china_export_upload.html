@@ -53,6 +53,13 @@
                 </table>
             </div>
         </div>
+        <div class="card-footer d-flex gap-2">
+            <form method="post" action="{% url 'expenses:china_export_upload_confirm' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>この内容で確定</button>
+            </form>
+            <a href="{% url 'expenses:china_export_upload' %}" class="btn btn-outline-secondary">キャンセルしてやり直す</a>
+        </div>
     </div>
     {% else %}
     <div class="card">

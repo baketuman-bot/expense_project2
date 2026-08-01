@@ -23,6 +23,7 @@ from .views_china_export import (
     china_export_excel,
     china_export_bulk_update,
     china_export_upload,
+    china_export_upload_confirm,
 )  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,

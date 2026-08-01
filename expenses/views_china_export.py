@@ -10,6 +10,7 @@ from openpyxl.utils import get_column_letter
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -202,6 +203,15 @@ def _serialize_staged_value(value):
     return value
 
 
+def _deserialize_staged_value(value):
+    if isinstance(value, dict):
+        if '__decimal__' in value:
+            return Decimal(value['__decimal__'])
+        if '__date__' in value:
+            return date.fromisoformat(value['__date__'])
+    return value
+
+
 _UPLOAD_TABLE_NAME = 't_china_export'
 _UPLOAD_SESSION_KEY = 'china_export_upload_staged'
 
@@ -252,3 +262,23 @@ def china_export_upload(request):
         'preview_rows': valid_rows,
         'preview_count': len(valid_rows),
     })
+
+
+@login_required
+@require_POST
+def china_export_upload_confirm(request):
+    """プレビューで検証済みのデータ(セッション)を確定保存する。"""
+    _require_china_export_access(request.user)
+    staged = request.session.get(_UPLOAD_SESSION_KEY)
+    if not staged:
+        messages.error(request, 'アップロードするデータがありません。ファイルを再度アップロードしてください。')
+        return redirect('expenses:china_export_upload')
+
+    records = [
+        T_ChinaExport(**{k: _deserialize_staged_value(v) for k, v in row.items()})
+        for row in staged
+    ]
+    T_ChinaExport.objects.bulk_create(records)
+    del request.session[_UPLOAD_SESSION_KEY]
+    messages.success(request, f'{len(records)}件を取り込みました。')
+    return redirect('expenses:china_export_list')

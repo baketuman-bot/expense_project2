@@ -171,6 +171,11 @@ class ChinaExportListViewTests(TestCase):
         self.assertEqual(data_cell.value, 5000.0)
         self.assertEqual(data_cell.number_format, '#,##0')
 
+    def test_一覧画面にアップロードボタンがある(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list'))
+        self.assertContains(res, reverse('expenses:china_export_upload'))
+
 
 class ChinaExportBulkUpdateViewTests(TestCase):
     @classmethod
@@ -409,3 +414,34 @@ class ChinaExportUploadViewTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, '品目名1')
         self.assertFalse(T_ChinaExport.objects.filter(order_no='UP0002').exists())
+
+    def test_プレビューなしでconfirmにPOSTしても保存されず案内される(self):
+        self.client.force_login(self.export_user)
+        res = self.client.post(reverse('expenses:china_export_upload_confirm'))
+        self.assertRedirects(res, reverse('expenses:china_export_upload'))
+        self.assertEqual(T_ChinaExport.objects.filter(order_no='UP0001').count(), 0)
+
+    def test_プレビュー後に確定するとDBへ保存される(self):
+        self.client.force_login(self.export_user)
+        self.client.post(
+            reverse('expenses:china_export_upload'), {'excel_file': _build_china_export_workbook()})
+        res = self.client.post(reverse('expenses:china_export_upload_confirm'))
+        self.assertRedirects(res, reverse('expenses:china_export_list'))
+        record = T_ChinaExport.objects.get(order_no='UP0001')
+        self.assertEqual(record.item_name1, 'アップロード品目')
+        self.assertEqual(record.amount, Decimal('1500'))
+        self.assertEqual(record.purchase_date, date(2026, 7, 10))
+        self.assertNotIn('china_export_upload_staged', self.client.session)
+
+    def test_確定後は同じ内容を再度確定しても増えない(self):
+        self.client.force_login(self.export_user)
+        self.client.post(
+            reverse('expenses:china_export_upload'), {'excel_file': _build_china_export_workbook()})
+        self.client.post(reverse('expenses:china_export_upload_confirm'))
+        self.client.post(reverse('expenses:china_export_upload_confirm'))  # セッションは既に消えている
+        self.assertEqual(T_ChinaExport.objects.filter(order_no='UP0001').count(), 1)
+
+    def test_exportロールを持たないユーザーは確定不可(self):
+        self.client.force_login(self.other_user)
+        res = self.client.post(reverse('expenses:china_export_upload_confirm'))
+        self.assertEqual(res.status_code, 403)

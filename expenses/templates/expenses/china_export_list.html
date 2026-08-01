@@ -6,12 +6,22 @@
 {% block content %}
 <div class="mt-2">
 
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-1"></i>{{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="閉じる"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
     <div class="page-head mb-3">
         <h2 class="page-title mb-0">
             <span class="pt-ico"><i class="fas fa-ship"></i></span>
             中国輸出実績報告
         </h2>
         <div class="page-actions">
+            <a href="{% url 'expenses:china_export_upload' %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-upload"></i> データアップロード</a>
             {% if show_all %}
             <a href="{% url 'expenses:china_export_list' %}" class="btn btn-outline-secondary btn-sm">未輸出のみ表示</a>
             <a href="{% url 'expenses:china_export_excel' %}?show=all" class="btn btn-outline-secondary btn-sm"><i class="fas fa-file-excel"></i> データ出力</a>
