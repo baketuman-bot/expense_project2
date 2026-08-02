@@ -88,6 +88,21 @@ body.precision{
 .corp-banner-brand svg{ color:inherit; }
 .corp-banner-brand a{ color:#fff; text-decoration:none; }
 .corp-banner-brand a:hover{ opacity:.85; }
+.sidebar-toggle-btn{
+  background:transparent;
+  border:none;
+  color:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:32px;height:32px;
+  margin-right:8px;
+  border-radius:4px;
+  cursor:pointer;
+  flex-shrink:0;
+}
+.sidebar-toggle-btn:hover{ background:rgba(255,255,255,.15); }
+.sidebar-toggle-btn:focus-visible{ outline:2px solid #fff; outline-offset:1px; }
 .corp-banner-sub{ font-weight:500; opacity:.7; margin-left:4px; }
 .corp-banner-info{
   font-size:13px;
@@ -164,6 +179,7 @@ body.no-sidebar .precision-topbar{ display:none; }
   overflow-y:auto;
 }
 body.no-sidebar .precision-sidebar{display:none;}
+body.sidebar-hidden .precision-sidebar{ display:none; }
 
 /* Sidebar header */
 .precision-brand{
@@ -374,6 +390,7 @@ body.no-sidebar .precision-sidebar{display:none;}
   background:var(--panel);
 }
 body.has-sidebar .precision-main{ margin-left:var(--precision-sidebar-width); }
+body.sidebar-hidden.has-sidebar .precision-main{ margin-left:0; }
 .precision-shell{ max-width:1200px; margin:0 auto; }
 
 /* ===== Display font (Zen Kaku Gothic New) ===== */

@@ -19,6 +19,15 @@
     {# Swiss Modern 風の共通スタイルは static/expenses/swiss.css に集約 #}
 </head>
 <body class="precision {% if user.is_authenticated %}has-sidebar{% else %}no-sidebar{% endif %} {% block body_class %}{% endblock %}">
+    <script>
+    (function(){
+        try{
+            if(localStorage.getItem('sidebarHidden') === '1'){
+                document.body.classList.add('sidebar-hidden');
+            }
+        }catch(e){}
+    })();
+    </script>
     {% if user.is_authenticated %}
     <div class="corp-banner" role="banner">
         <div class="corp-track" aria-hidden="true">
@@ -27,6 +36,14 @@
             <div class="corp-seg corp-seg--charcoal"></div>
         </div>
         <div class="corp-banner-content">
+            <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn"
+                    aria-label="サイドメニューの表示切替" aria-pressed="false">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M3 12h18"></path>
+                    <path d="M3 18h18"></path>
+                </svg>
+            </button>
             <div class="corp-banner-brand">
                 <a href="{% url 'expenses:home' %}">
                     <img src="{% static 'expenses/img/idc_logo_color_h192.png' %}" alt="IDC" class="corp-banner-logo">
@@ -385,6 +402,19 @@
                 collapseEl.classList.add('show');
             }
         });
+
+        // サイドメニューの表示/非表示トグル
+        var sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.setAttribute('aria-pressed', document.body.classList.contains('sidebar-hidden') ? 'true' : 'false');
+            sidebarToggleBtn.addEventListener('click', function() {
+                var hidden = document.body.classList.toggle('sidebar-hidden');
+                sidebarToggleBtn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+                try {
+                    localStorage.setItem('sidebarHidden', hidden ? '1' : '0');
+                } catch (e) {}
+            });
+        }
     });
     </script>
     <script>
