@@ -71,10 +71,29 @@ def sidebar_context(request):
     except Exception:
         pass
 
+    can_view_china_invoice = False
+    can_register_china_invoice = False
+    can_confirm_china_invoice_accounting = False
+    can_confirm_china_invoice_china_side = False
+    try:
+        is_admin = request.user.has_role('admin')
+        can_register_china_invoice = is_admin or request.user.has_role('china_reporter')
+        can_confirm_china_invoice_accounting = is_admin or request.user.has_role('accountant')
+        can_confirm_china_invoice_china_side = is_admin or request.user.has_role('china_partner')
+        can_view_china_invoice = (
+            can_register_china_invoice or can_confirm_china_invoice_accounting
+            or can_confirm_china_invoice_china_side)
+    except Exception:
+        pass
+
     return {
         'sidebar_expense_groups': sidebar_groups,
         'pending_approval_count': pending_approval_count,
         'settlement_pending_count': settlement_pending_count,
         'can_manage_assets': can_manage_assets,
         'can_view_china_export': can_view_china_export,
+        'can_view_china_invoice': can_view_china_invoice,
+        'can_register_china_invoice': can_register_china_invoice,
+        'can_confirm_china_invoice_accounting': can_confirm_china_invoice_accounting,
+        'can_confirm_china_invoice_china_side': can_confirm_china_invoice_china_side,
     }

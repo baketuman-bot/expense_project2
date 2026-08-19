@@ -656,3 +656,37 @@ class ChinaInvoiceDashboardViewTests(TestCase):
         self.assertEqual(res.context['unconfirmed_accounting_count'], 1)
         self.assertEqual(res.context['difference_count'], 1)
         self.assertEqual(res.context['this_month_count'], 2)
+
+
+class ChinaInvoiceSidebarTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.partner = User.objects.create_user(
+            username='view_partner3', man_number='9409', user_name='view中国側3', password='pass')
+        M_UserRole.objects.create(man_number=cls.partner, role='china_partner')
+
+    def test_china_reporterはサイドバーにメニューが出る(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertContains(res, '中国輸出Invoice管理')
+
+    def test_china_partnerはサイドバーにメニューが出る(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertContains(res, '中国輸出Invoice管理')
+
+    def test_権限がないユーザーには出ない(self):
+        self.client.force_login(self.other)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertNotContains(res, '中国輸出Invoice管理')
+
+    def test_reporterのメニューにはInvoice登録リンクがある(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertContains(res, reverse('expenses:china_invoice_create'))
+
+    def test_中国側ユーザーには経理確認リンクは出ない(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_accounting'))

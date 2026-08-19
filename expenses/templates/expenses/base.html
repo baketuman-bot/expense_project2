@@ -364,6 +364,56 @@
         </div>
         {% endif %}
 
+        {% if can_view_china_invoice %}
+        <div class="precision-section">
+            <div class="precision-section-label">中国輸出Invoice管理</div>
+            <ul class="precision-nav">
+                <li>
+                    <a class="precision-link {% if current == 'china_invoice_dashboard' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_dashboard' %}">
+                        <span class="precision-ico" aria-hidden="true"><i class="fas fa-tachometer-alt"></i></span>
+                        <span>ダッシュボード</span>
+                    </a>
+                </li>
+                {% if can_register_china_invoice %}
+                <li>
+                    <a class="precision-link {% if current == 'china_invoice_create' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_create' %}">
+                        <span class="precision-ico" aria-hidden="true"><i class="fas fa-plus"></i></span>
+                        <span>Invoice登録</span>
+                    </a>
+                </li>
+                {% endif %}
+                <li>
+                    <a class="precision-link {% if current == 'china_invoice_list' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_list' %}">
+                        <span class="precision-ico" aria-hidden="true"><i class="fas fa-list"></i></span>
+                        <span>輸出実績一覧</span>
+                    </a>
+                </li>
+                {% if can_confirm_china_invoice_accounting %}
+                <li>
+                    <a class="precision-link {% if current == 'china_invoice_accounting' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_accounting' %}">
+                        <span class="precision-ico" aria-hidden="true"><i class="fas fa-check-circle"></i></span>
+                        <span>経理確認</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="precision-link {% if current == 'china_invoice_month_close' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_month_close' %}">
+                        <span class="precision-ico" aria-hidden="true"><i class="fas fa-calendar-check"></i></span>
+                        <span>月締め</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if can_confirm_china_invoice_china_side %}
+                <li>
+                    <a class="precision-link {% if current == 'china_invoice_china_check' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_china_check' %}">
+                        <span class="precision-ico" aria-hidden="true"><i class="fas fa-globe-asia"></i></span>
+                        <span>中国側確認</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+
         <div class="precision-user">
             <div class="precision-user-row">
                 <div class="precision-avatar" aria-hidden="true">{{ user.user_name|default:"?"|slice:":1" }}</div>
