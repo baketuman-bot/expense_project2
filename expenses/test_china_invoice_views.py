@@ -393,3 +393,24 @@ class ChinaInvoiceAccountingViewTests(TestCase):
         self.unconfirmed2.refresh_from_db()
         self.assertTrue(self.unconfirmed1.accounting_confirmed)
         self.assertTrue(self.unconfirmed2.accounting_confirmed)
+
+    def test_経理確認操作は中国側確認状態に影響しない(self):
+        self.unconfirmed1.china_confirm_status = T_ChinaInvoice.CHINA_STATUS_DIFFERENCE
+        self.unconfirmed1.save(update_fields=['china_confirm_status'])
+        self.client.force_login(self.accountant)
+        self.client.post(reverse('expenses:china_invoice_accounting_confirm'), {
+            'pks': [self.unconfirmed1.pk, self.unconfirmed2.pk],
+        })
+        self.unconfirmed1.refresh_from_db()
+        self.unconfirmed2.refresh_from_db()
+        self.assertTrue(self.unconfirmed1.accounting_confirmed)
+        self.assertEqual(self.unconfirmed1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_DIFFERENCE)
+        self.assertEqual(self.unconfirmed2.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+
+    def test_china_partnerロールでは経理確認画面にアクセスできない(self):
+        partner = User.objects.create_user(
+            username='view_partner_acc', man_number='9410', user_name='view中国側acc', password='pass')
+        M_UserRole.objects.create(man_number=partner, role='china_partner')
+        self.client.force_login(partner)
+        res = self.client.get(reverse('expenses:china_invoice_accounting'))
+        self.assertEqual(res.status_code, 403)
