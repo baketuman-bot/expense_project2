@@ -1227,7 +1227,7 @@ def china_invoice_report_review(request):
                   _review_context(batch, formset))
 ```
 
-`remove_item` はこの時点では未使用だが、Task 5 で使うため import に含めておく。
+`remove_item` はこの時点では使わないので import しない（未使用importを避けるため）。Task 5 の Step 3 で追加する。
 
 - [ ] **Step 4: `expenses/templates/expenses/china_invoice_report_upload.html` を作成する**
 
