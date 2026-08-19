@@ -105,6 +105,10 @@
                             <span class="badge bg-warning text-dark ms-2">読取失敗</span>
                             {% endif %}
                         </span>
+                        <button type="submit" name="action" value="remove_{{ item.index }}"
+                                class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-times"></i> このファイルを除外
+                        </button>
                     </div>
                     <div class="card-body">
                         {{ form.index }}
@@ -212,6 +216,14 @@
                     </div>
                 </div>
                 {% endfor %}
+            </div>
+            <div class="card-footer">
+                <button type="submit" name="action" value="cancel" class="btn btn-outline-secondary">
+                    <i class="fas fa-ban me-1"></i>キャンセル
+                </button>
+                <div class="form-text small text-muted mt-2">
+                    除外すると、入力中の内容は初期状態に戻ります。
+                </div>
             </div>
         </div>
     </form>

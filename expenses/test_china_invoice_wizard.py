@@ -464,3 +464,79 @@ class ChinaInvoiceReportReviewDisplayTests(TestCase):
         ]})
         res = self.client.get(self.url)
         self.assertEqual(res.context['unread_count'], 1)
+
+
+class ChinaInvoiceReportReviewRemoveCancelTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.outsider, cls.admin = _wizard_users()
+
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
+        self.upload_url = reverse('expenses:china_invoice_report_upload')
+        self.url = reverse('expenses:china_invoice_report_review')
+
+    def _upload(self, count=2):
+        self.client.force_login(self.reporter)
+        self.client.post(self.upload_url, {'invoice_files': [
+            SimpleUploadedFile(f'inv{i}.pdf', _pdf_bytes(f'R-{i}', '10.00'),
+                               content_type='application/pdf')
+            for i in range(count)
+        ]})
+
+    def test_除外すると一時ファイルが消え行数が減る(self):
+        self._upload(count=2)
+        batch = self.client.session[batch_mod.SESSION_KEY]
+        removed_path = batch_mod.batch_file_path(
+            batch['batch_id'], batch['items'][0]['stored_name'])
+
+        res = self.client.post(self.url, {'action': 'remove_0'})
+
+        self.assertRedirects(res, self.url)
+        self.assertFalse(os.path.exists(removed_path))
+        items = self.client.session[batch_mod.SESSION_KEY]['items']
+        self.assertEqual([i['index'] for i in items], [1])
+
+    def test_最後の1件を除外するとバッチが破棄されステップ1へ戻る(self):
+        self._upload(count=1)
+        batch_id = self.client.session[batch_mod.SESSION_KEY]['batch_id']
+
+        res = self.client.post(self.url, {'action': 'remove_0'})
+
+        self.assertRedirects(res, self.upload_url)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+        self.assertFalse(os.path.exists(batch_mod.batch_dir(batch_id)))
+
+    def test_存在しないindexの除外は何も起きない(self):
+        self._upload(count=2)
+        res = self.client.post(self.url, {'action': 'remove_99'})
+        self.assertRedirects(res, self.url)
+        self.assertEqual(len(self.client.session[batch_mod.SESSION_KEY]['items']), 2)
+
+    def test_数値でないindexの除外は何も起きない(self):
+        self._upload(count=2)
+        res = self.client.post(self.url, {'action': 'remove_abc'})
+        self.assertRedirects(res, self.url)
+        self.assertEqual(len(self.client.session[batch_mod.SESSION_KEY]['items']), 2)
+
+    def test_キャンセルで一時ディレクトリとセッションが消える(self):
+        self._upload(count=2)
+        batch_id = self.client.session[batch_mod.SESSION_KEY]['batch_id']
+
+        res = self.client.post(self.url, {'action': 'cancel'})
+
+        self.assertRedirects(res, self.upload_url)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+        self.assertFalse(os.path.exists(batch_mod.batch_dir(batch_id)))
+
+    def test_除外ボタンが各行に描画される(self):
+        self._upload(count=2)
+        res = self.client.get(self.url)
+        html = res.content.decode()
+        self.assertIn('value="remove_0"', html)
+        self.assertIn('value="remove_1"', html)
+        self.assertIn('value="cancel"', html)

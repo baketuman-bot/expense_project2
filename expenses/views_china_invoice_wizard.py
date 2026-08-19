@@ -13,7 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import redirect, render
 
-from .china_invoice_batch import create_batch, discard_batch, get_batch
+from .china_invoice_batch import create_batch, discard_batch, get_batch, remove_item
 from .china_invoice_files import validate_china_invoice_file
 from .china_invoice_pdf import extract_invoice_fields
 from .forms import ChinaInvoiceRowFormSet
@@ -90,12 +90,31 @@ def _review_context(batch, formset):
 
 @login_required
 def china_invoice_report_review(request):
-    """ステップ2: 読取結果の確認・修正。報告確定はTask 6で実装する。"""
+    """ステップ2: 読取結果の確認・修正・行の除外・キャンセル。報告確定はTask 6で実装する。"""
     _require_role(request.user, 'china_reporter')
     batch = get_batch(request)
     if not batch or not batch['items']:
         messages.error(request, '報告するInvoiceがありません。ファイルを選択してください。')
         return redirect('expenses:china_invoice_report_upload')
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        if action == 'cancel':
+            discard_batch(request)
+            messages.info(request, '報告を取り消しました。')
+            return redirect('expenses:china_invoice_report_upload')
+        if action.startswith('remove_'):
+            try:
+                index = int(action[len('remove_'):])
+            except ValueError:
+                return redirect('expenses:china_invoice_report_review')
+            remaining = remove_item(request, index)
+            if remaining == 0:
+                discard_batch(request)
+                messages.info(request, 'すべてのInvoiceを除外したため、報告を取り消しました。')
+                return redirect('expenses:china_invoice_report_upload')
+            return redirect('expenses:china_invoice_report_review')
+        return redirect('expenses:china_invoice_report_review')
 
     formset = ChinaInvoiceRowFormSet(initial=[
         {
