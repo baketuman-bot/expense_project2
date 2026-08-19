@@ -40,6 +40,10 @@ from .views_china_invoice import (
     china_invoice_china_check_update,
     china_invoice_excel,
 )  # noqa: F401
+from .views_china_invoice_wizard import (
+    china_invoice_report_upload,
+    china_invoice_report_review,
+)
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
     M_Group, M_Bumon, M_Post, M_Item, M_DocumentType, M_DocumentField, M_AccountDocument,

@@ -1,0 +1,66 @@
+{% extends "expenses/base.html" %}
+{% load static %}
+
+{% block title %}Invoice報告 | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-1"></i>{{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="閉じる"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-file-upload"></i></span>
+            Invoice報告 — 提出
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:china_invoice_list' %}" class="btn btn-outline-secondary btn-sm">一覧に戻る</a>
+        </div>
+    </div>
+
+    {% if month_closed %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-1"></i>今月は月締め済みのため報告できません。
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="card">
+            <div class="card-header card-header-navy">
+                <h5 class="mb-0"><i class="fas fa-cloud-upload-alt me-2"></i>Invoiceファイルの提出</h5>
+            </div>
+            <div class="card-body">
+                <div class="drop-zone{% if month_closed %} disabled{% endif %}" data-drop-zone role="button" tabindex="0"
+                     aria-label="ここにInvoiceファイルをドロップ、またはクリックして選択">
+                    <div class="drop-zone__prompt">
+                        <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
+                        ここにInvoiceファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択（複数可）
+                    </div>
+                    <div class="drop-zone__hint text-muted small mt-1">
+                        対応形式: PDF / Excel / 画像（1ファイル10MBまで）。PDFはInvoice NoとTotalを自動読取します。
+                    </div>
+                    <ul class="drop-zone__files"></ul>
+                    <input type="file" name="invoice_files" multiple class="form-control file-input d-none"
+                           accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png">
+                </div>
+            </div>
+            <div class="card-footer">
+                <button type="submit" class="btn btn-primary" {% if month_closed %}disabled{% endif %}>
+                    <i class="fas fa-arrow-right me-1"></i>次へ
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'expenses/drop_zone.js' %}"></script>
+{% endblock %}

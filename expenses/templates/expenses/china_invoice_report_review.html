@@ -1,0 +1,238 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}Invoice報告 内容確認 | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-1"></i>{{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="閉じる"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-list-check"></i></span>
+            Invoice報告 — 内容確認
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:china_invoice_list' %}" class="btn btn-outline-secondary btn-sm">一覧に戻る</a>
+        </div>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-1"></i>{{ row_count }}件のInvoiceを読み込みました。内容を確認し、必要に応じて修正してください。
+    </div>
+    {% if unread_count %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-1"></i>{{ unread_count }}件は自動読取できませんでした。Invoice NoとInvoice Totalを入力してください。
+    </div>
+    {% endif %}
+
+    {% if formset.non_form_errors %}
+    <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <div class="card mb-3">
+            <div class="card-header card-header-navy">
+                <h5 class="mb-0"><i class="fas fa-wand-magic-sparkles me-2"></i>全行に一括適用</h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="bulk_export_date">輸出日</label>
+                            <input type="date" id="bulk_export_date" class="form-control">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="bulk_cargo_category">貨物概要区分</label>
+                            <select id="bulk_cargo_category" class="form-select">
+                                <option value="">変更しない</option>
+                                {% for item in cargo_categories %}
+                                <option value="{{ item.pk }}">{{ item.content }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="bulk_adjustment_rate">加算調整率</label>
+                            <select id="bulk_adjustment_rate" class="form-select">
+                                <option value="">変更しない</option>
+                                {% for item in adjustment_rates %}
+                                <option value="{{ item.pk }}">{{ item.content }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <button type="button" class="btn btn-outline-primary w-100" id="bulk-apply">
+                                <i class="fas fa-arrow-down me-1"></i>全行に適用
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-text small text-muted mt-2">
+                    この欄は画面上で各行にコピーするだけです。サーバーには送信されません。
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header card-header-navy">
+                <h5 class="mb-0"><i class="fas fa-file-invoice me-2"></i>報告内容（{{ row_count }}件）</h5>
+            </div>
+            <div class="card-body">
+                {% for form, item in rows %}
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <span>
+                            <span class="fw-semibold small">Invoice {{ forloop.counter }}</span>
+                            <span class="text-muted small ms-2">{{ item.original_name }}</span>
+                            {% if item.invoice_no and item.invoice_total %}
+                            <span class="badge bg-success ms-2">読取OK</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark ms-2">読取失敗</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        {{ form.index }}
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.invoice_no.id_for_label }}">Invoice No</label>
+                                    <input type="text" name="{{ form.invoice_no.html_name }}"
+                                           id="{{ form.invoice_no.id_for_label }}" maxlength="50"
+                                           value="{{ form.invoice_no.value|default_if_none:'' }}"
+                                           class="form-control{% if form.invoice_no.errors %} is-invalid{% elif not item.invoice_no %} border-warning{% endif %}">
+                                    {% for error in form.invoice_no.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                    {% if not item.invoice_no and not form.invoice_no.errors %}
+                                    <div class="form-text text-warning small">自動読取できませんでした。入力してください。</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.invoice_total.id_for_label }}">Invoice Total</label>
+                                    <input type="text" inputmode="decimal" name="{{ form.invoice_total.html_name }}"
+                                           id="{{ form.invoice_total.id_for_label }}"
+                                           value="{{ form.invoice_total.value|default_if_none:'' }}"
+                                           class="form-control{% if form.invoice_total.errors %} is-invalid{% elif not item.invoice_total %} border-warning{% endif %}">
+                                    {% for error in form.invoice_total.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                    {% if not item.invoice_total and not form.invoice_total.errors %}
+                                    <div class="form-text text-warning small">自動読取できませんでした。入力してください。</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.export_date.id_for_label }}">輸出日</label>
+                                    <input type="date" name="{{ form.export_date.html_name }}"
+                                           id="{{ form.export_date.id_for_label }}"
+                                           value="{{ form.export_date.value|default_if_none:'' }}"
+                                           class="form-control js-row-export-date{% if form.export_date.errors %} is-invalid{% endif %}">
+                                    {% for error in form.export_date.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.cargo_category.id_for_label }}">貨物概要区分</label>
+                                    <select name="{{ form.cargo_category.html_name }}"
+                                            id="{{ form.cargo_category.id_for_label }}"
+                                            class="form-select js-row-cargo-category{% if form.cargo_category.errors %} is-invalid{% endif %}">
+                                        <option value="">選択してください</option>
+                                        {% for choice in cargo_categories %}
+                                        <option value="{{ choice.pk }}"{% if form.cargo_category.value|stringformat:"s" == choice.pk|stringformat:"s" %} selected{% endif %}>{{ choice.content }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% for error in form.cargo_category.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.adjustment_rate_item.id_for_label }}">加算調整率</label>
+                                    <select name="{{ form.adjustment_rate_item.html_name }}"
+                                            id="{{ form.adjustment_rate_item.id_for_label }}"
+                                            class="form-select js-row-adjustment-rate{% if form.adjustment_rate_item.errors %} is-invalid{% endif %}">
+                                        {% for choice in adjustment_rates %}
+                                        <option value="{{ choice.pk }}"{% if form.adjustment_rate_item.value|stringformat:"s" == choice.pk|stringformat:"s" %} selected{% endif %}>{{ choice.content }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% for error in form.adjustment_rate_item.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="{{ form.cargo_note.id_for_label }}">貨物概要補足</label>
+                                    <input type="text" name="{{ form.cargo_note.html_name }}"
+                                           id="{{ form.cargo_note.id_for_label }}" maxlength="200"
+                                           value="{{ form.cargo_note.value|default_if_none:'' }}"
+                                           class="form-control{% if form.cargo_note.errors %} is-invalid{% endif %}">
+                                    {% for error in form.cargo_note.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="packing_list_{{ item.index }}">Packing List（任意・複数可）</label>
+                                    <input type="file" multiple class="form-control"
+                                           id="packing_list_{{ item.index }}" name="packing_list_{{ item.index }}"
+                                           accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('bulk-apply').addEventListener('click', function () {
+    var pairs = [
+        ['bulk_export_date', '.js-row-export-date'],
+        ['bulk_cargo_category', '.js-row-cargo-category'],
+        ['bulk_adjustment_rate', '.js-row-adjustment-rate']
+    ];
+    pairs.forEach(function (pair) {
+        var source = document.getElementById(pair[0]);
+        if (!source || !source.value) return;
+        document.querySelectorAll(pair[1]).forEach(function (target) {
+            target.value = source.value;
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import time
+from datetime import date
 from decimal import Decimal
 from importlib import import_module
 
@@ -15,7 +16,7 @@ from django.urls import reverse
 
 from expenses import china_invoice_batch as batch_mod
 from expenses.forms import ChinaInvoiceRowForm, ChinaInvoiceRowFormSet
-from expenses.models import M_Item, M_UserRole
+from expenses.models import M_Item, M_UserRole, T_ChinaInvoiceMonthClose
 
 User = get_user_model()
 
@@ -275,3 +276,191 @@ class DropZoneSharedAssetTests(TestCase):
         res = self.client.get(reverse('expenses:china_export_list'))
         self.assertEqual(res.status_code, 200)
         self.assertNotIn('drop_zone.js', res.content.decode())
+
+
+def _pdf_bytes(invoice_no='PDF-INV-1', total='2,345.67'):
+    """テキストレイヤーを持つ最小のPDFを生成する。extract_invoice_fields が読める形式にする。"""
+    import fitz
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 100), f'Invoice No: {invoice_no}')
+    page.insert_text((72, 130), f'Total: USD {total}')
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def _wizard_users():
+    reporter = User.objects.create_user(
+        username='wiz_reporter', man_number='9601', user_name='wiz報告者', password='pass')
+    M_UserRole.objects.create(man_number=reporter, role='china_reporter')
+    outsider = User.objects.create_user(
+        username='wiz_outsider', man_number='9602', user_name='wiz権限なし', password='pass')
+    admin = User.objects.create_user(
+        username='wiz_admin', man_number='9603', user_name='wiz管理者', password='pass')
+    M_UserRole.objects.create(man_number=admin, role='admin')
+    return reporter, outsider, admin
+
+
+class ChinaInvoiceReportUploadTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.outsider, cls.admin = _wizard_users()
+
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
+        self.url = reverse('expenses:china_invoice_report_upload')
+
+    def test_未ログインはログイン画面へ(self):
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, 302)
+        self.assertIn('/login', res['Location'])
+
+    def test_china_reporterロールがないと403(self):
+        self.client.force_login(self.outsider)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+
+    def test_china_reporterはGETできる(self):
+        self.client.force_login(self.reporter)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_adminはロールがなくてもGETできる(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_ファイル未選択はエラーになりバッチが作られない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.post(self.url, {})
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+
+    def test_不正な拡張子が1件でも混在すると何も保管されない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.post(self.url, {'invoice_files': [
+            SimpleUploadedFile('ok.pdf', _pdf_bytes(), content_type='application/pdf'),
+            SimpleUploadedFile('ng.txt', b'x', content_type='text/plain'),
+        ]})
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+        self.assertFalse(os.path.exists(
+            os.path.join(self.media_root, batch_mod.TMP_SUBDIR)))
+
+    def test_複数ファイルを提出するとステップ2へ遷移しバッチが作られる(self):
+        self.client.force_login(self.reporter)
+        res = self.client.post(self.url, {'invoice_files': [
+            SimpleUploadedFile('a.pdf', _pdf_bytes(), content_type='application/pdf'),
+            SimpleUploadedFile('b.pdf', _pdf_bytes(), content_type='application/pdf'),
+        ]})
+        self.assertRedirects(res, reverse('expenses:china_invoice_report_review'))
+        items = self.client.session[batch_mod.SESSION_KEY]['items']
+        self.assertEqual(len(items), 2)
+
+    def test_PDFからInvoice_NoとTotalが自動読取される(self):
+        self.client.force_login(self.reporter)
+        self.client.post(self.url, {'invoice_files': [
+            SimpleUploadedFile('a.pdf', _pdf_bytes('AUTO-9', '1,000.00'),
+                               content_type='application/pdf'),
+        ]})
+        item = self.client.session[batch_mod.SESSION_KEY]['items'][0]
+        self.assertEqual(item['invoice_no'], 'AUTO-9')
+        self.assertEqual(item['invoice_total'], '1000.00')
+
+    def test_PDF以外は読取されず空になる(self):
+        self.client.force_login(self.reporter)
+        self.client.post(self.url, {'invoice_files': [
+            SimpleUploadedFile('a.png', b'\x89PNG-dummy', content_type='image/png'),
+        ]})
+        item = self.client.session[batch_mod.SESSION_KEY]['items'][0]
+        self.assertIsNone(item['invoice_no'])
+        self.assertIsNone(item['invoice_total'])
+
+    def test_締め済み月はGETで警告されPOSTでブロックされる(self):
+        T_ChinaInvoiceMonthClose.objects.create(
+            year_month=date.today().strftime('%Y-%m'), closed_by=self.reporter)
+        self.client.force_login(self.reporter)
+        get_res = self.client.get(self.url)
+        self.assertTrue(get_res.context['month_closed'])
+        post_res = self.client.post(self.url, {'invoice_files': [
+            SimpleUploadedFile('a.pdf', _pdf_bytes(), content_type='application/pdf'),
+        ]})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+
+    def test_GETで残存バッチが破棄される(self):
+        self.client.force_login(self.reporter)
+        self.client.post(self.url, {'invoice_files': [
+            SimpleUploadedFile('a.pdf', _pdf_bytes(), content_type='application/pdf'),
+        ]})
+        batch_id = self.client.session[batch_mod.SESSION_KEY]['batch_id']
+        self.client.get(self.url)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+        self.assertFalse(os.path.exists(batch_mod.batch_dir(batch_id)))
+
+
+class ChinaInvoiceReportReviewDisplayTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.outsider, cls.admin = _wizard_users()
+        cls.cargo = M_Item.objects.create(
+            data_kbn='CHN_CARGO', key='r1', content='製品', content2='')
+        cls.rate = M_Item.objects.create(
+            data_kbn='CHN_ADJRT', key='r1', content='0%', content2='0.00')
+
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
+        self.upload_url = reverse('expenses:china_invoice_report_upload')
+        self.url = reverse('expenses:china_invoice_report_review')
+
+    def _upload(self, count=2):
+        self.client.force_login(self.reporter)
+        files = [
+            SimpleUploadedFile(f'inv{i}.pdf', _pdf_bytes(f'READ-{i}', '10.00'),
+                               content_type='application/pdf')
+            for i in range(count)
+        ]
+        self.client.post(self.upload_url, {'invoice_files': files})
+
+    def test_バッチが無いとステップ1へリダイレクトされる(self):
+        self.client.force_login(self.reporter)
+        self.assertRedirects(self.client.get(self.url), self.upload_url)
+
+    def test_china_reporterロールがないと403(self):
+        self.client.force_login(self.outsider)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+
+    def test_ファイル数と同じ行数のFormSetが描画される(self):
+        self._upload(count=3)
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.context['formset'].forms), 3)
+
+    def test_読取結果がinitialに入る(self):
+        self._upload(count=1)
+        res = self.client.get(self.url)
+        form = res.context['formset'].forms[0]
+        self.assertEqual(form.initial['invoice_no'], 'READ-0')
+        self.assertEqual(form.initial['invoice_total'], '10.00')
+        self.assertEqual(form.initial['index'], 0)
+
+    def test_元ファイル名が画面に表示される(self):
+        self._upload(count=1)
+        res = self.client.get(self.url)
+        self.assertContains(res, 'inv0.pdf')
+
+    def test_読取失敗件数がcontextに入る(self):
+        self.client.force_login(self.reporter)
+        self.client.post(self.upload_url, {'invoice_files': [
+            SimpleUploadedFile('ok.pdf', _pdf_bytes('OK-1', '5.00'),
+                               content_type='application/pdf'),
+            SimpleUploadedFile('ng.png', b'\x89PNG-dummy', content_type='image/png'),
+        ]})
+        res = self.client.get(self.url)
+        self.assertEqual(res.context['unread_count'], 1)

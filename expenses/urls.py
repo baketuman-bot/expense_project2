@@ -60,6 +60,8 @@ urlpatterns = [
     # 中国輸出Invoice管理
     path("china_invoice/", views.china_invoice_dashboard, name="china_invoice_dashboard"),
     path("china_invoice/new/", views.china_invoice_create, name="china_invoice_create"),
+    path("china_invoice/report/", views.china_invoice_report_upload, name="china_invoice_report_upload"),
+    path("china_invoice/report/review/", views.china_invoice_report_review, name="china_invoice_report_review"),
     path("china_invoice/list/", views.china_invoice_list, name="china_invoice_list"),
     path("china_invoice/<int:pk>/", views.china_invoice_detail, name="china_invoice_detail"),
     path("china_invoice/<int:pk>/packing_list/add/", views.china_invoice_packing_list_add, name="china_invoice_packing_list_add"),
