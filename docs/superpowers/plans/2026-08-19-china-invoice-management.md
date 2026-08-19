@@ -1128,7 +1128,6 @@ def china_invoice_create(request):
             <input type="file" name="packing_list_files" multiple class="form-control">
         </div>
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 登録</button>
-        <a href="{% url 'expenses:china_invoice_list' %}" class="btn btn-outline-secondary">キャンセル</a>
     </form>
 </div>
 {% endblock %}
