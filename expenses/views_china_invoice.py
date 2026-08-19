@@ -77,3 +77,46 @@ def china_invoice_create(request):
     return render(request, 'expenses/china_invoice_form.html', {
         'form': form, 'current': 'china_invoice_list', 'mode': 'create',
     })
+
+
+_LIST_ROLES = ('china_reporter', 'accountant', 'china_partner')
+
+
+def _china_invoice_queryset(request):
+    qs = T_ChinaInvoice.objects.select_related('cargo_category', 'reporter').order_by('-registered_at')
+    params = request.GET
+    if params.get('management_no'):
+        qs = qs.filter(management_no__icontains=params['management_no'])
+    if params.get('invoice_no'):
+        qs = qs.filter(invoice_no__icontains=params['invoice_no'])
+    if params.get('export_date'):
+        qs = qs.filter(export_date=params['export_date'])
+    if params.get('registered_date'):
+        qs = qs.filter(registered_at__date=params['registered_date'])
+    if params.get('cargo_category'):
+        qs = qs.filter(cargo_category_id=params['cargo_category'])
+    if params.get('reporter'):
+        qs = qs.filter(reporter_id=params['reporter'])
+    if params.get('invoice_total'):
+        qs = qs.filter(invoice_total=params['invoice_total'])
+    if params.get('accounting_confirmed') in ('0', '1'):
+        qs = qs.filter(accounting_confirmed=(params['accounting_confirmed'] == '1'))
+    if params.get('china_confirm_status'):
+        qs = qs.filter(china_confirm_status=params['china_confirm_status'])
+    if params.get('month_status') in ('closed', 'open'):
+        closed_months = set(T_ChinaInvoiceMonthClose.objects.values_list('year_month', flat=True))
+        ids = [
+            r.pk for r in qs
+            if (r.registered_at.strftime('%Y-%m') in closed_months) == (params['month_status'] == 'closed')
+        ]
+        qs = qs.filter(pk__in=ids)
+    return qs
+
+
+@login_required
+def china_invoice_list(request):
+    _require_role(request.user, *_LIST_ROLES)
+    return render(request, 'expenses/china_invoice_list.html', {
+        'records': _china_invoice_queryset(request),
+        'current': 'china_invoice_list',
+    })

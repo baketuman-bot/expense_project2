@@ -1,0 +1,52 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}輸出実績一覧 | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0"><i class="fas fa-list"></i> 輸出実績一覧</h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:china_invoice_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Invoice登録</a>
+        </div>
+    </div>
+
+    <form method="get" class="card card-body mb-3">
+        <div class="row g-2">
+            <div class="col-md-3"><input type="text" name="management_no" class="form-control form-control-sm" placeholder="管理番号" value="{{ request.GET.management_no }}"></div>
+            <div class="col-md-3"><input type="text" name="invoice_no" class="form-control form-control-sm" placeholder="Invoice No" value="{{ request.GET.invoice_no }}"></div>
+            <div class="col-md-3"><input type="date" name="export_date" class="form-control form-control-sm" value="{{ request.GET.export_date }}"></div>
+            <div class="col-md-3"><button type="submit" class="btn btn-outline-primary btn-sm w-100">検索</button></div>
+        </div>
+    </form>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>管理番号</th><th>Invoice No</th><th>金額</th><th>輸出日</th>
+                        <th>貨物概要</th><th>報告者</th><th>経理確認</th><th>中国側確認</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records %}
+                    <tr>
+                        <td><a href="{% url 'expenses:china_invoice_detail' r.pk %}">{{ r.management_no }}</a></td>
+                        <td>{{ r.invoice_no }}</td>
+                        <td class="text-end">{{ r.invoice_total }}</td>
+                        <td>{{ r.export_date }}</td>
+                        <td>{{ r.cargo_category.content }}</td>
+                        <td>{{ r.reporter.user_name }}</td>
+                        <td>{% if r.accounting_confirmed %}確認済み{% else %}未確認{% endif %}</td>
+                        <td>{{ r.get_china_confirm_status_display }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-3">データがありません</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

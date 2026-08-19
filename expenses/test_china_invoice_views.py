@@ -106,3 +106,44 @@ class ChinaInvoiceCreateViewTests(TestCase):
         res = self.client.post(reverse('expenses:china_invoice_create'), {**self._post_data(), **files})
         record = T_ChinaInvoice.objects.get(invoice_no='INV-CREATE-1')
         self.assertEqual(record.packing_lists.count(), 2)
+
+
+class ChinaInvoiceListViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.cargo, cls.adjrate = _make_masters()
+        cls.record1 = T_ChinaInvoice.objects.create(
+            invoice_no='INV-LIST-1', invoice_total=Decimal('1000.00'), export_date=date(2026, 8, 1),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i1.pdf', b'a'), reporter=cls.reporter,
+        )
+        cls.record2 = T_ChinaInvoice.objects.create(
+            invoice_no='INV-LIST-2', invoice_total=Decimal('2000.00'), export_date=date(2026, 8, 2),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i2.pdf', b'b'), reporter=cls.reporter,
+            accounting_confirmed=True,
+        )
+
+    def test_権限がないユーザーは403(self):
+        self.client.force_login(self.other)
+        res = self.client.get(reverse('expenses:china_invoice_list'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_一覧に全件表示される(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_list'))
+        self.assertContains(res, 'INV-LIST-1')
+        self.assertContains(res, 'INV-LIST-2')
+
+    def test_invoice_noで絞り込める(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_list') + '?invoice_no=LIST-1')
+        self.assertContains(res, 'INV-LIST-1')
+        self.assertNotContains(res, 'INV-LIST-2')
+
+    def test_経理確認状況で絞り込める(self):
+        self.client.force_login(self.accountant)
+        res = self.client.get(reverse('expenses:china_invoice_list') + '?accounting_confirmed=1')
+        self.assertContains(res, 'INV-LIST-2')
+        self.assertNotContains(res, 'INV-LIST-1')

@@ -27,6 +27,7 @@ from .views_china_export import (
 )  # noqa: F401
 from .views_china_invoice import (
     china_invoice_create,
+    china_invoice_list,
 )  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,
