@@ -44,6 +44,21 @@ def _handle_packing_list_uploads(request, invoice, field_name='packing_list_file
 
 
 @login_required
+def china_invoice_dashboard(request):
+    _require_role(request.user, *_LIST_ROLES)
+    today = datetime.date.today()
+    this_month_prefix = today.strftime('%Y-%m')
+    return render(request, 'expenses/china_invoice_dashboard.html', {
+        'unconfirmed_accounting_count': T_ChinaInvoice.objects.filter(accounting_confirmed=False).count(),
+        'difference_count': T_ChinaInvoice.objects.filter(
+            china_confirm_status=T_ChinaInvoice.CHINA_STATUS_DIFFERENCE).count(),
+        'this_month_count': T_ChinaInvoice.objects.filter(
+            registered_at__date__startswith=this_month_prefix).count(),
+        'current': 'china_invoice_dashboard',
+    })
+
+
+@login_required
 def china_invoice_create(request):
     _require_role(request.user, 'china_reporter')
 

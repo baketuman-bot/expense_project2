@@ -1,0 +1,33 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}中国輸出Invoice管理 | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+    <h2 class="page-title"><i class="fas fa-ship"></i> 中国輸出Invoice管理</h2>
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card p-3">
+                <div class="text-muted small">経理未確認</div>
+                <div class="fs-3">{{ unconfirmed_accounting_count }}件</div>
+                <a href="{% url 'expenses:china_invoice_accounting' %}">経理確認へ</a>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-3">
+                <div class="text-muted small">中国側 差異あり</div>
+                <div class="fs-3">{{ difference_count }}件</div>
+                <a href="{% url 'expenses:china_invoice_list' %}?china_confirm_status=difference">一覧で確認</a>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-3">
+                <div class="text-muted small">今月の登録件数</div>
+                <div class="fs-3">{{ this_month_count }}件</div>
+            </div>
+        </div>
+    </div>
+    <a href="{% url 'expenses:china_invoice_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Invoice登録</a>
+    <a href="{% url 'expenses:china_invoice_list' %}" class="btn btn-outline-secondary">輸出実績一覧</a>
+</div>
+{% endblock %}

@@ -624,3 +624,28 @@ class ChinaInvoiceExcelViewTests(TestCase):
         self.assertNotIn('Invoiceファイル', header)
         self.assertNotIn('Packing List', header)
         self.assertNotIn('中国側確認', header)
+
+
+class ChinaInvoiceDashboardViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.cargo, cls.adjrate = _make_masters()
+        T_ChinaInvoice.objects.create(
+            invoice_no='INV-DASH-1', invoice_total=Decimal('1.00'), export_date=date.today(),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=cls.reporter,
+            china_confirm_status=T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+        )
+
+    def test_権限がなければ403(self):
+        self.client.force_login(self.other)
+        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_サマリ件数が表示される(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['unconfirmed_accounting_count'], 1)
+        self.assertEqual(res.context['difference_count'], 1)

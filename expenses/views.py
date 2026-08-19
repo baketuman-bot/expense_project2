@@ -26,6 +26,7 @@ from .views_china_export import (
     china_export_upload_confirm,
 )  # noqa: F401
 from .views_china_invoice import (
+    china_invoice_dashboard,
     china_invoice_create,
     china_invoice_list,
     china_invoice_detail,
