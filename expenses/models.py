@@ -141,7 +141,7 @@ class M_AccountSub(models.Model):
 
 # 汎用項目マスタ
 class M_Item(models.Model):
-    data_kbn = models.CharField("データ区分", max_length=10, blank=True)
+    data_kbn = models.CharField("データ区分", max_length=20, blank=True)
     key = models.CharField("キー", max_length=20, blank=True)
     content = models.CharField("内容", max_length=50, blank=True)
     content2 = models.CharField("内容2", max_length=50)
@@ -1427,3 +1427,141 @@ class T_ChinaExport(models.Model):
         db_table = 't_china_export'
         verbose_name = '中国輸出実績報告'
         verbose_name_plural = '中国輸出実績報告'
+
+
+def china_invoice_upload_path(instance, filename):
+    ts = timezone.now().strftime('%Y%m%d%H%M%S')
+    base = os.path.basename(filename)
+    return f'china_invoice/{instance.management_no}/invoice/{ts}_{base}'
+
+
+def china_invoice_packing_list_upload_path(instance, filename):
+    ts = timezone.now().strftime('%Y%m%d%H%M%S')
+    base = os.path.basename(filename)
+    return f'china_invoice/{instance.invoice.management_no}/packing_list/{ts}_{base}'
+
+
+class T_ChinaInvoice(models.Model):
+    """中国輸出Invoice管理: Invoice単位の実績管理と、経理・中国側の二重確認を行う。
+    既存の中国輸出実績報告(T_ChinaExport)とは完全に独立したサブシステム。"""
+
+    CHINA_STATUS_UNCONFIRMED = 'unconfirmed'
+    CHINA_STATUS_CONFIRMED = 'confirmed'
+    CHINA_STATUS_DIFFERENCE = 'difference'
+    CHINA_STATUS_CHOICES = [
+        (CHINA_STATUS_UNCONFIRMED, '未確認'),
+        (CHINA_STATUS_CONFIRMED, '確認済み'),
+        (CHINA_STATUS_DIFFERENCE, '差異あり'),
+    ]
+
+    management_no = models.CharField("管理番号", max_length=20, unique=True, blank=True)
+    invoice_no = models.CharField("Invoice No", max_length=50)
+    invoice_total = models.DecimalField("Invoice Total", max_digits=15, decimal_places=2)
+    export_date = models.DateField("輸出日")
+    cargo_category = models.ForeignKey(
+        M_Item, verbose_name="貨物概要区分", on_delete=models.PROTECT,
+        related_name='+', limit_choices_to={'data_kbn': 'CHN_CARGO'},
+    )
+    cargo_note = models.CharField("貨物概要補足", max_length=200, blank=True)
+    adjustment_rate_value = models.DecimalField("加算調整率", max_digits=5, decimal_places=2)
+    invoice_file = models.FileField("Invoiceファイル", upload_to=china_invoice_upload_path)
+    reporter = models.ForeignKey(
+        M_User, verbose_name="報告者", on_delete=models.PROTECT, related_name='china_invoices',
+    )
+    registered_at = models.DateTimeField("登録日時", auto_now_add=True)
+
+    accounting_confirmed = models.BooleanField("経理確認", default=False)
+    accounting_confirmed_by = models.ForeignKey(
+        M_User, verbose_name="経理確認者", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    accounting_confirmed_at = models.DateTimeField("経理確認日時", null=True, blank=True)
+
+    china_confirm_status = models.CharField(
+        "中国側確認", max_length=20, choices=CHINA_STATUS_CHOICES, default=CHINA_STATUS_UNCONFIRMED,
+    )
+    china_confirmed_by = models.ForeignKey(
+        M_User, verbose_name="中国側確認者", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    china_confirmed_at = models.DateTimeField("中国側確認日時", null=True, blank=True)
+
+    def __str__(self):
+        return self.management_no or '(未採番)'
+
+    class Meta:
+        db_table = 't_china_invoice'
+        verbose_name = '中国輸出Invoice'
+        verbose_name_plural = '中国輸出Invoice'
+
+    @classmethod
+    def generate_management_no(cls, today=None):
+        """EX-YYYYMMDD-NNN 形式の管理番号を採番する。低頻度な社内ツールのため
+        重厚な排他制御(select_for_update等)は行わず、当日分の件数+1を候補とし、
+        既に存在すれば+1しながら空きを探す簡易方式とする。"""
+        today = today or timezone.localdate()
+        prefix = f"EX-{today.strftime('%Y%m%d')}-"
+        seq = cls.objects.filter(management_no__startswith=prefix).count() + 1
+        for _ in range(10):
+            candidate = f"{prefix}{seq:03d}"
+            if not cls.objects.filter(management_no=candidate).exists():
+                return candidate
+            seq += 1
+        raise RuntimeError('management_noの採番に失敗しました（候補を10回試行しても空きがありません）')
+
+    def save(self, *args, **kwargs):
+        if not self.management_no:
+            self.management_no = type(self).generate_management_no()
+        super().save(*args, **kwargs)
+        self._sync_to_share()
+
+    def _sync_to_share(self):
+        from .media_sync import sync_file_to_share
+        try:
+            if self.invoice_file:
+                sync_file_to_share(self.invoice_file.name)
+        except Exception:
+            pass
+
+
+class T_ChinaInvoicePackingList(models.Model):
+    invoice = models.ForeignKey(
+        T_ChinaInvoice, verbose_name="Invoice", on_delete=models.CASCADE, related_name='packing_lists',
+    )
+    file = models.FileField("Packing Listファイル", upload_to=china_invoice_packing_list_upload_path)
+    uploaded_at = models.DateTimeField("登録日時", auto_now_add=True)
+    uploaded_by = models.ForeignKey(M_User, verbose_name="登録者", on_delete=models.PROTECT, related_name='+')
+
+    def __str__(self):
+        return os.path.basename(self.file.name) if self.file else str(self.pk)
+
+    class Meta:
+        db_table = 't_china_invoice_packing_list'
+        verbose_name = 'Packing List'
+        verbose_name_plural = 'Packing List'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._sync_to_share()
+
+    def _sync_to_share(self):
+        from .media_sync import sync_file_to_share
+        try:
+            if self.file:
+                sync_file_to_share(self.file.name)
+        except Exception:
+            pass
+
+
+class T_ChinaInvoiceMonthClose(models.Model):
+    year_month = models.CharField("対象年月", max_length=7, unique=True)  # 'YYYY-MM'
+    closed_by = models.ForeignKey(M_User, verbose_name="締め実行者", on_delete=models.PROTECT, related_name='+')
+    closed_at = models.DateTimeField("締め日時", auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.year_month} 締め済み"
+
+    class Meta:
+        db_table = 't_china_invoice_month_close'
+        verbose_name = '中国輸出Invoice月締め'
+        verbose_name_plural = '中国輸出Invoice月締め'
