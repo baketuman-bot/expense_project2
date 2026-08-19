@@ -1,6 +1,9 @@
+from decimal import Decimal, InvalidOperation
+
 from django import forms
 from django.forms import modelformset_factory, BaseModelFormSet
-from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets, M_User, M_Group, M_BelongTo, T_ChinaExport
+from .china_invoice_files import validate_china_invoice_file
+from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets, M_User, M_Group, M_BelongTo, T_ChinaExport, T_ChinaInvoice
 
 
 def _get_item_choices(data_kbn, empty_label='選択してください', fallback=None):
@@ -966,3 +969,54 @@ class ChinaExportUpdateForm(forms.ModelForm):
     class Meta:
         model = T_ChinaExport
         fields = ['export_planned_date', 'export_date', 'invoice_no']
+
+
+class ChinaInvoiceForm(forms.ModelForm):
+    adjustment_rate_item = forms.ModelChoiceField(
+        label="加算調整率", queryset=M_Item.objects.none(), empty_label=None,
+    )
+
+    class Meta:
+        model = T_ChinaInvoice
+        fields = ['invoice_no', 'invoice_total', 'export_date', 'cargo_category', 'cargo_note', 'invoice_file']
+        widgets = {
+            'export_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cargo_category'].queryset = (
+            M_Item.objects.filter(data_kbn='CHN_CARGO').order_by('order_by', 'key'))
+        self.fields['adjustment_rate_item'].queryset = (
+            M_Item.objects.filter(data_kbn='CHN_ADJRT').order_by('order_by', 'key'))
+        if self.instance.pk and self.instance.adjustment_rate_value is not None:
+            match = M_Item.objects.filter(
+                data_kbn='CHN_ADJRT', content2=str(self.instance.adjustment_rate_value)).first()
+            if match:
+                self.fields['adjustment_rate_item'].initial = match.pk
+
+    def clean_invoice_file(self):
+        f = self.cleaned_data.get('invoice_file')
+        if f and hasattr(f, 'size'):
+            validate_china_invoice_file(f)
+        return f
+
+    def clean(self):
+        cleaned = super().clean()
+        category = cleaned.get('cargo_category')
+        note = cleaned.get('cargo_note')
+        if category is not None and category.content2 == 'OTHER' and not (note or '').strip():
+            self.add_error('cargo_note', '貨物概要区分が「その他」の場合は補足の入力が必須です。')
+        return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        item = self.cleaned_data.get('adjustment_rate_item')
+        if item is not None:
+            try:
+                instance.adjustment_rate_value = Decimal(item.content2)
+            except InvalidOperation:
+                instance.adjustment_rate_value = Decimal('0.00')
+        if commit:
+            instance.save()
+        return instance
