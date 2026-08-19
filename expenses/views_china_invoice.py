@@ -2,6 +2,7 @@
 既存の中国輸出実績報告(T_ChinaExport)とは独立したサブシステム。"""
 import datetime
 import logging
+from decimal import Decimal, InvalidOperation
 
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -151,7 +152,10 @@ def _china_invoice_queryset(request):
     if params.get('reporter'):
         qs = qs.filter(reporter_id=params['reporter'])
     if params.get('invoice_total'):
-        qs = qs.filter(invoice_total=params['invoice_total'])
+        try:
+            qs = qs.filter(invoice_total=Decimal(params['invoice_total'].replace(',', '')))
+        except InvalidOperation:
+            pass
     if params.get('accounting_confirmed') in ('0', '1'):
         qs = qs.filter(accounting_confirmed=(params['accounting_confirmed'] == '1'))
     if params.get('china_confirm_status'):

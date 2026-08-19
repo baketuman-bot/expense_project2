@@ -178,6 +178,25 @@ class ChinaInvoiceListViewTests(TestCase):
         self.assertContains(res, 'INV-LIST-2')
         self.assertNotContains(res, 'INV-LIST-1')
 
+    def test_invoice_totalに数値でない文字列を渡しても500にならない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_list') + '?invoice_total=abc')
+        self.assertEqual(res.status_code, 200)
+
+    def test_invoice_totalにカンマ区切りの数値で絞り込める(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_list') + '?invoice_total=1,000')
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'INV-LIST-1')
+        self.assertNotContains(res, 'INV-LIST-2')
+
+    def test_invoice_totalの完全一致で絞り込める(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_list') + '?invoice_total=1000.00')
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'INV-LIST-1')
+        self.assertNotContains(res, 'INV-LIST-2')
+
 
 class ChinaInvoiceDetailEditViewTests(TestCase):
     @classmethod
