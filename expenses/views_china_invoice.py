@@ -38,16 +38,21 @@ def _is_month_closed(target_date):
     return T_ChinaInvoiceMonthClose.objects.filter(year_month=target_date.strftime('%Y-%m')).exists()
 
 
-def _validate_packing_list_uploads(request, field_name='packing_list_files'):
+def _validate_packing_list_uploads(request, field_name='packing_list_files', with_filename=False):
     """アップロードされた全Packing Listファイルを検証する。
     エラーメッセージのリストを返す（空リスト=全ファイル有効）。
+    with_filename=True のとき 'ファイル名: ' の接頭辞を付ける（報告ウィザードのように
+    1画面で複数行分を扱う場合に、どの行のファイルかを判別するため）。
     1件でも不正なファイルがあれば呼び出し側で保存処理そのものを中止すること。"""
     errors = []
     for f in request.FILES.getlist(field_name):
         try:
             validate_china_invoice_file(f)
         except ValidationError as e:
-            errors.extend(e.messages)
+            if with_filename:
+                errors.extend(f'{f.name}: {m}' for m in e.messages)
+            else:
+                errors.extend(e.messages)
     if errors:
         logger.warning('Packing Listアップロード検証エラー: %s', errors)
     return errors

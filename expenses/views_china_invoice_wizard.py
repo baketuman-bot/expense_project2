@@ -21,8 +21,11 @@ from .china_invoice_batch import (
 from .china_invoice_files import validate_china_invoice_file
 from .china_invoice_pdf import extract_invoice_fields
 from .forms import ChinaInvoiceRowFormSet
-from .models import M_Item, T_ChinaInvoice, T_ChinaInvoicePackingList
-from .views_china_invoice import _is_month_closed, _require_role
+from .models import M_Item, T_ChinaInvoice
+from .views_china_invoice import (
+    _handle_packing_list_uploads, _is_month_closed, _require_role,
+    _validate_packing_list_uploads,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +103,16 @@ def _handle_report_submit(request, batch):
 
     known = {item['index']: item for item in batch['items']}
 
+    # FormSetは extra=0 / INITIAL_FORMS=0 のため全フォームが empty_permitted=True を持ち、
+    # 空行は「妥当」かつ cleaned_data == {} になる。cleaned_data を参照するループは
+    # すべてこの rows を対象にし、空行に触れないようにする。
+    rows = []
     if valid:
-        submitted = [form.cleaned_data['index'] for form in formset.forms]
-        if len(submitted) != len(known) or any(i not in known for i in submitted):
+        rows = [f for f in formset.forms if f.cleaned_data.get('index') is not None]
+        submitted = [f.cleaned_data['index'] for f in rows]
+        # sorted()同士で比較する。長さ＋メンバーシップだけだと同じindexの重複送信を通してしまい、
+        # 1つの一時ファイルから2件作られて別のアップロード済みInvoiceが消える。
+        if sorted(submitted) != sorted(known):
             messages.error(request, '送信データが不正です。最初からやり直してください。')
             valid = False
 
@@ -112,7 +122,7 @@ def _handle_report_submit(request, batch):
 
     if valid:
         by_no = {}
-        for form in formset.forms:
+        for form in rows:
             by_no.setdefault(form.cleaned_data['invoice_no'], []).append(form)
         for duplicated in by_no.values():
             if len(duplicated) > 1:
@@ -122,15 +132,13 @@ def _handle_report_submit(request, batch):
 
     if valid:
         pl_errors = []
-        for form in formset.forms:
-            field = f'packing_list_{form.cleaned_data["index"]}'
-            for uploaded in request.FILES.getlist(field):
-                try:
-                    validate_china_invoice_file(uploaded)
-                except ValidationError as e:
-                    pl_errors.extend(f'{uploaded.name}: {m}' for m in e.messages)
+        for form in rows:
+            pl_errors.extend(_validate_packing_list_uploads(
+                request,
+                field_name=f'packing_list_{form.cleaned_data["index"]}',
+                with_filename=True,
+            ))
         if pl_errors:
-            logger.warning('Packing Listアップロード検証エラー: %s', pl_errors)
             for msg in pl_errors:
                 messages.error(request, msg)
             valid = False
@@ -154,7 +162,7 @@ def _handle_report_submit(request, batch):
     warnings = []
     with transaction.atomic():
         created = 0
-        for form in formset.forms:
+        for form in rows:
             data = form.cleaned_data
             item = known[data['index']]
             invoice = T_ChinaInvoice(
@@ -175,9 +183,8 @@ def _handle_report_submit(request, batch):
                 # instance.save() のファイルコミットに委ねる
                 invoice.invoice_file = File(fp, name=item['original_name'])
                 invoice.save()
-            for uploaded in request.FILES.getlist(f'packing_list_{data["index"]}'):
-                T_ChinaInvoicePackingList.objects.create(
-                    invoice=invoice, file=uploaded, uploaded_by=request.user)
+            _handle_packing_list_uploads(
+                request, invoice, field_name=f'packing_list_{data["index"]}')
             created += 1
             if is_duplicate:
                 warnings.append(
@@ -187,7 +194,12 @@ def _handle_report_submit(request, batch):
                     f'{invoice.management_no}: 登録月（{today.strftime("%Y-%m")}）と輸出月'
                     f'（{invoice.export_date.strftime("%Y-%m")}）が異なります。')
 
-    discard_batch(request)
+    # 登録は既にコミット済み。一時ファイルの後始末に失敗しても報告自体は成功扱いにする。
+    try:
+        discard_batch(request)
+    except Exception:
+        logger.exception('一時バッチの破棄に失敗しました（報告の登録は完了しています）')
+
     messages.success(request, f'{created}件を報告しました。')
     for msg in warnings:
         messages.warning(request, msg)
