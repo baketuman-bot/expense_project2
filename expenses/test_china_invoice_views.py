@@ -508,3 +508,31 @@ class ChinaInvoiceChinaCheckViewTests(TestCase):
         })
         self.record1.refresh_from_db()
         self.assertTrue(self.record1.accounting_confirmed)
+
+    def test_個別に確認済みへ変更できる(self):
+        self.client.force_login(self.partner)
+        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
+            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_CONFIRMED,
+        })
+        self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
+        self.record1.refresh_from_db()
+        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+        self.assertEqual(self.record1.china_confirmed_by, self.partner)
+
+    def test_個別に未確認へ戻せる(self):
+        self.record1.china_confirm_status = T_ChinaInvoice.CHINA_STATUS_CONFIRMED
+        self.record1.save(update_fields=['china_confirm_status'])
+        self.client.force_login(self.partner)
+        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
+            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED,
+        })
+        self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
+        self.record1.refresh_from_db()
+        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+
+    def test_一覧に貨物概要補足など詳細項目は表示されない(self):
+        self.record1.cargo_note = 'SENTINEL_NOTE_VALUE'
+        self.record1.save(update_fields=['cargo_note'])
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_china_check'))
+        self.assertNotContains(res, 'SENTINEL_NOTE_VALUE')
