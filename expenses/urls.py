@@ -57,6 +57,8 @@ urlpatterns = [
     path("china_export/bulk_update/", views.china_export_bulk_update, name="china_export_bulk_update"),
     path("china_export/upload/", views.china_export_upload, name="china_export_upload"),
     path("china_export/upload/confirm/", views.china_export_upload_confirm, name="china_export_upload_confirm"),
+    # 中国輸出Invoice管理
+    path("china_invoice/new/", views.china_invoice_create, name="china_invoice_create"),
     # 管理者画面 (設定)
     path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),
     path("settings/data_view/<str:view_name>/", views.settings_data_view_browse, name="settings_data_view_browse"),
