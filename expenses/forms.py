@@ -1028,3 +1028,47 @@ class ChinaInvoiceForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class ChinaInvoiceRowForm(forms.Form):
+    """中国輸出Invoice報告ウィザード ステップ2の1行分。
+
+    FormSetで扱うためModelFormにせず、view側でT_ChinaInvoiceを組み立てる。
+    バリデーションのルールは詳細画面の編集で使う ChinaInvoiceForm と揃えてある。
+    """
+
+    index = forms.IntegerField(widget=forms.HiddenInput)
+    invoice_no = forms.CharField(label="Invoice No", max_length=50)
+    invoice_total = forms.DecimalField(label="Invoice Total", max_digits=15, decimal_places=2)
+    export_date = forms.DateField(
+        label="輸出日", widget=forms.DateInput(attrs={'type': 'date'}))
+    cargo_category = forms.ModelChoiceField(
+        label="貨物概要区分", queryset=M_Item.objects.none())
+    cargo_note = forms.CharField(label="貨物概要補足", max_length=200, required=False)
+    adjustment_rate_item = forms.ModelChoiceField(
+        label="加算調整率", queryset=M_Item.objects.none(), empty_label=None)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cargo_category'].queryset = (
+            M_Item.objects.filter(data_kbn='CHN_CARGO').order_by('order_by', 'key'))
+        self.fields['adjustment_rate_item'].queryset = (
+            M_Item.objects.filter(data_kbn='CHN_ADJRT').order_by('order_by', 'key'))
+
+    def clean(self):
+        cleaned = super().clean()
+        category = cleaned.get('cargo_category')
+        note = cleaned.get('cargo_note')
+        if category is not None and category.content2 == 'OTHER' and not (note or '').strip():
+            self.add_error('cargo_note', '貨物概要区分が「その他」の場合は補足の入力が必須です。')
+        item = cleaned.get('adjustment_rate_item')
+        if item is not None:
+            try:
+                cleaned['adjustment_rate_value'] = Decimal(item.content2)
+            except InvalidOperation:
+                self.add_error(
+                    'adjustment_rate_item', '加算調整率マスタの値が不正です（数値に変換できません）。')
+        return cleaned
+
+
+ChinaInvoiceRowFormSet = forms.formset_factory(ChinaInvoiceRowForm, extra=0)
