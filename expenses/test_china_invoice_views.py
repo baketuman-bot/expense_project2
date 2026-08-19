@@ -529,6 +529,7 @@ class ChinaInvoiceChinaCheckViewTests(TestCase):
         self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
         self.record1.refresh_from_db()
         self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+        self.assertEqual(self.record1.china_confirmed_by, self.partner)
 
     def test_一覧に貨物概要補足など詳細項目は表示されない(self):
         self.record1.cargo_note = 'SENTINEL_NOTE_VALUE'
