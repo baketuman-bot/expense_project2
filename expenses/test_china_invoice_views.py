@@ -557,6 +557,16 @@ class ChinaInvoiceExcelViewTests(TestCase):
             cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
             invoice_file=SimpleUploadedFile('i2.pdf', b'b'), reporter=cls.reporter,
         )
+        cls.record_c = T_ChinaInvoice.objects.create(
+            invoice_no='INV-XL-C', invoice_total=Decimal('300.00'), export_date=date(2026, 9, 1),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i3.pdf', b'c'), reporter=cls.reporter,
+        )
+        # registered_at は auto_now_add のため .create() では上書きできない。
+        # .update() は auto_now_add の save()-time 上書きをバイパスするため、
+        # year_month/date_from-date_to フィルタ用に意図的に2026-08範囲外の値へ変更する。
+        T_ChinaInvoice.objects.filter(pk=cls.record_c.pk).update(registered_at='2026-09-15 10:00:00')
+        cls.record_c.refresh_from_db()
 
     def test_権限がなければ403(self):
         self.client.force_login(self.other)
@@ -570,7 +580,7 @@ class ChinaInvoiceExcelViewTests(TestCase):
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
         invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=2)]
-        self.assertEqual(invoice_no_col_values, ['INV-XL-A', 'INV-XL-B'])
+        self.assertEqual(invoice_no_col_values, ['INV-XL-A', 'INV-XL-B', 'INV-XL-C'])
 
     def test_月単位のファイル名になる(self):
         self.client.force_login(self.reporter)
@@ -578,6 +588,27 @@ class ChinaInvoiceExcelViewTests(TestCase):
         # 日本語ファイル名はRFC 5987 (filename*=UTF-8''...) でパーセントエンコードされて出力される
         # （expenses/views.py のCSV出力と同じ content_disposition_header() を使うため）
         self.assertIn(quote('中国輸出実績_202608.xlsx'), res['Content-Disposition'])
+
+    def test_年月指定で範囲外レコードは除外される(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel') + '?year_month=2026-08')
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=2)]
+        self.assertIn('INV-XL-A', invoice_no_col_values)
+        self.assertIn('INV-XL-B', invoice_no_col_values)
+        self.assertNotIn('INV-XL-C', invoice_no_col_values)
+
+    def test_日付範囲指定で絞り込める(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(
+            reverse('expenses:china_invoice_excel') + '?date_from=2026-09-01&date_to=2026-09-30')
+        self.assertEqual(res.status_code, 200)
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=2)]
+        self.assertEqual(invoice_no_col_values, ['INV-XL-C'])
+        self.assertIn(quote('中国輸出実績_20260901-20260930.xlsx'), res['Content-Disposition'])
 
     def test_同じ月は同じファイル名になる(self):
         self.client.force_login(self.reporter)
