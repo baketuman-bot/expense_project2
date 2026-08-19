@@ -47,7 +47,7 @@ cd ~/expense_project2 && python3 manage.py test expenses --keepdb -v 1
 | `expenses/forms.py` | `ChinaInvoiceRowForm` / `ChinaInvoiceRowFormSet` を追加 | 2 |
 | `expenses/static/expenses/swiss.css` | `.drop-zone` 系ルールを追加 | 3 |
 | `expenses/static/expenses/drop_zone.js` | 汎用ドロップゾーンの挙動 | 3 |
-| `expenses/templates/expenses/base.html` | `drop_zone.js` 読込 / サイドバーのリンク差替 | 3, 7 |
+| `expenses/templates/expenses/base.html` | サイドバーのリンク差替のみ（`drop_zone.js` はグローバル読込しない） | 7 |
 | `expenses/templates/expenses/china_export_upload.html` | インラインCSS/JSを共通化したものへ差替 | 3 |
 | `expenses/views_china_invoice_wizard.py` | ステップ1・2のビュー | 4, 5, 6 |
 | `expenses/templates/expenses/china_invoice_report_upload.html` | ステップ1画面 | 4 |
@@ -612,12 +612,18 @@ git commit -m "feat: 中国輸出Invoice報告ウィザードの行フォーム�
 **Files:**
 - Modify: `expenses/static/expenses/swiss.css`（末尾に追記）
 - Create: `expenses/static/expenses/drop_zone.js`
-- Modify: `expenses/templates/expenses/base.html`
 - Modify: `expenses/templates/expenses/china_export_upload.html`
 - Test: `expenses/test_china_invoice_wizard.py`（追記）
 
 **Interfaces:**
-- Produces: `[data-drop-zone]` を持つ要素を自動初期化する共通JS。要素内に `input[type=file]`（`multiple` 可）と `.drop-zone__prompt` が必須、`.drop-zone__files`（`<ul>`）は任意。未選択時の表示文言は初期 `innerHTML` を保持して復元する。
+- Produces: `[data-drop-zone]` を持つ要素を自動初期化する共通JS。要素内に `input[type=file]`（`multiple` 可）と `.drop-zone__prompt` が必須、`.drop-zone__files`（`<ul>`）は任意。未選択時の表示文言は初期 `innerHTML` を保持して復元する。単一選択時のアイコンは `data-file-icon` 属性で上書きでき、既定は `fa-file`。
+- **`drop_zone.js` は `base.html` からグローバルに読み込んではならない。** 使う画面の `{% block extra_js %}` で個別に読み込む。理由は下記。
+
+### ⚠️ グローバル読み込みが禁止な理由（必読）
+
+`expense_form.html`（支出伺い）と `travel_expense_form.html`（出張旅費精算）は、**それぞれ独自の `.drop-zone` CSS と `bindDropZones()` という自前のJS**を持っており、同じ `[data-drop-zone]` セレクタ・同じクラス名を使っている（`expense_form.html:290,562-620,623-,812,819`、`travel_expense_form.html:281,1287`）。`base.html` から `drop_zone.js` を無条件に読み込むと、この2つの本番運用フォームでドロップゾーンのイベントハンドラが**二重にバインドされる**。
+
+この2ファイルは本計画のスコープ外であり、触ってはならない。したがって `drop_zone.js` は、それを必要とする画面のテンプレートからのみ読み込む。
 
 - [ ] **Step 1: 失敗するテストを書く**
 
@@ -673,6 +679,21 @@ class DropZoneSharedAssetTests(TestCase):
         self.assertIn('name="excel_file"', html)
         self.assertIn('accept=".xlsx"', html)
         self.assertNotIn('name="excel_file" multiple', html)
+
+    def test_中国輸出実績報告はExcelアイコンのまま(self):
+        # 選択後の表示アイコンは元のインラインJSと同じ fa-file-excel を保つ
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_upload'))
+        self.assertContains(res, 'data-file-icon="fa-file-excel"')
+
+    def test_共通JSはドロップゾーンの無い画面には読み込まれない(self):
+        # expense_form.html / travel_expense_form.html は独自の bindDropZones() を
+        # 持つため、base.html からのグローバル読み込みは二重バインドを起こす。
+        # drop_zone.js は必要な画面だけが読み込むこと。
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list'))
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn('drop_zone.js', res.content.decode())
 ```
 
 - [ ] **Step 2: テストが失敗することを確認する**
@@ -740,6 +761,9 @@ Expected: FAIL — `drop_zone.js` が読み込まれておらず、インライ�
         if (!input || !promptEl) return;
         var listEl = zone.querySelector('.drop-zone__files');
         var defaultPrompt = promptEl.innerHTML;
+        // 単一選択時のアイコン。既定は汎用の fa-file。中国輸出実績報告のように
+        // 扱うファイル種別が固定の画面は data-file-icon で上書きする。
+        var fileIcon = zone.dataset.fileIcon || 'fa-file';
 
         function render() {
             var files = input.files;
@@ -755,7 +779,7 @@ Expected: FAIL — `drop_zone.js` が読み込まれておらず、インライ�
                     '<i class="fas fa-copy me-2"></i>' + files.length + '件のファイルを選択中';
             } else {
                 promptEl.innerHTML =
-                    '<i class="fas fa-file me-2"></i>' + escapeHtml(files[0].name);
+                    '<i class="fas ' + fileIcon + ' me-2"></i>' + escapeHtml(files[0].name);
             }
             if (listEl) {
                 listEl.innerHTML = '';
@@ -802,15 +826,11 @@ Expected: FAIL — `drop_zone.js` が読み込まれておらず、インライ�
 })();
 ```
 
-- [ ] **Step 5: `base.html` で共通JSを読み込む**
+- [ ] **Step 5: `base.html` は変更しない**
 
-`expenses/templates/expenses/base.html` の `{% block extra_js %}{% endblock %}`（686行目付近）の**直前**に次の1行を挿入する。
+`base.html` には**何も追加しない**。上の「⚠️ グローバル読み込みが禁止な理由」のとおり、`drop_zone.js` を全ページで読み込むと `expense_form.html` / `travel_expense_form.html` の自前の `bindDropZones()` と二重バインドになる。共通JSは使う画面の `{% block extra_js %}` で個別に読み込む（Step 6 と Task 4）。
 
-```html
-    <script src="{% static 'expenses/drop_zone.js' %}"></script>
-```
-
-- [ ] **Step 6: `china_export_upload.html` からインライン定義を削除する**
+- [ ] **Step 6: `china_export_upload.html` からインライン定義を削除し、共通JSを読み込む**
 
 `{% block extra_css %}` の中身を `.china-export-scrollbox` 系の2行だけにする。
 
@@ -823,10 +843,11 @@ Expected: FAIL — `drop_zone.js` が読み込まれておらず、インライ�
 {% endblock %}
 ```
 
-`{% block extra_js %}` の中身を二重送信防止のスクリプトだけにする（ドロップゾーンのIIFEを丸ごと削除する）。
+`{% block extra_js %}` の中身を、共通JSの読み込みと二重送信防止のスクリプトだけにする（ドロップゾーンのIIFEを丸ごと削除する）。
 
 ```html
 {% block extra_js %}
+<script src="{% static 'expenses/drop_zone.js' %}"></script>
 <script>
 // 確定ボタンの二重クリック・二重送信防止
 document.querySelectorAll('[data-confirm-form]').forEach(form => {
@@ -842,17 +863,27 @@ document.querySelectorAll('[data-confirm-form]').forEach(form => {
 {% endblock %}
 ```
 
-ドロップゾーンのHTML（78〜85行目付近）は変更しない。`data-drop-zone` / `.drop-zone__prompt` / `input.file-input` はそのまま共通JSが拾う。
+このテンプレートは1行目付近で既に `{% load expense_extras %}` を宣言している。`{% static %}` を使うため `{% load static %}` も必要なら追加する（`base.html` の load は子テンプレートに継承されない）。
+
+ドロップゾーンのHTML（78〜85行目付近）は、**`data-file-icon="fa-file-excel"` を1つ足す以外は変更しない**。選択後に表示されるアイコンを、削除した元のインラインJSと同じ Excel アイコンに保つため。
+
+```html
+                <div class="drop-zone" data-drop-zone data-file-icon="fa-file-excel" role="button" tabindex="0" aria-label="ここにExcelファイルをドロップ、またはクリックして選択">
+```
+
+`.drop-zone__prompt` / `input.file-input` はそのまま共通JSが拾う。
 
 - [ ] **Step 7: テストが通ることを確認する**
 
 Run: `cd ~/expense_project2 && python3 manage.py test expenses.test_china_invoice_wizard expenses.test_china_export --keepdb -v 2`
-Expected: PASS（ウィザード23件 + 中国輸出実績報告の既存テスト全件）
+Expected: PASS（ウィザード25件 + 中国輸出実績報告の既存テスト全件）
 
 - [ ] **Step 8: コミット**
 
+`base.html` は変更していないので add しない。
+
 ```bash
-git add expenses/static/expenses/swiss.css expenses/static/expenses/drop_zone.js expenses/templates/expenses/base.html expenses/templates/expenses/china_export_upload.html expenses/test_china_invoice_wizard.py
+git add expenses/static/expenses/swiss.css expenses/static/expenses/drop_zone.js expenses/templates/expenses/china_export_upload.html expenses/test_china_invoice_wizard.py
 git commit -m "refactor: ファイルドロップゾーンのCSS/JSを共通化し複数選択に対応"
 ```
 
@@ -1200,8 +1231,11 @@ def china_invoice_report_review(request):
 
 - [ ] **Step 4: `expenses/templates/expenses/china_invoice_report_upload.html` を作成する**
 
+**注意:** `drop_zone.js` は `base.html` からグローバルに読み込まれていない（`expense_form.html` / `travel_expense_form.html` が自前の `bindDropZones()` を持っており、二重バインドになるため）。この画面が `{% block extra_js %}` で自分で読み込む。`{% load static %}` の宣言も忘れないこと（`base.html` の load は子テンプレートに継承されない）。
+
 ```html
 {% extends "expenses/base.html" %}
+{% load static %}
 
 {% block title %}Invoice報告 | {% endblock %}
 
@@ -1261,6 +1295,10 @@ def china_invoice_report_review(request):
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'expenses/drop_zone.js' %}"></script>
 {% endblock %}
 ```
 
