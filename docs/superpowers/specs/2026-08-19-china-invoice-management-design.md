@@ -43,7 +43,7 @@
 | export_date | DateField | ○ | 手入力 |
 | cargo_category | FK→`M_Item`(`data_kbn='CHN_CARGO'`), on_delete=PROTECT | ○ | マスタ変更に追随する参照方式（名称変更は過去データにも反映） |
 | cargo_note | CharField, blank | 条件付き | `cargo_category`の`content2=='OTHER'`の場合のみ必須 |
-| adjustment_rate_value | DecimalField | ○ | 登録時に選択した`M_Item`(`data_kbn='CHN_ADJRATE'`)行の`content2`をそのまま数値コピー保存（FKではなくスナップショット。マスタ変更の影響を受けない） |
+| adjustment_rate_value | DecimalField | ○ | 登録時に選択した`M_Item`(`data_kbn='CHN_ADJRT'`)行の`content2`をそのまま数値コピー保存（FKではなくスナップショット。マスタ変更の影響を受けない） |
 | invoice_file | FileField | ○ | 1件1ファイル。差替時は旧ファイルを残さず上書き |
 | reporter | FK→`M_User` | ○ | ログインユーザーから自動設定 |
 | registered_at | DateTimeField, auto_now_add | ○ | 月締めの基準日 |
@@ -74,7 +74,7 @@
 | data_kbn | key | content | content2 | 用途 |
 |---|---|---|---|---|
 | `CHN_CARGO` | 連番 | 区分名（管理者編集可、初期値: 製品/資材/部品/金型/設備/その他） | 「その他」行のみ`'OTHER'`、他は空 | 貨物概要区分 |
-| `CHN_ADJRATE` | 連番 | 表示ラベル（例`"5%"`、初期値: 0%/1%/5%） | 計算用数値（例`"5.00"`） | 加算調整率 |
+| `CHN_ADJRT` | 連番 | 表示ラベル（例`"5%"`、初期値: 0%/1%/5%） | 計算用数値（例`"5.00"`） | 加算調整率 |
 
 いずれも既存「マスタ設定」→`m_item`画面でそのまま追加・編集可能。過去データへの影響は上表「データモデル」の通り、区分はFK参照（追随）、調整率はスナップショット（非追随）で区別する。
 

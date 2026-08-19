@@ -4,7 +4,7 @@
 
 **Goal:** Invoice単位の登録・経理確認・月締め・中国側確認までを行う新メニュー「中国輸出Invoice管理」を追加する。既存の「中国輸出実績報告」(`T_ChinaExport`) とは完全に独立した新規サブシステムとして実装する。
 
-**Architecture:** 既存の分割方針（`views_china_export.py`等）に倣い `expenses/views_china_invoice.py` を新設。PDF自動読取・ファイルバリデーションはビュー非依存の共通モジュール (`expenses/china_invoice_pdf.py`, `expenses/china_invoice_files.py`) として切り出す。貨物概要区分・加算調整率マスタは新規テーブルを作らず既存 `M_Item`（`data_kbn='CHN_CARGO'`/`'CHN_ADJRATE'`）を流用する。添付ファイルは既存 `media_sync.sync_file_to_share()` を使い経理ファイルサーバーへミラーする。
+**Architecture:** 既存の分割方針（`views_china_export.py`等）に倣い `expenses/views_china_invoice.py` を新設。PDF自動読取・ファイルバリデーションはビュー非依存の共通モジュール (`expenses/china_invoice_pdf.py`, `expenses/china_invoice_files.py`) として切り出す。貨物概要区分・加算調整率マスタは新規テーブルを作らず既存 `M_Item`（`data_kbn='CHN_CARGO'`/`'CHN_ADJRT'`）を流用する。添付ファイルは既存 `media_sync.sync_file_to_share()` を使い経理ファイルサーバーへミラーする。
 
 **Tech Stack:** Django 5.2.6 / Python 3.12+、PyMuPDF (`fitz`、既存依存を流用)、openpyxl、MySQL 8.0
 
@@ -37,7 +37,7 @@
 - Produces: `expenses.models.T_ChinaInvoice`（フィールド: `management_no`, `invoice_no`, `invoice_total`, `export_date`, `cargo_category`(FK→M_Item), `cargo_note`, `adjustment_rate_value`, `invoice_file`, `reporter`(FK→M_User), `registered_at`, `accounting_confirmed`, `accounting_confirmed_by`, `accounting_confirmed_at`, `china_confirm_status`, `china_confirmed_by`, `china_confirmed_at`）。クラス定数 `CHINA_STATUS_UNCONFIRMED='unconfirmed'`, `CHINA_STATUS_CONFIRMED='confirmed'`, `CHINA_STATUS_DIFFERENCE='difference'`。クラスメソッド `generate_management_no(today=None) -> str`。
 - Produces: `expenses.models.T_ChinaInvoicePackingList`（`invoice`(FK→T_ChinaInvoice, related_name='packing_lists'), `file`, `uploaded_at`, `uploaded_by`）
 - Produces: `expenses.models.T_ChinaInvoiceMonthClose`（`year_month`(unique, 'YYYY-MM'), `closed_by`, `closed_at`）
-- Produces: `M_Item`データ `data_kbn='CHN_CARGO'`（key='1'〜'6', content=製品/資材/部品/金型/設備/その他, content2='OTHER'は「その他」行のみ）、`data_kbn='CHN_ADJRATE'`（key='1'〜'3', content='0%'/'1%'/'5%', content2='0.00'/'1.00'/'5.00'）。後続タスクはこれらの`data_kbn`文字列とcontent2の意味をそのまま使う。
+- Produces: `M_Item`データ `data_kbn='CHN_CARGO'`（key='1'〜'6', content=製品/資材/部品/金型/設備/その他, content2='OTHER'は「その他」行のみ）、`data_kbn='CHN_ADJRT'`（key='1'〜'3', content='0%'/'1%'/'5%', content2='0.00'/'1.00'/'5.00'）。後続タスクはこれらの`data_kbn`文字列とcontent2の意味をそのまま使う。
 
 - [ ] **Step 1: モデルを追加**
 
@@ -233,14 +233,14 @@ def seed_master_data(apps, schema_editor):
     ]
     for order, (key, content, content2) in enumerate(adjrate_rows, start=1):
         M_Item.objects.get_or_create(
-            data_kbn='CHN_ADJRATE', key=key,
+            data_kbn='CHN_ADJRT', key=key,
             defaults={'content': content, 'content2': content2, 'order_by': order},
         )
 
 
 def remove_master_data(apps, schema_editor):
     M_Item = apps.get_model('expenses', 'M_Item')
-    M_Item.objects.filter(data_kbn__in=['CHN_CARGO', 'CHN_ADJRATE']).delete()
+    M_Item.objects.filter(data_kbn__in=['CHN_CARGO', 'CHN_ADJRT']).delete()
 
 
 class Migration(migrations.Migration):
@@ -329,11 +329,13 @@ class TChinaInvoiceModelTests(TestCase):
             username='reporter2', man_number='9202', user_name='報告者2', password='pass')
         cls.cargo = M_Item.objects.create(data_kbn='CHN_CARGO', key='p2', content='資材', content2='')
 
-    def test_invoice_noがないと保存時にエラー(self):
+    def test_invoice_noがNoneだと保存時にエラー(self):
+        # CharFieldはキー未指定だと空文字''がデフォルトになりNOT NULL制約に違反しないため、
+        # NULL制約を確実に踏ませるにはinvoice_no=Noneを明示的に渡す必要がある
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 T_ChinaInvoice.objects.create(
-                    invoice_total=Decimal('100.00'), export_date=date(2026, 8, 1),
+                    invoice_no=None, invoice_total=Decimal('100.00'), export_date=date(2026, 8, 1),
                     cargo_category=self.cargo, adjustment_rate_value=Decimal('0.00'),
                     invoice_file=_make_invoice_file(), reporter=self.reporter,
                 )
@@ -414,8 +416,8 @@ class MasterSeedDataTests(TestCase):
         other = M_Item.objects.get(data_kbn='CHN_CARGO', content2='OTHER')
         self.assertEqual(other.content, 'その他')
 
-    def test_CHN_ADJRATEに0_1_5パーセントが存在する(self):
-        values = set(M_Item.objects.filter(data_kbn='CHN_ADJRATE').values_list('content2', flat=True))
+    def test_CHN_ADJRTに0_1_5パーセントが存在する(self):
+        values = set(M_Item.objects.filter(data_kbn='CHN_ADJRT').values_list('content2', flat=True))
         self.assertEqual(values, {'0.00', '1.00', '5.00'})
 ```
 
@@ -695,7 +697,7 @@ class ChinaInvoiceFormTests(TestCase):
     def setUpTestData(cls):
         cls.cargo_normal = M_Item.objects.create(data_kbn='CHN_CARGO', key='n1', content='製品', content2='')
         cls.cargo_other = M_Item.objects.create(data_kbn='CHN_CARGO', key='n2', content='その他', content2='OTHER')
-        cls.adjrate = M_Item.objects.create(data_kbn='CHN_ADJRATE', key='a1', content='5%', content2='5.00')
+        cls.adjrate = M_Item.objects.create(data_kbn='CHN_ADJRT', key='a1', content='5%', content2='5.00')
 
     def _files(self):
         return {'invoice_file': SimpleUploadedFile('invoice.pdf', b'%PDF-1.4 dummy')}
@@ -771,10 +773,10 @@ class ChinaInvoiceForm(forms.ModelForm):
         self.fields['cargo_category'].queryset = (
             M_Item.objects.filter(data_kbn='CHN_CARGO').order_by('order_by', 'key'))
         self.fields['adjustment_rate_item'].queryset = (
-            M_Item.objects.filter(data_kbn='CHN_ADJRATE').order_by('order_by', 'key'))
+            M_Item.objects.filter(data_kbn='CHN_ADJRT').order_by('order_by', 'key'))
         if self.instance.pk and self.instance.adjustment_rate_value is not None:
             match = M_Item.objects.filter(
-                data_kbn='CHN_ADJRATE', content2=str(self.instance.adjustment_rate_value)).first()
+                data_kbn='CHN_ADJRT', content2=str(self.instance.adjustment_rate_value)).first()
             if match:
                 self.fields['adjustment_rate_item'].initial = match.pk
 
@@ -870,7 +872,7 @@ def _make_users():
 
 def _make_masters():
     cargo = M_Item.objects.create(data_kbn='CHN_CARGO', key='v1', content='製品', content2='')
-    adjrate = M_Item.objects.create(data_kbn='CHN_ADJRATE', key='v1', content='0%', content2='0.00')
+    adjrate = M_Item.objects.create(data_kbn='CHN_ADJRT', key='v1', content='0%', content2='0.00')
     return cargo, adjrate
 
 
