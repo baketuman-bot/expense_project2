@@ -174,7 +174,8 @@ def china_invoice_detail(request, pk):
             form.fields['invoice_file'].required = False
 
     return render(request, 'expenses/china_invoice_detail.html', {
-        'invoice': invoice, 'form': form, 'can_edit': can_edit, 'current': 'china_invoice_list',
+        'invoice': invoice, 'form': form, 'can_edit': can_edit,
+        'can_delete': _can_delete(request.user, invoice), 'current': 'china_invoice_list',
     })
 
 
@@ -201,3 +202,24 @@ def china_invoice_packing_list_delete(request, pk):
         packing_list.delete()
         return redirect('expenses:china_invoice_detail', pk=invoice_pk)
     return redirect('expenses:china_invoice_detail', pk=packing_list.invoice_id)
+
+
+def _can_delete(user, invoice):
+    if user.has_role('admin') or user.has_role('accountant'):
+        return True
+    if user.has_role('china_reporter') and invoice.reporter_id == user.pk and not invoice.accounting_confirmed:
+        return True
+    return False
+
+
+@login_required
+@require_POST
+def china_invoice_delete(request, pk):
+    invoice = get_object_or_404(T_ChinaInvoice, pk=pk)
+    if not _can_delete(request.user, invoice):
+        raise PermissionDenied()
+    management_no = invoice.management_no
+    invoice.invoice_file.delete(save=False)
+    invoice.delete()
+    messages.success(request, f'{management_no} を削除しました。')
+    return redirect('expenses:china_invoice_list')

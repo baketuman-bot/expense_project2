@@ -280,3 +280,58 @@ class ChinaInvoicePackingListViewTests(TestCase):
         res = self.client.post(reverse('expenses:china_invoice_packing_list_delete', args=[pl.pk]))
         self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[self.record.pk]))
         self.assertEqual(self.record.packing_lists.count(), 0)
+
+
+class ChinaInvoiceDeleteViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.reporter2 = User.objects.create_user(
+            username='view_reporter3', man_number='9406', user_name='view報告者3', password='pass')
+        M_UserRole.objects.create(man_number=cls.reporter2, role='china_reporter')
+        cls.cargo, cls.adjrate = _make_masters()
+
+    def _make_record(self, **overrides):
+        data = dict(
+            invoice_no='INV-DEL-1', invoice_total=Decimal('1.00'), export_date=date(2026, 8, 1),
+            cargo_category=self.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=self.reporter,
+        )
+        data.update(overrides)
+        return T_ChinaInvoice.objects.create(**data)
+
+    def test_経理確認前は本人の報告者が削除できる(self):
+        record = self._make_record()
+        self.client.force_login(self.reporter)
+        res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        self.assertFalse(T_ChinaInvoice.objects.filter(pk=record.pk).exists())
+
+    def test_他人の報告者は削除できない(self):
+        record = self._make_record()
+        self.client.force_login(self.reporter2)
+        res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
+        self.assertEqual(res.status_code, 403)
+        self.assertTrue(T_ChinaInvoice.objects.filter(pk=record.pk).exists())
+
+    def test_経理確認後は報告者が削除できない(self):
+        record = self._make_record(accounting_confirmed=True)
+        self.client.force_login(self.reporter)
+        res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
+        self.assertEqual(res.status_code, 403)
+
+    def test_経理確認後でも経理担当者は削除できる(self):
+        record = self._make_record(accounting_confirmed=True)
+        self.client.force_login(self.accountant)
+        res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        self.assertFalse(T_ChinaInvoice.objects.filter(pk=record.pk).exists())
+
+    def test_china_partnerは削除できない(self):
+        partner = User.objects.create_user(
+            username='view_partner1', man_number='9407', user_name='view中国側1', password='pass')
+        M_UserRole.objects.create(man_number=partner, role='china_partner')
+        record = self._make_record()
+        self.client.force_login(partner)
+        res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
+        self.assertEqual(res.status_code, 403)

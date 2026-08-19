@@ -55,6 +55,14 @@
         {% endif %}
     </div>
 
+    {% if can_delete %}
+    <form method="post" action="{% url 'expenses:china_invoice_delete' invoice.pk %}"
+          onsubmit="return confirm('{{ invoice.management_no }} を削除します。よろしいですか？');" class="mb-3">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm"><i class="fas fa-trash"></i> 削除</button>
+    </form>
+    {% endif %}
+
     {% if can_edit and form %}
     <form method="post" enctype="multipart/form-data" class="card p-3">
         {% csrf_token %}
