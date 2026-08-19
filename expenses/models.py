@@ -141,7 +141,7 @@ class M_AccountSub(models.Model):
 
 # 汎用項目マスタ
 class M_Item(models.Model):
-    data_kbn = models.CharField("データ区分", max_length=20, blank=True)
+    data_kbn = models.CharField("データ区分", max_length=10, blank=True)
     key = models.CharField("キー", max_length=20, blank=True)
     content = models.CharField("内容", max_length=50, blank=True)
     content2 = models.CharField("内容2", max_length=50)

@@ -24,20 +24,20 @@ def seed_master_data(apps, schema_editor):
     ]
     for order, (key, content, content2) in enumerate(adjrate_rows, start=1):
         M_Item.objects.get_or_create(
-            data_kbn='CHN_ADJRATE', key=key,
+            data_kbn='CHN_ADJRT', key=key,
             defaults={'content': content, 'content2': content2, 'order_by': order},
         )
 
 
 def remove_master_data(apps, schema_editor):
     M_Item = apps.get_model('expenses', 'M_Item')
-    M_Item.objects.filter(data_kbn__in=['CHN_CARGO', 'CHN_ADJRATE']).delete()
+    M_Item.objects.filter(data_kbn__in=['CHN_CARGO', 'CHN_ADJRT']).delete()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('expenses', '0122_alter_m_item_data_kbn'),
+        ('expenses', '0121_china_invoice'),
     ]
 
     operations = [
