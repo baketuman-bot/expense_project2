@@ -603,7 +603,9 @@ from decimal import Decimal, InvalidOperation
 import fitz
 
 _INVOICE_NO_PATTERN = re.compile(
-    r'invoice\s*(?:no\.?|number)\s*[:：]?\s*([A-Za-z0-9][A-Za-z0-9\-/]*)', re.IGNORECASE)
+    # ':' と全角'：' に加え '·' も許容する。PyMuPDFの既定フォント(Helvetica系)は全角コロンの
+    # グリフを持たず、テキスト抽出時に中点'·'(U+00B7)へ字形置換されることがあるため。
+    r'invoice\s*(?:no\.?|number)\s*[:：·]?\s*([A-Za-z0-9][A-Za-z0-9\-/]*)', re.IGNORECASE)
 _TOTAL_PATTERN = re.compile(
     r'total\s*[:：]?\s*(?:USD)?\s*([0-9][0-9,]*\.\d{2})', re.IGNORECASE)
 
