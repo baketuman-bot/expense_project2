@@ -637,6 +637,12 @@ class ChinaInvoiceDashboardViewTests(TestCase):
             invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=cls.reporter,
             china_confirm_status=T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
         )
+        cls.confirmed_other_record = T_ChinaInvoice.objects.create(
+            invoice_no='INV-DASH-2', invoice_total=Decimal('2.00'), export_date=date.today(),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i2.pdf', b'b'), reporter=cls.reporter,
+            accounting_confirmed=True, china_confirm_status=T_ChinaInvoice.CHINA_STATUS_CONFIRMED,
+        )
 
     def test_権限がなければ403(self):
         self.client.force_login(self.other)
@@ -649,3 +655,4 @@ class ChinaInvoiceDashboardViewTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.context['unconfirmed_accounting_count'], 1)
         self.assertEqual(res.context['difference_count'], 1)
+        self.assertEqual(res.context['this_month_count'], 2)
