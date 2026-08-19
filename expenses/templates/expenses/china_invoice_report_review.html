@@ -218,10 +218,14 @@
                 {% endfor %}
             </div>
             <div class="card-footer">
+                <button type="submit" name="action" value="submit" class="btn btn-primary" data-report-submit>
+                    <i class="fas fa-paper-plane me-1"></i>報告する
+                </button>
                 <button type="submit" name="action" value="cancel" class="btn btn-outline-secondary">
                     <i class="fas fa-ban me-1"></i>キャンセル
                 </button>
                 <div class="form-text small text-muted mt-2">
+                    エラーがあった場合、Packing Listは選び直してください。<br>
                     除外すると、入力中の内容は初期状態に戻ります。
                 </div>
             </div>
@@ -244,6 +248,18 @@ document.getElementById('bulk-apply').addEventListener('click', function () {
         document.querySelectorAll(pair[1]).forEach(function (target) {
             target.value = source.value;
         });
+    });
+});
+
+document.querySelectorAll('[data-report-submit]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        // 二重送信防止。submitハンドラ内で disabled にすると、このボタンの
+        // name/value (action=submit) が送信対象から外れてしまうため、
+        // 送信を通したうえで次のタックで無効化する。
+        setTimeout(function () {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>報告中...';
+        }, 0);
     });
 });
 </script>

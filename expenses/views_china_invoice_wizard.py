@@ -11,13 +11,17 @@ import os
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.files import File
+from django.db import transaction
 from django.shortcuts import redirect, render
 
-from .china_invoice_batch import create_batch, discard_batch, get_batch, remove_item
+from .china_invoice_batch import (
+    batch_file_path, create_batch, discard_batch, get_batch, remove_item,
+)
 from .china_invoice_files import validate_china_invoice_file
 from .china_invoice_pdf import extract_invoice_fields
 from .forms import ChinaInvoiceRowFormSet
-from .models import M_Item
+from .models import M_Item, T_ChinaInvoice, T_ChinaInvoicePackingList
 from .views_china_invoice import _is_month_closed, _require_role
 
 logger = logging.getLogger(__name__)
@@ -88,9 +92,111 @@ def _review_context(batch, formset):
     }
 
 
+def _handle_report_submit(request, batch):
+    """ステップ2の「報告」。全行の検証を通れば1トランザクションで作成し、
+    1件でも失敗すれば何も保存せずステップ2を再描画する（all-or-nothing）。"""
+    formset = ChinaInvoiceRowFormSet(request.POST)
+    valid = formset.is_valid()
+
+    known = {item['index']: item for item in batch['items']}
+
+    if valid:
+        submitted = [form.cleaned_data['index'] for form in formset.forms]
+        if len(submitted) != len(known) or any(i not in known for i in submitted):
+            messages.error(request, '送信データが不正です。最初からやり直してください。')
+            valid = False
+
+    if valid and _is_month_closed(datetime.date.today()):
+        messages.error(request, '今月は月締め済みのため報告できません。')
+        valid = False
+
+    if valid:
+        by_no = {}
+        for form in formset.forms:
+            by_no.setdefault(form.cleaned_data['invoice_no'], []).append(form)
+        for duplicated in by_no.values():
+            if len(duplicated) > 1:
+                for form in duplicated:
+                    form.add_error('invoice_no', '同じバッチ内でInvoice Noが重複しています。')
+                valid = False
+
+    if valid:
+        pl_errors = []
+        for form in formset.forms:
+            field = f'packing_list_{form.cleaned_data["index"]}'
+            for uploaded in request.FILES.getlist(field):
+                try:
+                    validate_china_invoice_file(uploaded)
+                except ValidationError as e:
+                    pl_errors.extend(f'{uploaded.name}: {m}' for m in e.messages)
+        if pl_errors:
+            logger.warning('Packing Listアップロード検証エラー: %s', pl_errors)
+            for msg in pl_errors:
+                messages.error(request, msg)
+            valid = False
+
+    if valid:
+        missing = [
+            item for item in batch['items']
+            if not os.path.exists(batch_file_path(batch['batch_id'], item['stored_name']))
+        ]
+        if missing:
+            logger.error('一時ファイルが見つかりません: %s', [i['stored_name'] for i in missing])
+            discard_batch(request)
+            messages.error(request, '一時ファイルが見つかりません。最初からやり直してください。')
+            return redirect('expenses:china_invoice_report_upload')
+
+    if not valid:
+        return render(request, 'expenses/china_invoice_report_review.html',
+                      _review_context(batch, formset))
+
+    today = datetime.date.today()
+    warnings = []
+    with transaction.atomic():
+        created = 0
+        for form in formset.forms:
+            data = form.cleaned_data
+            item = known[data['index']]
+            invoice = T_ChinaInvoice(
+                invoice_no=data['invoice_no'],
+                invoice_total=data['invoice_total'],
+                export_date=data['export_date'],
+                cargo_category=data['cargo_category'],
+                cargo_note=data['cargo_note'],
+                adjustment_rate_value=data['adjustment_rate_value'],
+                reporter=request.user,
+            )
+            # 自分自身がヒットしないよう、保存前に既存の重複を調べる
+            is_duplicate = T_ChinaInvoice.objects.filter(
+                invoice_no=data['invoice_no']).exists()
+            path = batch_file_path(batch['batch_id'], item['stored_name'])
+            with open(path, 'rb') as fp:
+                # upload_to が management_no を使うため、手動で .save() せず
+                # instance.save() のファイルコミットに委ねる
+                invoice.invoice_file = File(fp, name=item['original_name'])
+                invoice.save()
+            for uploaded in request.FILES.getlist(f'packing_list_{data["index"]}'):
+                T_ChinaInvoicePackingList.objects.create(
+                    invoice=invoice, file=uploaded, uploaded_by=request.user)
+            created += 1
+            if is_duplicate:
+                warnings.append(
+                    f'{invoice.management_no}: 同じInvoice Noが既に登録されています。')
+            if invoice.export_date.strftime('%Y-%m') != today.strftime('%Y-%m'):
+                warnings.append(
+                    f'{invoice.management_no}: 登録月（{today.strftime("%Y-%m")}）と輸出月'
+                    f'（{invoice.export_date.strftime("%Y-%m")}）が異なります。')
+
+    discard_batch(request)
+    messages.success(request, f'{created}件を報告しました。')
+    for msg in warnings:
+        messages.warning(request, msg)
+    return redirect('expenses:china_invoice_list')
+
+
 @login_required
 def china_invoice_report_review(request):
-    """ステップ2: 読取結果の確認・修正・行の除外・キャンセル。報告確定はTask 6で実装する。"""
+    """ステップ2: 読取結果の確認・修正・行の除外・キャンセル・報告確定。"""
     _require_role(request.user, 'china_reporter')
     batch = get_batch(request)
     if not batch or not batch['items']:
@@ -114,7 +220,7 @@ def china_invoice_report_review(request):
                 messages.info(request, 'すべてのInvoiceを除外したため、報告を取り消しました。')
                 return redirect('expenses:china_invoice_report_upload')
             return redirect('expenses:china_invoice_report_review')
-        return redirect('expenses:china_invoice_report_review')
+        return _handle_report_submit(request, batch)
 
     formset = ChinaInvoiceRowFormSet(initial=[
         {

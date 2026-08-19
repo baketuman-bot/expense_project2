@@ -16,7 +16,10 @@ from django.urls import reverse
 
 from expenses import china_invoice_batch as batch_mod
 from expenses.forms import ChinaInvoiceRowForm, ChinaInvoiceRowFormSet
-from expenses.models import M_Item, M_UserRole, T_ChinaInvoiceMonthClose
+from expenses.models import (
+    M_Item, M_UserRole, T_ChinaInvoice, T_ChinaInvoiceMonthClose,
+    T_ChinaInvoicePackingList,
+)
 
 User = get_user_model()
 
@@ -540,3 +543,220 @@ class ChinaInvoiceReportReviewRemoveCancelTests(TestCase):
         self.assertIn('value="remove_0"', html)
         self.assertIn('value="remove_1"', html)
         self.assertIn('value="cancel"', html)
+
+
+class ChinaInvoiceReportSubmitTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.outsider, cls.admin = _wizard_users()
+        cls.cargo = M_Item.objects.create(
+            data_kbn='CHN_CARGO', key='s1', content='製品', content2='')
+        cls.cargo_other = M_Item.objects.create(
+            data_kbn='CHN_CARGO', key='s9', content='その他', content2='OTHER')
+        cls.rate = M_Item.objects.create(
+            data_kbn='CHN_ADJRT', key='s1', content='5%', content2='5.00')
+
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
+        self.upload_url = reverse('expenses:china_invoice_report_upload')
+        self.url = reverse('expenses:china_invoice_report_review')
+
+    def _upload(self, count=2):
+        self.client.force_login(self.reporter)
+        self.client.post(self.upload_url, {'invoice_files': [
+            SimpleUploadedFile(f'inv{i}.pdf', _pdf_bytes(f'S-{i}', '10.00'),
+                               content_type='application/pdf')
+            for i in range(count)
+        ]})
+        return self.client.session[batch_mod.SESSION_KEY]
+
+    def _submit_data(self, batch, overrides=None):
+        """batchのitemsから正常な提出データを組み立てる。
+        overrides は {行位置: {フィールド名: 値}} で個別に上書きする。"""
+        overrides = overrides or {}
+        items = batch['items']
+        data = {
+            'action': 'submit',
+            'form-TOTAL_FORMS': str(len(items)),
+            'form-INITIAL_FORMS': '0',
+            'form-MIN_NUM_FORMS': '0',
+            'form-MAX_NUM_FORMS': '1000',
+        }
+        today = date.today().strftime('%Y-%m-%d')
+        for pos, item in enumerate(items):
+            row = {
+                'index': item['index'],
+                'invoice_no': f'SUB-{item["index"]}',
+                'invoice_total': '99.99',
+                'export_date': today,
+                'cargo_category': self.cargo.pk,
+                'cargo_note': '',
+                'adjustment_rate_item': self.rate.pk,
+            }
+            row.update(overrides.get(pos, {}))
+            for key, value in row.items():
+                data[f'form-{pos}-{key}'] = value
+        return data
+
+    def test_全行を報告するとT_ChinaInvoiceが作られ一覧へ遷移する(self):
+        batch = self._upload(count=2)
+        res = self.client.post(self.url, self._submit_data(batch))
+
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        self.assertEqual(T_ChinaInvoice.objects.count(), 2)
+        for invoice in T_ChinaInvoice.objects.all():
+            self.assertTrue(invoice.management_no.startswith('EX-'))
+            self.assertEqual(invoice.reporter_id, self.reporter.pk)
+            self.assertTrue(invoice.invoice_file.name)
+            self.assertEqual(invoice.adjustment_rate_value, Decimal('5.00'))
+
+    def test_報告成功で一時ディレクトリとセッションが消える(self):
+        batch = self._upload(count=2)
+        batch_id = batch['batch_id']
+        self.client.post(self.url, self._submit_data(batch))
+
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+        self.assertFalse(os.path.exists(batch_mod.batch_dir(batch_id)))
+
+    def test_元のファイル名でinvoice_fileが保存される(self):
+        batch = self._upload(count=1)
+        self.client.post(self.url, self._submit_data(batch))
+        invoice = T_ChinaInvoice.objects.get()
+        self.assertIn('inv0', os.path.basename(invoice.invoice_file.name))
+        self.assertIn(invoice.management_no, invoice.invoice_file.name)
+
+    def test_1行でも不正なら1件も保存されず一時ディレクトリは残る(self):
+        batch = self._upload(count=2)
+        batch_id = batch['batch_id']
+        data = self._submit_data(batch, {1: {'invoice_no': ''}})
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+        self.assertTrue(os.path.exists(batch_mod.batch_dir(batch_id)))
+        self.assertIn(batch_mod.SESSION_KEY, self.client.session)
+
+    def test_バッチ内のInvoice_No重複はブロックされる(self):
+        batch = self._upload(count=2)
+        data = self._submit_data(batch, {0: {'invoice_no': 'DUP'}, 1: {'invoice_no': 'DUP'}})
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+        self.assertContains(res, '同じバッチ内でInvoice Noが重複しています。')
+
+    def test_既存DBとのInvoice_No重複は警告のみで保存される(self):
+        batch = self._upload(count=1)
+        data = self._submit_data(batch)
+        self.client.post(self.url, data)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 1)
+
+        batch2 = self._upload(count=1)
+        data2 = self._submit_data(batch2, {0: {'invoice_no': 'SUB-0'}})
+        res = self.client.post(self.url, data2, follow=True)
+
+        self.assertEqual(T_ChinaInvoice.objects.count(), 2)
+        texts = [str(m) for m in res.context['messages']]
+        self.assertTrue(any('同じInvoice Noが既に登録されています' in t for t in texts), texts)
+
+    def test_輸出月が登録月と違うと警告が出るが保存される(self):
+        batch = self._upload(count=1)
+        data = self._submit_data(batch, {0: {'export_date': '2020-01-15'}})
+
+        res = self.client.post(self.url, data, follow=True)
+
+        self.assertEqual(T_ChinaInvoice.objects.count(), 1)
+        texts = [str(m) for m in res.context['messages']]
+        self.assertTrue(any('輸出月' in t for t in texts), texts)
+
+    def test_その他区分で補足が空だと0件保存(self):
+        batch = self._upload(count=1)
+        data = self._submit_data(batch, {0: {'cargo_category': self.cargo_other.pk}})
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+
+    def test_Packing_Listが行ごとに正しいInvoiceへ紐づく(self):
+        batch = self._upload(count=2)
+        data = self._submit_data(batch)
+        idx0, idx1 = batch['items'][0]['index'], batch['items'][1]['index']
+        data[f'packing_list_{idx0}'] = SimpleUploadedFile(
+            'pl-a.pdf', b'pl-a', content_type='application/pdf')
+        data[f'packing_list_{idx1}'] = [
+            SimpleUploadedFile('pl-b1.pdf', b'pl-b1', content_type='application/pdf'),
+            SimpleUploadedFile('pl-b2.pdf', b'pl-b2', content_type='application/pdf'),
+        ]
+
+        self.client.post(self.url, data)
+
+        first = T_ChinaInvoice.objects.get(invoice_no='SUB-0')
+        second = T_ChinaInvoice.objects.get(invoice_no='SUB-1')
+        self.assertEqual(first.packing_lists.count(), 1)
+        self.assertEqual(second.packing_lists.count(), 2)
+        self.assertIn('pl-a', first.packing_lists.get().file.name)
+
+    def test_不正なPacking_Listがあると0件保存(self):
+        batch = self._upload(count=1)
+        data = self._submit_data(batch)
+        data[f'packing_list_{batch["items"][0]["index"]}'] = SimpleUploadedFile(
+            'bad.txt', b'x', content_type='text/plain')
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+        self.assertEqual(T_ChinaInvoicePackingList.objects.count(), 0)
+
+    def test_確定時に締め済みならブロックされる(self):
+        batch = self._upload(count=1)
+        T_ChinaInvoiceMonthClose.objects.create(
+            year_month=date.today().strftime('%Y-%m'), closed_by=self.reporter)
+
+        res = self.client.post(self.url, self._submit_data(batch))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+
+    def test_存在しないindexを送ると0件保存(self):
+        batch = self._upload(count=1)
+        data = self._submit_data(batch, {0: {'index': 999}})
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+
+    def test_一時ファイルが消えているとステップ1へ戻される(self):
+        batch = self._upload(count=1)
+        os.remove(batch_mod.batch_file_path(
+            batch['batch_id'], batch['items'][0]['stored_name']))
+
+        res = self.client.post(self.url, self._submit_data(batch))
+
+        self.assertRedirects(res, self.upload_url)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+
+    def test_権限のないユーザーは報告できない(self):
+        self._upload(count=1)
+        batch = self.client.session[batch_mod.SESSION_KEY]
+        data = self._submit_data(batch)
+        self.client.force_login(self.outsider)
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+
+    def test_報告ボタンが描画される(self):
+        self._upload(count=1)
+        res = self.client.get(self.url)
+        self.assertContains(res, 'value="submit"')
