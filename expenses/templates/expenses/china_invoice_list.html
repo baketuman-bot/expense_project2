@@ -4,10 +4,21 @@
 
 {% block content %}
 <div class="mt-2">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="閉じる"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
     <div class="page-head mb-3">
         <h2 class="page-title mb-0"><i class="fas fa-list"></i> 輸出実績一覧</h2>
         <div class="page-actions">
+            {% if can_register_china_invoice %}
             <a href="{% url 'expenses:china_invoice_create' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Invoice登録</a>
+            {% endif %}
         </div>
     </div>
 
@@ -15,10 +26,86 @@
         <div class="row g-2">
             <div class="col-md-3"><input type="text" name="management_no" class="form-control form-control-sm" placeholder="管理番号" value="{{ request.GET.management_no }}"></div>
             <div class="col-md-3"><input type="text" name="invoice_no" class="form-control form-control-sm" placeholder="Invoice No" value="{{ request.GET.invoice_no }}"></div>
-            <div class="col-md-3"><input type="date" name="export_date" class="form-control form-control-sm" value="{{ request.GET.export_date }}"></div>
-            <div class="col-md-3"><button type="submit" class="btn btn-outline-primary btn-sm w-100">検索</button></div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">輸出日</label>
+                <input type="date" name="export_date" class="form-control form-control-sm" value="{{ request.GET.export_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">登録日</label>
+                <input type="date" name="registered_date" class="form-control form-control-sm" value="{{ request.GET.registered_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">貨物概要区分</label>
+                <select name="cargo_category" class="form-select form-select-sm">
+                    <option value="">-- 選択 --</option>
+                    {% for c in cargo_categories %}
+                    <option value="{{ c.pk }}" {% if request.GET.cargo_category == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.content }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">報告者</label>
+                <select name="reporter" class="form-select form-select-sm">
+                    <option value="">-- 選択 --</option>
+                    {% for u in reporters %}
+                    <option value="{{ u.pk }}" {% if request.GET.reporter == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.user_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">Invoice Total</label>
+                <input type="text" name="invoice_total" class="form-control form-control-sm" placeholder="金額" value="{{ request.GET.invoice_total }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">経理確認</label>
+                <select name="accounting_confirmed" class="form-select form-select-sm">
+                    <option value="">-- 選択 --</option>
+                    <option value="0" {% if request.GET.accounting_confirmed == '0' %}selected{% endif %}>未確認</option>
+                    <option value="1" {% if request.GET.accounting_confirmed == '1' %}selected{% endif %}>確認済み</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">中国側確認</label>
+                <select name="china_confirm_status" class="form-select form-select-sm">
+                    <option value="">-- 選択 --</option>
+                    {% for value, label in china_status_choices %}
+                    <option value="{{ value }}" {% if request.GET.china_confirm_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">月締め状態</label>
+                <select name="month_status" class="form-select form-select-sm">
+                    <option value="">-- 選択 --</option>
+                    <option value="open" {% if request.GET.month_status == 'open' %}selected{% endif %}>未締め</option>
+                    <option value="closed" {% if request.GET.month_status == 'closed' %}selected{% endif %}>締め済み</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end"><button type="submit" class="btn btn-outline-primary btn-sm w-100">検索</button></div>
         </div>
     </form>
+
+    <div class="card card-body mb-3">
+        <h6 class="mb-2"><i class="fas fa-file-excel"></i> Excel出力</h6>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <form method="get" action="{% url 'expenses:china_invoice_excel' %}" class="d-flex gap-2">
+                    <input type="month" name="year_month" class="form-control form-control-sm" required>
+                    <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">月単位でダウンロード</button>
+                </form>
+            </div>
+            <div class="col-md-5">
+                <form method="get" action="{% url 'expenses:china_invoice_excel' %}" class="d-flex gap-2">
+                    <input type="date" name="date_from" class="form-control form-control-sm" required>
+                    <input type="date" name="date_to" class="form-control form-control-sm" required>
+                    <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">登録日範囲でダウンロード</button>
+                </form>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'expenses:china_invoice_excel' %}" class="btn btn-outline-secondary btn-sm w-100">全件ダウンロード</a>
+            </div>
+        </div>
+    </div>
 
     <div class="card">
         <div class="card-body p-0">

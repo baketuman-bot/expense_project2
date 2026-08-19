@@ -1007,16 +1007,24 @@ class ChinaInvoiceForm(forms.ModelForm):
         note = cleaned.get('cargo_note')
         if category is not None and category.content2 == 'OTHER' and not (note or '').strip():
             self.add_error('cargo_note', '貨物概要区分が「その他」の場合は補足の入力が必須です。')
+        item = cleaned.get('adjustment_rate_item')
+        if item is not None:
+            try:
+                Decimal(item.content2)
+            except InvalidOperation:
+                self.add_error(
+                    'adjustment_rate_item', '加算調整率マスタの値が不正です（数値に変換できません）。')
         return cleaned
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         item = self.cleaned_data.get('adjustment_rate_item')
         if item is not None:
+            # clean()でDecimal変換の可否を検証済みのため、is_valid()を通過していれば必ず成功する
             try:
                 instance.adjustment_rate_value = Decimal(item.content2)
             except InvalidOperation:
-                instance.adjustment_rate_value = Decimal('0.00')
+                raise forms.ValidationError('加算調整率マスタの値が不正です。')
         if commit:
             instance.save()
         return instance

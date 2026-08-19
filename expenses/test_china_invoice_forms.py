@@ -1,5 +1,4 @@
 """中国輸出Invoice管理: ChinaInvoiceFormのバリデーション"""
-from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -65,6 +64,12 @@ class ChinaInvoiceFormTests(TestCase):
         form = ChinaInvoiceForm(_valid_data(self.cargo_normal.pk, self.adjrate.pk), files)
         self.assertFalse(form.is_valid())
         self.assertIn('invoice_file', form.errors)
+
+    def test_加算調整率マスタのcontent2が数値変換できない場合はエラーになる(self):
+        bad_adjrate = M_Item.objects.create(data_kbn='CHN_ADJRT', key='a2', content='不正', content2='not-a-number')
+        form = ChinaInvoiceForm(_valid_data(self.cargo_normal.pk, bad_adjrate.pk), self._files())
+        self.assertFalse(form.is_valid())
+        self.assertIn('adjustment_rate_item', form.errors)
 
     def test_cargo_categoryの選択肢はCHN_CARGO区分のみ(self):
         cur_item = M_Item.objects.create(data_kbn='CUR', key='00', content='円', content2='')

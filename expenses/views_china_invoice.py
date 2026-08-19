@@ -9,10 +9,10 @@ from openpyxl.utils import get_column_letter
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
@@ -20,7 +20,7 @@ from django.views.decorators.http import require_POST
 from .china_invoice_files import validate_china_invoice_file
 from .china_invoice_pdf import extract_invoice_fields
 from .forms import ChinaInvoiceForm
-from .models import T_ChinaInvoice, T_ChinaInvoiceMonthClose, T_ChinaInvoicePackingList
+from .models import M_Item, M_User, T_ChinaInvoice, T_ChinaInvoiceMonthClose, T_ChinaInvoicePackingList
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +37,25 @@ def _is_month_closed(target_date):
     return T_ChinaInvoiceMonthClose.objects.filter(year_month=target_date.strftime('%Y-%m')).exists()
 
 
-def _handle_packing_list_uploads(request, invoice, field_name='packing_list_files'):
+def _validate_packing_list_uploads(request, field_name='packing_list_files'):
+    """アップロードされた全Packing Listファイルを検証する。
+    エラーメッセージのリストを返す（空リスト=全ファイル有効）。
+    1件でも不正なファイルがあれば呼び出し側で保存処理そのものを中止すること。"""
+    errors = []
     for f in request.FILES.getlist(field_name):
-        validate_china_invoice_file(f)
+        try:
+            validate_china_invoice_file(f)
+        except ValidationError as e:
+            errors.extend(e.messages)
+    if errors:
+        logger.warning('Packing Listアップロード検証エラー: %s', errors)
+    return errors
+
+
+def _handle_packing_list_uploads(request, invoice, field_name='packing_list_files'):
+    """Packing Listファイルを保存する。呼び出し側で事前に
+    _validate_packing_list_uploads() による検証を済ませておくこと（全件有効を前提とする）。"""
+    for f in request.FILES.getlist(field_name):
         T_ChinaInvoicePackingList.objects.create(invoice=invoice, file=f, uploaded_by=request.user)
 
 
@@ -82,10 +98,25 @@ def china_invoice_create(request):
                 'form': form, 'current': 'china_invoice_list', 'mode': 'create',
             })
 
-        instance = form.save(commit=False)
-        instance.reporter = request.user
-        instance.save()
-        _handle_packing_list_uploads(request, instance)
+        pl_errors = _validate_packing_list_uploads(request)
+        if pl_errors:
+            for msg in pl_errors:
+                form.add_error(None, msg)
+            return render(request, 'expenses/china_invoice_form.html', {
+                'form': form, 'current': 'china_invoice_list', 'mode': 'create',
+            })
+
+        is_duplicate_invoice_no = T_ChinaInvoice.objects.filter(
+            invoice_no=form.cleaned_data['invoice_no']).exists()
+
+        with transaction.atomic():
+            instance = form.save(commit=False)
+            instance.reporter = request.user
+            instance.save()
+            _handle_packing_list_uploads(request, instance)
+
+        if is_duplicate_invoice_no:
+            messages.warning(request, '同じInvoice Noが既に登録されています。')
 
         if instance.export_date.strftime('%Y-%m') != today.strftime('%Y-%m'):
             messages.warning(
@@ -140,6 +171,9 @@ def china_invoice_list(request):
     _require_role(request.user, *_LIST_ROLES)
     return render(request, 'expenses/china_invoice_list.html', {
         'records': _china_invoice_queryset(request),
+        'cargo_categories': M_Item.objects.filter(data_kbn='CHN_CARGO').order_by('order_by', 'key'),
+        'reporters': M_User.objects.filter(roles__role='china_reporter').distinct().order_by('user_name'),
+        'china_status_choices': T_ChinaInvoice.CHINA_STATUS_CHOICES,
         'current': 'china_invoice_list',
     })
 
@@ -173,30 +207,50 @@ def china_invoice_detail(request, pk):
     invoice = get_object_or_404(
         T_ChinaInvoice.objects.select_related('cargo_category', 'reporter'), pk=pk)
     can_edit = _can_edit(request.user, invoice)
+    can_delete = _can_delete(request.user, invoice)
+    # 読み取り専用の概要表示に使うインスタンス。POSTが不正だった場合、form.is_valid()が
+    # 呼び出し済みのinvoiceを未保存のままin-place変更してしまうため、その値を表示に使わない。
+    display_invoice = invoice
 
     if request.method == 'POST':
         if not can_edit:
             raise PermissionDenied()
         old_snapshot = {f: getattr(invoice, f) for f in _KEY_FIELDS}
+        # 差替時に旧ファイルを削除するため、フォームによるinstance書き換え前に参照を保持する
+        old_invoice_file = invoice.invoice_file
         form = ChinaInvoiceForm(request.POST, request.FILES, instance=invoice)
         form.fields['invoice_file'].required = False
+        pl_errors = []
         if form.is_valid():
+            pl_errors = _validate_packing_list_uploads(request)
+            for msg in pl_errors:
+                messages.error(request, msg)
+
+        if form.is_valid() and not pl_errors:
             updated = form.save(commit=False)
             if not request.FILES.get('invoice_file'):
                 updated.invoice_file = invoice.invoice_file
+            elif old_invoice_file:
+                # FieldFile.delete()はinstanceのフィールドをNoneに書き換える副作用があり、
+                # 直前にconstruct_instance()で設定済みの新ファイルを消してしまうため、
+                # instanceに触れないstorage.delete()で旧ファイルのみを削除する。
+                old_invoice_file.storage.delete(old_invoice_file.name)
             _reset_confirmations_if_key_changed(old_snapshot, updated)
             updated.save()
             _handle_packing_list_uploads(request, updated)
             messages.success(request, f'{updated.management_no} を更新しました。')
             return redirect('expenses:china_invoice_detail', pk=updated.pk)
+        else:
+            # 保存されなかった不正データが概要表示に混ざらないよう、DBからクリーンな状態を取り直す
+            display_invoice = T_ChinaInvoice.objects.select_related('cargo_category', 'reporter').get(pk=invoice.pk)
     else:
         form = ChinaInvoiceForm(instance=invoice) if can_edit else None
         if form is not None:
             form.fields['invoice_file'].required = False
 
     return render(request, 'expenses/china_invoice_detail.html', {
-        'invoice': invoice, 'form': form, 'can_edit': can_edit,
-        'can_delete': _can_delete(request.user, invoice), 'current': 'china_invoice_list',
+        'invoice': display_invoice, 'form': form, 'can_edit': can_edit,
+        'can_delete': can_delete, 'current': 'china_invoice_list',
     })
 
 
@@ -206,7 +260,11 @@ def china_invoice_packing_list_add(request, pk):
     invoice = get_object_or_404(T_ChinaInvoice, pk=pk)
     if not _can_edit(request.user, invoice):
         raise PermissionDenied()
-    if request.method == 'POST':
+    pl_errors = _validate_packing_list_uploads(request)
+    if pl_errors:
+        for msg in pl_errors:
+            messages.error(request, msg)
+    else:
         _handle_packing_list_uploads(request, invoice)
     return redirect('expenses:china_invoice_detail', pk=invoice.pk)
 
@@ -217,12 +275,10 @@ def china_invoice_packing_list_delete(request, pk):
     packing_list = get_object_or_404(T_ChinaInvoicePackingList, pk=pk)
     if not _can_edit(request.user, packing_list.invoice):
         raise PermissionDenied()
-    if request.method == 'POST':
-        invoice_pk = packing_list.invoice_id
-        packing_list.file.delete(save=False)
-        packing_list.delete()
-        return redirect('expenses:china_invoice_detail', pk=invoice_pk)
-    return redirect('expenses:china_invoice_detail', pk=packing_list.invoice_id)
+    invoice_pk = packing_list.invoice_id
+    packing_list.file.delete(save=False)
+    packing_list.delete()
+    return redirect('expenses:china_invoice_detail', pk=invoice_pk)
 
 
 def _can_delete(user, invoice):
@@ -240,6 +296,8 @@ def china_invoice_delete(request, pk):
     if not _can_delete(request.user, invoice):
         raise PermissionDenied()
     management_no = invoice.management_no
+    for pl in invoice.packing_lists.all():
+        pl.file.delete(save=False)
     invoice.invoice_file.delete(save=False)
     invoice.delete()
     messages.success(request, f'{management_no} を削除しました。')
@@ -278,11 +336,13 @@ def china_invoice_month_close(request):
         year_month = (request.POST.get('year_month') or '').strip()
         if not year_month:
             messages.error(request, '対象年月を指定してください。')
-        elif T_ChinaInvoiceMonthClose.objects.filter(year_month=year_month).exists():
-            messages.error(request, f'{year_month} は既に締め済みです。')
         else:
-            T_ChinaInvoiceMonthClose.objects.create(year_month=year_month, closed_by=request.user)
-            messages.success(request, f'{year_month} を締めました。')
+            _, created = T_ChinaInvoiceMonthClose.objects.get_or_create(
+                year_month=year_month, defaults={'closed_by': request.user})
+            if created:
+                messages.success(request, f'{year_month} を締めました。')
+            else:
+                messages.error(request, f'{year_month} は既に締め済みです。')
         return redirect('expenses:china_invoice_month_close')
 
     closed_months = T_ChinaInvoiceMonthClose.objects.order_by('-year_month')
@@ -295,6 +355,13 @@ def china_invoice_month_close(request):
 def china_invoice_china_check(request):
     _require_role(request.user, 'china_partner')
     records = T_ChinaInvoice.objects.select_related('cargo_category').order_by('-registered_at')
+    params = request.GET
+    if params.get('registered_date'):
+        records = records.filter(registered_at__date=params['registered_date'])
+    if params.get('export_date'):
+        records = records.filter(export_date=params['export_date'])
+    if params.get('month'):
+        records = records.filter(registered_at__date__startswith=params['month'])
     return render(request, 'expenses/china_invoice_china_check.html', {
         'records': records, 'current': 'china_invoice_china_check',
     })
@@ -311,9 +378,9 @@ def china_invoice_china_check_update(request):
         if bulk_status != T_ChinaInvoice.CHINA_STATUS_CONFIRMED:
             return HttpResponseBadRequest('一括操作は「確認済み」への変更のみ許可されています。')
         pks = request.POST.getlist('pks')
-        T_ChinaInvoice.objects.filter(pk__in=pks).update(
+        updated = T_ChinaInvoice.objects.filter(pk__in=pks).update(
             china_confirm_status=bulk_status, china_confirmed_by=request.user, china_confirmed_at=now)
-        messages.success(request, f'{len(pks)}件を確認済みにしました。')
+        messages.success(request, f'{updated}件を確認済みにしました。')
     else:
         pk = request.POST.get('pk')
         status = request.POST.get('status')

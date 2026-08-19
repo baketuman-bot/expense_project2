@@ -1,5 +1,6 @@
 """中国輸出Invoice管理: ビューのテスト"""
 import io
+import os
 from datetime import date
 from decimal import Decimal
 from urllib.parse import quote
@@ -109,6 +110,32 @@ class ChinaInvoiceCreateViewTests(TestCase):
         res = self.client.post(reverse('expenses:china_invoice_create'), {**self._post_data(), **files})
         record = T_ChinaInvoice.objects.get(invoice_no='INV-CREATE-1')
         self.assertEqual(record.packing_lists.count(), 2)
+
+    def test_不正なPackingListファイルは500にならずInvoiceも作成されない(self):
+        self.client.force_login(self.reporter)
+        files = {
+            'invoice_file': SimpleUploadedFile('invoice.pdf', b'%PDF-1.4 dummy'),
+            'packing_list_files': SimpleUploadedFile('bad.txt', b'not allowed'),
+        }
+        res = self.client.post(reverse('expenses:china_invoice_create'), {**self._post_data(), **files})
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '対応していないファイル形式です')
+        self.assertFalse(T_ChinaInvoice.objects.filter(invoice_no='INV-CREATE-1').exists())
+
+    def test_同じInvoice_Noで登録すると警告が出るが保存はブロックされない(self):
+        T_ChinaInvoice.objects.create(
+            invoice_no='INV-DUP-1', invoice_total=Decimal('1.00'), export_date=date(2026, 8, 1),
+            cargo_category=self.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=self.reporter,
+        )
+        self.client.force_login(self.reporter)
+        files = {'invoice_file': SimpleUploadedFile('invoice2.pdf', b'%PDF-1.4 dummy')}
+        res = self.client.post(
+            reverse('expenses:china_invoice_create'),
+            {**self._post_data(invoice_no='INV-DUP-1'), **files}, follow=True)
+        self.assertEqual(T_ChinaInvoice.objects.filter(invoice_no='INV-DUP-1').count(), 2)
+        messages_list = list(res.context['messages'])
+        self.assertTrue(any('同じInvoice Noが既に登録されています' in str(m) for m in messages_list))
 
 
 class ChinaInvoiceListViewTests(TestCase):
@@ -255,6 +282,39 @@ class ChinaInvoiceDetailEditViewTests(TestCase):
         self.assertTrue(record.accounting_confirmed)
         self.assertEqual(record.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
 
+    def test_ファイル差替時に旧ファイルが削除される(self):
+        record = self._make_record()
+        old_path = record.invoice_file.path
+        self.assertTrue(os.path.exists(old_path))
+        self.client.force_login(self.reporter)
+        new_file = SimpleUploadedFile('replaced.pdf', b'new content')
+        res = self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': record.invoice_no, 'invoice_total': str(record.invoice_total),
+            'export_date': record.export_date.isoformat(),
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+            'invoice_file': new_file,
+        })
+        self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[record.pk]))
+        self.assertFalse(os.path.exists(old_path))
+        record.refresh_from_db()
+        self.assertTrue(os.path.exists(record.invoice_file.path))
+
+    def test_不正な入力後の再表示では読取専用サマリに未保存の値が表示されない(self):
+        record = self._make_record()
+        self.client.force_login(self.reporter)
+        other_cargo = M_Item.objects.create(data_kbn='CHN_CARGO', key='inv1', content='その他', content2='OTHER')
+        res = self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': 'SHOULD-NOT-LEAK', 'invoice_total': '999.00', 'export_date': '2026-08-01',
+            'cargo_category': other_cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+        })
+        self.assertEqual(res.status_code, 200)
+        # 読取専用サマリ表示用のinvoiceはDBの値のまま（未保存の入力でin-place変更されていない）
+        self.assertEqual(res.context['invoice'].invoice_no, 'INV-EDIT-1')
+        # 編集フォーム側は差戻し用に入力値をそのまま保持している（通常の挙動）
+        self.assertEqual(res.context['form'].data['invoice_no'], 'SHOULD-NOT-LEAK')
+        record.refresh_from_db()
+        self.assertEqual(record.invoice_no, 'INV-EDIT-1')
+
 
 class ChinaInvoicePackingListViewTests(TestCase):
     @classmethod
@@ -281,6 +341,14 @@ class ChinaInvoicePackingListViewTests(TestCase):
             invoice=self.record, file=SimpleUploadedFile('pl.pdf', b'x'), uploaded_by=self.reporter)
         self.client.force_login(self.reporter)
         res = self.client.post(reverse('expenses:china_invoice_packing_list_delete', args=[pl.pk]))
+        self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[self.record.pk]))
+        self.assertEqual(self.record.packing_lists.count(), 0)
+
+    def test_不正なファイルはPacking_List追加で500にならず作成されない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.post(
+            reverse('expenses:china_invoice_packing_list_add', args=[self.record.pk]),
+            {'packing_list_files': SimpleUploadedFile('bad.txt', b'x')})
         self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[self.record.pk]))
         self.assertEqual(self.record.packing_lists.count(), 0)
 
@@ -338,6 +406,18 @@ class ChinaInvoiceDeleteViewTests(TestCase):
         self.client.force_login(partner)
         res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
         self.assertEqual(res.status_code, 403)
+
+    def test_削除時にPacking_Listのファイルも削除される(self):
+        from expenses.models import T_ChinaInvoicePackingList
+        record = self._make_record()
+        pl = T_ChinaInvoicePackingList.objects.create(
+            invoice=record, file=SimpleUploadedFile('pl.pdf', b'x'), uploaded_by=self.reporter)
+        pl_path = pl.file.path
+        self.assertTrue(os.path.exists(pl_path))
+        self.client.force_login(self.reporter)
+        res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        self.assertFalse(os.path.exists(pl_path))
 
 
 class ChinaInvoiceAccountingViewTests(TestCase):
@@ -541,6 +621,28 @@ class ChinaInvoiceChinaCheckViewTests(TestCase):
         res = self.client.get(reverse('expenses:china_invoice_china_check'))
         self.assertNotContains(res, 'SENTINEL_NOTE_VALUE')
 
+    def test_登録日で絞り込める(self):
+        T_ChinaInvoice.objects.filter(pk=self.record1.pk).update(registered_at='2026-08-05 09:00:00')
+        T_ChinaInvoice.objects.filter(pk=self.record2.pk).update(registered_at='2026-08-06 09:00:00')
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_china_check') + '?registered_date=2026-08-05')
+        self.assertContains(res, 'INV-CC-1')
+        self.assertNotContains(res, 'INV-CC-2')
+
+    def test_輸出日で絞り込める(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_china_check') + '?export_date=2026-08-01')
+        self.assertContains(res, 'INV-CC-1')
+        self.assertNotContains(res, 'INV-CC-2')
+
+    def test_対象年月で絞り込める(self):
+        T_ChinaInvoice.objects.filter(pk=self.record1.pk).update(registered_at='2026-08-05 09:00:00')
+        T_ChinaInvoice.objects.filter(pk=self.record2.pk).update(registered_at='2026-09-15 09:00:00')
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_china_check') + '?month=2026-09')
+        self.assertContains(res, 'INV-CC-2')
+        self.assertNotContains(res, 'INV-CC-1')
+
 
 class ChinaInvoiceExcelViewTests(TestCase):
     @classmethod
@@ -656,6 +758,32 @@ class ChinaInvoiceDashboardViewTests(TestCase):
         self.assertEqual(res.context['unconfirmed_accounting_count'], 1)
         self.assertEqual(res.context['difference_count'], 1)
         self.assertEqual(res.context['this_month_count'], 2)
+
+
+class ChinaInvoiceRoleGatedButtonTests(TestCase):
+    """ダッシュボード・一覧のInvoice登録ボタン/経理確認リンクが権限に応じて非表示になることの確認"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.partner = User.objects.create_user(
+            username='view_partner_gate', man_number='9411', user_name='viewゲート', password='pass')
+        M_UserRole.objects.create(man_number=cls.partner, role='china_partner')
+
+    def test_china_partnerのみのユーザーにはダッシュボードでInvoice登録リンクが出ない(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_create'))
+
+    def test_china_partnerのみのユーザーには一覧でInvoice登録リンクが出ない(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_list'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_create'))
+
+    def test_china_partnerのみのユーザーにはダッシュボードで経理確認へのリンクが出ない(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_accounting'))
 
 
 class ChinaInvoiceSidebarTests(TestCase):

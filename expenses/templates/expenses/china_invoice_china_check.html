@@ -14,6 +14,24 @@
 
     <h2 class="page-title"><i class="fas fa-globe-asia"></i> 中国側確認</h2>
 
+    <form method="get" class="card card-body mb-3">
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label small mb-0">登録日</label>
+                <input type="date" name="registered_date" class="form-control form-control-sm" value="{{ request.GET.registered_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">輸出日</label>
+                <input type="date" name="export_date" class="form-control form-control-sm" value="{{ request.GET.export_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">対象年月（登録日基準）</label>
+                <input type="month" name="month" class="form-control form-control-sm" value="{{ request.GET.month }}">
+            </div>
+            <div class="col-md-3 d-flex align-items-end"><button type="submit" class="btn btn-outline-primary btn-sm w-100">検索</button></div>
+        </div>
+    </form>
+
     <form method="post" action="{% url 'expenses:china_invoice_china_check_update' %}">
         {% csrf_token %}
         <button type="submit" name="bulk_status" value="confirmed" class="btn btn-outline-primary btn-sm mb-2">選択項目を確認済みにする</button>
