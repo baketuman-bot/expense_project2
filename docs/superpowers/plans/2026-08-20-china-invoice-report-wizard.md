@@ -2021,13 +2021,26 @@ class ChinaInvoiceReportSubmitTests(TestCase):
         res = self.client.get(self.url)
         self.assertContains(res, 'value="submit"')
 
-    def test_空行を混ぜて送っても500にならず0件保存(self):
+    def test_空行を混ぜて送っても500にならない(self):
         # FormSetは extra=0 / INITIAL_FORMS=0 のため全フォームが empty_permitted=True になり、
         # 空行は「妥当」かつ cleaned_data == {} になる。cleaned_dataを無防備に参照すると
-        # KeyErrorで500になるので、空行を除外したうえで整合性チェックに落ちること。
+        # KeyErrorで500になる。空行は無視され、実在の行だけが登録されること。
         batch = self._upload(count=1)
         data = self._submit_data(batch)
         data['form-TOTAL_FORMS'] = '2'  # 2行目は一切送らない（完全な空行）
+
+        res = self.client.post(self.url, data)
+
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        self.assertEqual(T_ChinaInvoice.objects.count(), 1)
+
+    def test_行が欠けたPOSTは0件保存(self):
+        # バッチは2件なのに実在の行が1件しか送られてこないケース。
+        # 空行を除外したうえで sorted() 比較すると不一致になり、報告がブロックされる。
+        batch = self._upload(count=2)
+        data = self._submit_data(batch)
+        for key in [k for k in data if k.startswith('form-1-')]:
+            del data[key]
 
         res = self.client.post(self.url, data)
 
@@ -2255,7 +2268,7 @@ document.querySelectorAll('[data-report-submit]').forEach(function (btn) {
 - [ ] **Step 5: テストが通ることを確認する**
 
 Run: `cd ~/expense_project2 && python3 manage.py test expenses.test_china_invoice_wizard --keepdb -v 2`
-Expected: PASS（48件 + 本タスクの17件 = 65件）
+Expected: PASS（48件 + 本タスクの18件 = 66件）
 
 - [ ] **Step 6: コミット**
 
