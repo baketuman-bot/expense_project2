@@ -260,3 +260,18 @@ class DropZoneSharedAssetTests(TestCase):
         self.assertIn('name="excel_file"', html)
         self.assertIn('accept=".xlsx"', html)
         self.assertNotIn('name="excel_file" multiple', html)
+
+    def test_中国輸出実績報告はExcelアイコンのまま(self):
+        # 選択後の表示アイコンは元のインラインJSと同じ fa-file-excel を保つ
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_upload'))
+        self.assertContains(res, 'data-file-icon="fa-file-excel"')
+
+    def test_共通JSはドロップゾーンの無い画面には読み込まれない(self):
+        # expense_form.html / travel_expense_form.html は独自の bindDropZones() を
+        # 持つため、base.html からのグローバル読み込みは二重バインドを起こす。
+        # drop_zone.js は必要な画面だけが読み込むこと。
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_list'))
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn('drop_zone.js', res.content.decode())

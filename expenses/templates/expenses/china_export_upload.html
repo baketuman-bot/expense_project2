@@ -1,5 +1,5 @@
 {% extends "expenses/base.html" %}
-{% load expense_extras %}
+{% load expense_extras static %}
 
 {% block title %}データアップロード | 中国輸出実績報告 | {% endblock %}
 
@@ -75,7 +75,7 @@
         <div class="card-body">
             <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
-                <div class="drop-zone" data-drop-zone role="button" tabindex="0" aria-label="ここにExcelファイルをドロップ、またはクリックして選択">
+                <div class="drop-zone" data-drop-zone data-file-icon="fa-file-excel" role="button" tabindex="0" aria-label="ここにExcelファイルをドロップ、またはクリックして選択">
                     <div class="drop-zone__prompt">
                         <i class="fas fa-cloud-upload-alt fa-lg me-2"></i>
                         ここにExcelファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択
@@ -102,6 +102,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'expenses/drop_zone.js' %}"></script>
 <script>
 // 確定ボタンの二重クリック・二重送信防止
 document.querySelectorAll('[data-confirm-form]').forEach(form => {

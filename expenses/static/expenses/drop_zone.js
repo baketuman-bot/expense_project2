@@ -15,6 +15,9 @@
         if (!input || !promptEl) return;
         var listEl = zone.querySelector('.drop-zone__files');
         var defaultPrompt = promptEl.innerHTML;
+        // 単一選択時のアイコン。既定は汎用の fa-file。中国輸出実績報告のように
+        // 扱うファイル種別が固定の画面は data-file-icon で上書きする。
+        var fileIcon = zone.dataset.fileIcon || 'fa-file';
 
         function render() {
             var files = input.files;
@@ -30,7 +33,7 @@
                     '<i class="fas fa-copy me-2"></i>' + files.length + '件のファイルを選択中';
             } else {
                 promptEl.innerHTML =
-                    '<i class="fas fa-file me-2"></i>' + escapeHtml(files[0].name);
+                    '<i class="fas ' + fileIcon + ' me-2"></i>' + escapeHtml(files[0].name);
             }
             if (listEl) {
                 listEl.innerHTML = '';
