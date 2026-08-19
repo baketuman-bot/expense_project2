@@ -335,3 +335,61 @@ class ChinaInvoiceDeleteViewTests(TestCase):
         self.client.force_login(partner)
         res = self.client.post(reverse('expenses:china_invoice_delete', args=[record.pk]))
         self.assertEqual(res.status_code, 403)
+
+
+class ChinaInvoiceAccountingViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.cargo, cls.adjrate = _make_masters()
+        cls.unconfirmed1 = T_ChinaInvoice.objects.create(
+            invoice_no='INV-ACC-1', invoice_total=Decimal('1.00'), export_date=date(2026, 8, 1),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=cls.reporter,
+        )
+        cls.unconfirmed2 = T_ChinaInvoice.objects.create(
+            invoice_no='INV-ACC-2', invoice_total=Decimal('2.00'), export_date=date(2026, 8, 2),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i2.pdf', b'b'), reporter=cls.reporter,
+        )
+
+    def test_reporterロールだけでは経理確認画面にアクセスできない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_accounting'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_accountantは経理確認画面にアクセスできる(self):
+        self.client.force_login(self.accountant)
+        res = self.client.get(reverse('expenses:china_invoice_accounting'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'INV-ACC-1')
+
+    def test_個別に確認済みにできる(self):
+        self.client.force_login(self.accountant)
+        res = self.client.post(reverse('expenses:china_invoice_accounting_confirm'), {
+            'pks': [self.unconfirmed1.pk],
+        })
+        self.assertRedirects(res, reverse('expenses:china_invoice_accounting'))
+        self.unconfirmed1.refresh_from_db()
+        self.assertTrue(self.unconfirmed1.accounting_confirmed)
+        self.assertEqual(self.unconfirmed1.accounting_confirmed_by, self.accountant)
+        self.unconfirmed2.refresh_from_db()
+        self.assertFalse(self.unconfirmed2.accounting_confirmed)
+
+    def test_複数選択で一括確認できる(self):
+        self.client.force_login(self.accountant)
+        self.client.post(reverse('expenses:china_invoice_accounting_confirm'), {
+            'pks': [self.unconfirmed1.pk, self.unconfirmed2.pk],
+        })
+        self.unconfirmed1.refresh_from_db()
+        self.unconfirmed2.refresh_from_db()
+        self.assertTrue(self.unconfirmed1.accounting_confirmed)
+        self.assertTrue(self.unconfirmed2.accounting_confirmed)
+
+    def test_未確認をすべて確認済みにできる(self):
+        self.client.force_login(self.accountant)
+        self.client.post(reverse('expenses:china_invoice_accounting_confirm'), {'confirm_all': '1'})
+        self.unconfirmed1.refresh_from_db()
+        self.unconfirmed2.refresh_from_db()
+        self.assertTrue(self.unconfirmed1.accounting_confirmed)
+        self.assertTrue(self.unconfirmed2.accounting_confirmed)

@@ -223,3 +223,28 @@ def china_invoice_delete(request, pk):
     invoice.delete()
     messages.success(request, f'{management_no} を削除しました。')
     return redirect('expenses:china_invoice_list')
+
+
+@login_required
+def china_invoice_accounting(request):
+    _require_role(request.user, 'accountant')
+    records = T_ChinaInvoice.objects.filter(accounting_confirmed=False).order_by('registered_at')
+    return render(request, 'expenses/china_invoice_accounting.html', {
+        'records': records, 'current': 'china_invoice_accounting',
+    })
+
+
+@login_required
+@require_POST
+def china_invoice_accounting_confirm(request):
+    _require_role(request.user, 'accountant')
+    if request.POST.get('confirm_all') == '1':
+        targets = T_ChinaInvoice.objects.filter(accounting_confirmed=False)
+    else:
+        pks = request.POST.getlist('pks')
+        targets = T_ChinaInvoice.objects.filter(pk__in=pks)
+    now = timezone.now()
+    updated = targets.update(
+        accounting_confirmed=True, accounting_confirmed_by=request.user, accounting_confirmed_at=now)
+    messages.success(request, f'{updated}件を経理確認済みにしました。')
+    return redirect('expenses:china_invoice_accounting')
