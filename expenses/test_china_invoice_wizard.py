@@ -7,13 +7,17 @@ from decimal import Decimal
 from importlib import import_module
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import SuspiciousOperation
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase, override_settings
+from django.urls import reverse
 
 from expenses import china_invoice_batch as batch_mod
 from expenses.forms import ChinaInvoiceRowForm, ChinaInvoiceRowFormSet
-from expenses.models import M_Item
+from expenses.models import M_Item, M_UserRole
+
+User = get_user_model()
 
 
 def _make_session_request():
@@ -214,3 +218,45 @@ class ChinaInvoiceRowFormTests(TestCase):
         formset = ChinaInvoiceRowFormSet(data)
         self.assertTrue(formset.is_valid(), formset.errors)
         self.assertEqual([f.cleaned_data['index'] for f in formset.forms], [0, 1])
+
+
+# このプロジェクトの本番設定は whitenoise.CompressedManifestStaticFilesStorage で、
+# {% static %} が 'drop_zone.<hash>.js' というハッシュ付き名を出力し、さらに
+# collectstatic 済みのマニフェストが無いと ValueError で落ちる。
+# アセットの配信方法ではなく「base.html が共通JSを読み込んでいるか」を検証したいので、
+# このテストクラスだけ素の StaticFilesStorage に差し替える。
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
+class DropZoneSharedAssetTests(TestCase):
+    """ドロップゾーンのCSS/JSがテンプレートから共通化されたことの回帰テスト。"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.export_user = User.objects.create_user(
+            username='wiz_export', man_number='9501', user_name='wiz輸出担当', password='pass')
+        M_UserRole.objects.create(man_number=cls.export_user, role='export')
+
+    def test_中国輸出実績報告のアップロード画面が共通JSを読み込む(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_upload'))
+        self.assertEqual(res.status_code, 200)
+        html = res.content.decode()
+        self.assertIn('drop_zone.js', html)
+        self.assertIn('data-drop-zone', html)
+
+    def test_中国輸出実績報告のアップロード画面にインラインのdrop_zone定義が残っていない(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_upload'))
+        html = res.content.decode()
+        self.assertNotIn('.drop-zone {', html)
+        self.assertNotIn("querySelector('[data-drop-zone]')", html)
+
+    def test_中国輸出実績報告のドロップゾーンは単一選択のまま(self):
+        self.client.force_login(self.export_user)
+        res = self.client.get(reverse('expenses:china_export_upload'))
+        html = res.content.decode()
+        self.assertIn('name="excel_file"', html)
+        self.assertIn('accept=".xlsx"', html)
+        self.assertNotIn('name="excel_file" multiple', html)

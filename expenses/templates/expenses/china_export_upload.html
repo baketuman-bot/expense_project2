@@ -96,27 +96,6 @@
 
 {% block extra_css %}
 <style>
-.drop-zone {
-    position: relative;
-    border: 3px dashed #6c757d;
-    border-radius: .75rem;
-    padding: 18px;
-    text-align: center;
-    color: #495057;
-    background-color: #f1f3f5;
-    cursor: pointer;
-    min-height: 110px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transition: all .15s ease-in-out;
-}
-.drop-zone:hover { border-color: #0d6efd; background-color: #e9f2ff; }
-.drop-zone.dragover { border-color: #0d6efd; background-color: #e7f1ff; color: #0d6efd; }
-.drop-zone.selected { border-color: #198754; background-color: #eef7f1; }
-.drop-zone__prompt { font-size: .95rem; line-height: 1.4; }
-.drop-zone .file-input { display: none !important; }
 .china-export-scrollbox { max-height: 60vh; overflow: auto; }
 .china-export-scrollbox thead th { position: sticky; top: 0; z-index: 1; white-space: nowrap; }
 </style>
@@ -124,39 +103,6 @@
 
 {% block extra_js %}
 <script>
-(function () {
-    const zone = document.querySelector('[data-drop-zone]');
-    if (!zone) return;
-    const input = zone.querySelector('input[type="file"]');
-    const prompt = zone.querySelector('.drop-zone__prompt');
-    const render = (file) => {
-        if (!file) {
-            zone.classList.remove('selected');
-            prompt.innerHTML = '<i class="fas fa-cloud-upload-alt fa-lg me-2"></i>ここにExcelファイルをドロップ<br class="d-none d-md-block"/>またはクリックして選択';
-            return;
-        }
-        zone.classList.add('selected');
-        prompt.innerHTML = `<i class="fas fa-file-excel me-2"></i>${file.name}`;
-    };
-    const setFile = (file) => {
-        if (!file || !window.DataTransfer) return;
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        render(file);
-    };
-    zone.addEventListener('click', () => input.click());
-    zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-    zone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); });
-    zone.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover'); });
-    zone.addEventListener('drop', e => {
-        e.preventDefault(); e.stopPropagation(); zone.classList.remove('dragover');
-        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (file) setFile(file);
-    });
-    input.addEventListener('change', () => setFile(input.files[0]));
-})();
-
 // 確定ボタンの二重クリック・二重送信防止
 document.querySelectorAll('[data-confirm-form]').forEach(form => {
     form.addEventListener('submit', () => {
