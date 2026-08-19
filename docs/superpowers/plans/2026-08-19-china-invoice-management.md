@@ -2409,6 +2409,8 @@ git commit -m "feat: 中国側確認画面を追加（一括は確認済みの�
 
 ```python
 import io
+from urllib.parse import quote
+
 import openpyxl
 
 
@@ -2445,7 +2447,9 @@ class ChinaInvoiceExcelViewTests(TestCase):
     def test_月単位のファイル名になる(self):
         self.client.force_login(self.reporter)
         res = self.client.get(reverse('expenses:china_invoice_excel') + '?year_month=2026-08')
-        self.assertIn('中国輸出実績_202608.xlsx', res['Content-Disposition'])
+        # 日本語ファイル名はRFC 5987 (filename*=UTF-8''...) でパーセントエンコードされて出力される
+        # （expenses/views.py のCSV出力と同じ content_disposition_header() を使うため）
+        self.assertIn(quote('中国輸出実績_202608.xlsx'), res['Content-Disposition'])
 
     def test_同じ月は同じファイル名になる(self):
         self.client.force_login(self.reporter)
@@ -2477,6 +2481,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from django.http import HttpResponse, HttpResponseBadRequest
+from django.utils.http import content_disposition_header
 ```
 
 末尾に追加:
@@ -2536,7 +2541,11 @@ def china_invoice_excel(request):
 
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    # 日本語ファイル名は RFC 5987 (filename*=UTF-8''...) で出力する。
+    # f'filename="{fname}"' 直書きだと Django が非Latin-1ヘッダを RFC 2047 で
+    # エンコードし、ブラウザが解釈できず既定名になる（expenses/views.py の
+    # データ出力CSVで既に踏んでいる既知の落とし穴と同じ対処）。
+    response['Content-Disposition'] = content_disposition_header(as_attachment=True, filename=filename)
     wb.save(response)
     return response
 ```
