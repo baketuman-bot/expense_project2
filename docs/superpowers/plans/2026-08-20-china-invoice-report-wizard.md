@@ -1790,6 +1790,12 @@ with open(path, 'rb') as fp:
 
 - 既存Invoice Noとの重複判定は、**そのInvoiceを保存する前**に行う（保存後だと自分自身がヒットする）。
 
+- **`ChinaInvoiceRowFormSet` は `extra=0` かつ `INITIAL_FORMS=0` のため、束ねられた全フォームが「extraフォーム」扱いになり `empty_permitted=True` を持つ。** 完全に空の行は「妥当」と判定され `cleaned_data == {}` になる。したがって `form.cleaned_data['index']` を無防備に参照すると `KeyError` で 500 になる。`cleaned_data` に触れるループはすべて、**空行を除外した `rows` リスト**を対象にすること（下記コード参照）。
+
+- **index の整合性チェックは `sorted()` 同士の比較で行う。** 長さ比較＋メンバーシップ検査だけでは、同じ index を2回送るPOSTを通してしまう。それを通すと、1つの一時ファイルから2件の `T_ChinaInvoice` が作られ、もう1つのアップロード済みInvoiceが保存されないまま消える（データ破損）。
+
+- **Packing List の検証・保存は `views_china_invoice.py` の既存ヘルパーを再利用する。** 同じロジックを2箇所に持たない。
+
 - [ ] **Step 1: 失敗するテストを書く**
 
 `expenses/test_china_invoice_wizard.py` の末尾に追記する。ファイル冒頭の import に以下を加える。
@@ -2014,6 +2020,31 @@ class ChinaInvoiceReportSubmitTests(TestCase):
         self._upload(count=1)
         res = self.client.get(self.url)
         self.assertContains(res, 'value="submit"')
+
+    def test_空行を混ぜて送っても500にならず0件保存(self):
+        # FormSetは extra=0 / INITIAL_FORMS=0 のため全フォームが empty_permitted=True になり、
+        # 空行は「妥当」かつ cleaned_data == {} になる。cleaned_dataを無防備に参照すると
+        # KeyErrorで500になるので、空行を除外したうえで整合性チェックに落ちること。
+        batch = self._upload(count=1)
+        data = self._submit_data(batch)
+        data['form-TOTAL_FORMS'] = '2'  # 2行目は一切送らない（完全な空行）
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+
+    def test_同じindexを2回送ると0件保存(self):
+        # 長さ＋メンバーシップだけの検査だと通ってしまい、1つの一時ファイルから
+        # 2件作られて、もう1つのアップロード済みInvoiceが保存されないまま消える。
+        batch = self._upload(count=2)
+        data = self._submit_data(batch, {1: {'index': batch['items'][0]['index']}})
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(T_ChinaInvoice.objects.count(), 0)
+        self.assertEqual(T_ChinaInvoicePackingList.objects.count(), 0)
 ```
 
 - [ ] **Step 2: テストが失敗することを確認する**
@@ -2021,7 +2052,32 @@ class ChinaInvoiceReportSubmitTests(TestCase):
 Run: `cd ~/expense_project2 && python3 manage.py test expenses.test_china_invoice_wizard.ChinaInvoiceReportSubmitTests --keepdb -v 2`
 Expected: FAIL — `action='submit'` がステップ2へのリダイレクトにフォールバックし、`T_ChinaInvoice` が作られない
 
-- [ ] **Step 3: `_handle_report_submit` を実装する**
+- [ ] **Step 3a: `views_china_invoice.py` の検証ヘルパーにファイル名接頭辞オプションを足す**
+
+ウィザードは1画面で複数行分の Packing List を扱うため、エラーメッセージにどのファイルかを示す必要がある。既定の挙動は変えない（既存の呼び出し元に影響させない）。`expenses/views_china_invoice.py` の `_validate_packing_list_uploads` を次に差し替える。
+
+```python
+def _validate_packing_list_uploads(request, field_name='packing_list_files', with_filename=False):
+    """アップロードされた全Packing Listファイルを検証する。
+    エラーメッセージのリストを返す（空リスト=全ファイル有効）。
+    with_filename=True のとき 'ファイル名: ' の接頭辞を付ける（報告ウィザードのように
+    1画面で複数行分を扱う場合に、どの行のファイルかを判別するため）。
+    1件でも不正なファイルがあれば呼び出し側で保存処理そのものを中止すること。"""
+    errors = []
+    for f in request.FILES.getlist(field_name):
+        try:
+            validate_china_invoice_file(f)
+        except ValidationError as e:
+            if with_filename:
+                errors.extend(f'{f.name}: {m}' for m in e.messages)
+            else:
+                errors.extend(e.messages)
+    if errors:
+        logger.warning('Packing Listアップロード検証エラー: %s', errors)
+    return errors
+```
+
+- [ ] **Step 3b: `_handle_report_submit` を実装する**
 
 `expenses/views_china_invoice_wizard.py` の import を次のとおり差し替える。
 
@@ -2033,7 +2089,13 @@ from .china_invoice_batch import (
     batch_file_path, create_batch, discard_batch, get_batch, remove_item,
 )
 from .models import M_Item, T_ChinaInvoice, T_ChinaInvoicePackingList
+from .views_china_invoice import (
+    _handle_packing_list_uploads, _is_month_closed, _require_role,
+    _validate_packing_list_uploads,
+)
 ```
+
+`T_ChinaInvoicePackingList` は `_handle_packing_list_uploads` 経由でしか使わなくなるので、import 一覧から外してよい。
 
 `china_invoice_report_review` のPOST分岐の最後にある `return redirect('expenses:china_invoice_report_review')`（`action` が未知のときのフォールバック）を、次に差し替える。
 
@@ -2052,9 +2114,16 @@ def _handle_report_submit(request, batch):
 
     known = {item['index']: item for item in batch['items']}
 
+    # FormSetは extra=0 / INITIAL_FORMS=0 のため全フォームが empty_permitted=True を持ち、
+    # 空行は「妥当」かつ cleaned_data == {} になる。cleaned_data を参照するループは
+    # すべてこの rows を対象にし、空行に触れないようにする。
+    rows = []
     if valid:
-        submitted = [form.cleaned_data['index'] for form in formset.forms]
-        if len(submitted) != len(known) or any(i not in known for i in submitted):
+        rows = [f for f in formset.forms if f.cleaned_data.get('index') is not None]
+        submitted = [f.cleaned_data['index'] for f in rows]
+        # sorted()同士で比較する。長さ＋メンバーシップだけだと同じindexの重複送信を通してしまい、
+        # 1つの一時ファイルから2件作られて別のアップロード済みInvoiceが消える。
+        if sorted(submitted) != sorted(known):
             messages.error(request, '送信データが不正です。最初からやり直してください。')
             valid = False
 
@@ -2064,7 +2133,7 @@ def _handle_report_submit(request, batch):
 
     if valid:
         by_no = {}
-        for form in formset.forms:
+        for form in rows:
             by_no.setdefault(form.cleaned_data['invoice_no'], []).append(form)
         for duplicated in by_no.values():
             if len(duplicated) > 1:
@@ -2074,15 +2143,13 @@ def _handle_report_submit(request, batch):
 
     if valid:
         pl_errors = []
-        for form in formset.forms:
-            field = f'packing_list_{form.cleaned_data["index"]}'
-            for uploaded in request.FILES.getlist(field):
-                try:
-                    validate_china_invoice_file(uploaded)
-                except ValidationError as e:
-                    pl_errors.extend(f'{uploaded.name}: {m}' for m in e.messages)
+        for form in rows:
+            pl_errors.extend(_validate_packing_list_uploads(
+                request,
+                field_name=f'packing_list_{form.cleaned_data["index"]}',
+                with_filename=True,
+            ))
         if pl_errors:
-            logger.warning('Packing Listアップロード検証エラー: %s', pl_errors)
             for msg in pl_errors:
                 messages.error(request, msg)
             valid = False
@@ -2106,7 +2173,7 @@ def _handle_report_submit(request, batch):
     warnings = []
     with transaction.atomic():
         created = 0
-        for form in formset.forms:
+        for form in rows:
             data = form.cleaned_data
             item = known[data['index']]
             invoice = T_ChinaInvoice(
@@ -2127,9 +2194,8 @@ def _handle_report_submit(request, batch):
                 # instance.save() のファイルコミットに委ねる
                 invoice.invoice_file = File(fp, name=item['original_name'])
                 invoice.save()
-            for uploaded in request.FILES.getlist(f'packing_list_{data["index"]}'):
-                T_ChinaInvoicePackingList.objects.create(
-                    invoice=invoice, file=uploaded, uploaded_by=request.user)
+            _handle_packing_list_uploads(
+                request, invoice, field_name=f'packing_list_{data["index"]}')
             created += 1
             if is_duplicate:
                 warnings.append(
@@ -2139,7 +2205,12 @@ def _handle_report_submit(request, batch):
                     f'{invoice.management_no}: 登録月（{today.strftime("%Y-%m")}）と輸出月'
                     f'（{invoice.export_date.strftime("%Y-%m")}）が異なります。')
 
-    discard_batch(request)
+    # 登録は既にコミット済み。一時ファイルの後始末に失敗しても報告自体は成功扱いにする。
+    try:
+        discard_batch(request)
+    except Exception:
+        logger.exception('一時バッチの破棄に失敗しました（報告の登録は完了しています）')
+
     messages.success(request, f'{created}件を報告しました。')
     for msg in warnings:
         messages.warning(request, msg)
@@ -2184,12 +2255,12 @@ document.querySelectorAll('[data-report-submit]').forEach(function (btn) {
 - [ ] **Step 5: テストが通ることを確認する**
 
 Run: `cd ~/expense_project2 && python3 manage.py test expenses.test_china_invoice_wizard --keepdb -v 2`
-Expected: PASS（46件 + 本タスクの15件 = 61件）
+Expected: PASS（48件 + 本タスクの17件 = 65件）
 
 - [ ] **Step 6: コミット**
 
 ```bash
-git add expenses/views_china_invoice_wizard.py expenses/templates/expenses/china_invoice_report_review.html expenses/test_china_invoice_wizard.py
+git add expenses/views_china_invoice.py expenses/views_china_invoice_wizard.py expenses/templates/expenses/china_invoice_report_review.html expenses/test_china_invoice_wizard.py
 git commit -m "feat: 中国輸出Invoice報告ウィザードの報告確定を追加"
 ```
 
