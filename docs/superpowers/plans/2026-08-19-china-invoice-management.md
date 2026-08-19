@@ -58,6 +58,9 @@ def china_invoice_packing_list_upload_path(instance, filename):
     return f'china_invoice/{instance.invoice.management_no}/packing_list/{ts}_{base}'
 
 
+import datetime
+
+
 class T_ChinaInvoice(models.Model):
     """中国輸出Invoice管理: Invoice単位の実績管理と、経理・中国側の二重確認を行う。
     既存の中国輸出実績報告(T_ChinaExport)とは完全に独立したサブシステム。"""
@@ -116,7 +119,7 @@ class T_ChinaInvoice(models.Model):
         """EX-YYYYMMDD-NNN 形式の管理番号を採番する。低頻度な社内ツールのため
         重厚な排他制御(select_for_update等)は行わず、当日分の件数+1を候補とし、
         既に存在すれば+1しながら空きを探す簡易方式とする。"""
-        today = today or timezone.localdate()
+        today = today or datetime.date.today()
         prefix = f"EX-{today.strftime('%Y%m%d')}-"
         seq = cls.objects.filter(management_no__startswith=prefix).count() + 1
         for _ in range(10):
@@ -736,10 +739,14 @@ class ChinaInvoiceFormTests(TestCase):
         self.assertIn('invoice_file', form.errors)
 
     def test_cargo_categoryの選択肢はCHN_CARGO区分のみ(self):
-        M_Item.objects.create(data_kbn='CUR', key='00', content='円', content2='')
+        cur_item = M_Item.objects.create(data_kbn='CUR', key='00', content='円', content2='')
         form = ChinaInvoiceForm()
         pks = set(form.fields['cargo_category'].queryset.values_list('pk', flat=True))
-        self.assertEqual(pks, {self.cargo_normal.pk, self.cargo_other.pk})
+        # CHN_CARGOはTask 1のシードデータ(製品/資材/部品/金型/設備/その他)が常時存在するため、
+        # 厳密な集合一致ではなく「対象データが含まれる／無関係データが含まれない」で検証する
+        self.assertIn(self.cargo_normal.pk, pks)
+        self.assertIn(self.cargo_other.pk, pks)
+        self.assertNotIn(cur_item.pk, pks)
 ```
 
 - [ ] **Step 2: テストを実行して失敗を確認**
@@ -963,6 +970,7 @@ Expected: FAIL（`NoReverseMatch: 'china_invoice_create' is not a registered nam
 ```python
 """中国輸出Invoice管理: Invoice登録・一覧・確認・月締め・Excel出力のビュー。
 既存の中国輸出実績報告(T_ChinaExport)とは独立したサブシステム。"""
+import datetime
 import logging
 
 from django.contrib import messages
@@ -1015,7 +1023,7 @@ def china_invoice_create(request):
                 'form': form, 'current': 'china_invoice_list', 'mode': 'create', 'prefill': prefill,
             })
 
-        today = timezone.localdate()
+        today = datetime.date.today()
         if _is_month_closed(today):
             form.add_error(None, '今月は月締め済みのため新規登録できません。')
             return render(request, 'expenses/china_invoice_form.html', {
@@ -2607,7 +2615,7 @@ Expected: FAIL（`NoReverseMatch`）
 @login_required
 def china_invoice_dashboard(request):
     _require_role(request.user, *_LIST_ROLES)
-    today = timezone.localdate()
+    today = datetime.date.today()
     this_month_prefix = today.strftime('%Y-%m')
     return render(request, 'expenses/china_invoice_dashboard.html', {
         'unconfirmed_accounting_count': T_ChinaInvoice.objects.filter(accounting_confirmed=False).count(),
