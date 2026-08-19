@@ -1,0 +1,37 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}月締め | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <h2 class="page-title"><i class="fas fa-calendar-check"></i> 月締め</h2>
+
+    <form method="post" class="card card-body mb-3">
+        {% csrf_token %}
+        <label class="form-label">対象年月（登録日基準）</label>
+        <div class="d-flex gap-2">
+            <input type="month" name="year_month" class="form-control" required>
+            <button type="submit" class="btn btn-primary">締める</button>
+        </div>
+    </form>
+
+    <table class="table table-sm">
+        <thead><tr><th>対象年月</th><th>締め実行者</th><th>締め日時</th></tr></thead>
+        <tbody>
+            {% for m in closed_months %}
+            <tr><td>{{ m.year_month }}</td><td>{{ m.closed_by.user_name }}</td><td>{{ m.closed_at }}</td></tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-3">締め済みの月はありません</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

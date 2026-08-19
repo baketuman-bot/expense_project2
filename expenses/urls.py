@@ -66,6 +66,7 @@ urlpatterns = [
     path("china_invoice/<int:pk>/delete/", views.china_invoice_delete, name="china_invoice_delete"),
     path("china_invoice/accounting/", views.china_invoice_accounting, name="china_invoice_accounting"),
     path("china_invoice/accounting/confirm/", views.china_invoice_accounting_confirm, name="china_invoice_accounting_confirm"),
+    path("china_invoice/month_close/", views.china_invoice_month_close, name="china_invoice_month_close"),
     # 管理者画面 (設定)
     path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),
     path("settings/data_view/<str:view_name>/", views.settings_data_view_browse, name="settings_data_view_browse"),

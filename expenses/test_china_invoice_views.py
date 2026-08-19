@@ -414,3 +414,27 @@ class ChinaInvoiceAccountingViewTests(TestCase):
         self.client.force_login(partner)
         res = self.client.get(reverse('expenses:china_invoice_accounting'))
         self.assertEqual(res.status_code, 403)
+
+
+class ChinaInvoiceMonthCloseViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+
+    def test_reporterロールだけでは月締め画面にアクセスできない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_month_close'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_accountantは月を締められる(self):
+        self.client.force_login(self.accountant)
+        res = self.client.post(reverse('expenses:china_invoice_month_close'), {'year_month': '2026-08'})
+        self.assertRedirects(res, reverse('expenses:china_invoice_month_close'))
+        self.assertTrue(T_ChinaInvoiceMonthClose.objects.filter(year_month='2026-08').exists())
+
+    def test_既に締めた月は再度締められない(self):
+        T_ChinaInvoiceMonthClose.objects.create(year_month='2026-08', closed_by=self.accountant)
+        self.client.force_login(self.accountant)
+        res = self.client.post(reverse('expenses:china_invoice_month_close'), {'year_month': '2026-08'}, follow=True)
+        self.assertContains(res, '既に締め済み')
+        self.assertEqual(T_ChinaInvoiceMonthClose.objects.filter(year_month='2026-08').count(), 1)

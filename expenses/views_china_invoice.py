@@ -248,3 +248,23 @@ def china_invoice_accounting_confirm(request):
         accounting_confirmed=True, accounting_confirmed_by=request.user, accounting_confirmed_at=now)
     messages.success(request, f'{updated}件を経理確認済みにしました。')
     return redirect('expenses:china_invoice_accounting')
+
+
+@login_required
+def china_invoice_month_close(request):
+    _require_role(request.user, 'accountant')
+    if request.method == 'POST':
+        year_month = (request.POST.get('year_month') or '').strip()
+        if not year_month:
+            messages.error(request, '対象年月を指定してください。')
+        elif T_ChinaInvoiceMonthClose.objects.filter(year_month=year_month).exists():
+            messages.error(request, f'{year_month} は既に締め済みです。')
+        else:
+            T_ChinaInvoiceMonthClose.objects.create(year_month=year_month, closed_by=request.user)
+            messages.success(request, f'{year_month} を締めました。')
+        return redirect('expenses:china_invoice_month_close')
+
+    closed_months = T_ChinaInvoiceMonthClose.objects.order_by('-year_month')
+    return render(request, 'expenses/china_invoice_month_close.html', {
+        'closed_months': closed_months, 'current': 'china_invoice_month_close',
+    })
