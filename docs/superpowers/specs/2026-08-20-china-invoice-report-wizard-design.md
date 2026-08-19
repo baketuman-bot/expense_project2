@@ -112,7 +112,7 @@ POST は全体で 2 回。Packing List はステップ 2 のフォームに置�
 ```python
 class ChinaInvoiceRowForm(forms.Form):
     index = forms.IntegerField(widget=forms.HiddenInput)
-    invoice_no = forms.CharField(label="Invoice No", max_length=100)
+    invoice_no = forms.CharField(label="Invoice No", max_length=50)
     invoice_total = forms.DecimalField(label="Invoice Total", max_digits=15, decimal_places=2)
     export_date = forms.DateField(label="輸出日", widget=forms.DateInput(attrs={'type': 'date'}))
     cargo_category = forms.ModelChoiceField(label="貨物概要区分", queryset=M_Item.objects.none())
@@ -198,8 +198,8 @@ Packing List は FormSet のフィールドにせず、テンプレート側で�
 - JS: 新規ファイル `expenses/static/expenses/drop_zone.js` を作る。`[data-drop-zone]` を持つ全要素を初期化し、`multiple` 属性の有無で単一/複数の表示を切り替える。`base.html` から読み込む
   - 単一選択時: `<i class="fas fa-file me-2"></i>ファイル名`
   - 複数選択時: `<i class="fas fa-copy me-2"></i>{N}件のファイルを選択中` ＋ ファイル名を `<ul>` で列挙
-  - 未選択時: `data-prompt` 属性の文言を復元する（現在ハードコードされている「ここにExcelファイルをドロップ…」を汎用化するため、初期文言は要素の `data-prompt` から読む）
-- `china_export_upload.html` からインラインの CSS / JS を削除し、`data-prompt` を付ける。**動作は現行と同一**（単一選択・`.xlsx` のみ）
+  - 未選択時: 初期化時に保持した `.drop-zone__prompt` の初期 `innerHTML` を復元する（既定文言は各テンプレートのHTMLがそのまま持つ。新しい属性は増やさない）
+- `china_export_upload.html` からインラインの CSS / JS を削除する。ドロップゾーンのHTMLは変更しない。**動作は現行と同一**（単一選択・`.xlsx` のみ）
 
 ### 修正対象テンプレート
 
