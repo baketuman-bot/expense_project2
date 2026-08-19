@@ -6,6 +6,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -268,3 +269,39 @@ def china_invoice_month_close(request):
     return render(request, 'expenses/china_invoice_month_close.html', {
         'closed_months': closed_months, 'current': 'china_invoice_month_close',
     })
+
+
+@login_required
+def china_invoice_china_check(request):
+    _require_role(request.user, 'china_partner')
+    records = T_ChinaInvoice.objects.select_related('cargo_category').order_by('-registered_at')
+    return render(request, 'expenses/china_invoice_china_check.html', {
+        'records': records, 'current': 'china_invoice_china_check',
+    })
+
+
+@login_required
+@require_POST
+def china_invoice_china_check_update(request):
+    _require_role(request.user, 'china_partner')
+    now = timezone.now()
+
+    if request.POST.get('bulk_status'):
+        bulk_status = request.POST['bulk_status']
+        if bulk_status != T_ChinaInvoice.CHINA_STATUS_CONFIRMED:
+            return HttpResponseBadRequest('一括操作は「確認済み」への変更のみ許可されています。')
+        pks = request.POST.getlist('pks')
+        T_ChinaInvoice.objects.filter(pk__in=pks).update(
+            china_confirm_status=bulk_status, china_confirmed_by=request.user, china_confirmed_at=now)
+        messages.success(request, f'{len(pks)}件を確認済みにしました。')
+    else:
+        pk = request.POST.get('pk')
+        status = request.POST.get('status')
+        valid_statuses = dict(T_ChinaInvoice.CHINA_STATUS_CHOICES)
+        if status not in valid_statuses:
+            return HttpResponseBadRequest('不正な確認状態です。')
+        T_ChinaInvoice.objects.filter(pk=pk).update(
+            china_confirm_status=status, china_confirmed_by=request.user, china_confirmed_at=now)
+        messages.success(request, '確認結果を更新しました。')
+
+    return redirect('expenses:china_invoice_china_check')

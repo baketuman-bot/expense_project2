@@ -438,3 +438,73 @@ class ChinaInvoiceMonthCloseViewTests(TestCase):
         res = self.client.post(reverse('expenses:china_invoice_month_close'), {'year_month': '2026-08'}, follow=True)
         self.assertContains(res, '既に締め済み')
         self.assertEqual(T_ChinaInvoiceMonthClose.objects.filter(year_month='2026-08').count(), 1)
+
+
+class ChinaInvoiceChinaCheckViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.partner = User.objects.create_user(
+            username='view_partner2', man_number='9408', user_name='view中国側2', password='pass')
+        M_UserRole.objects.create(man_number=cls.partner, role='china_partner')
+        cls.cargo, cls.adjrate = _make_masters()
+        cls.record1 = T_ChinaInvoice.objects.create(
+            invoice_no='INV-CC-1', invoice_total=Decimal('1.00'), export_date=date(2026, 8, 1),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=cls.reporter,
+        )
+        cls.record2 = T_ChinaInvoice.objects.create(
+            invoice_no='INV-CC-2', invoice_total=Decimal('2.00'), export_date=date(2026, 8, 2),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i2.pdf', b'b'), reporter=cls.reporter,
+        )
+
+    def test_china_partner以外はアクセスできない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_china_check'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_china_partnerは一覧を閲覧できる(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_china_check'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'INV-CC-1')
+
+    def test_個別に差異ありへ変更できる(self):
+        self.client.force_login(self.partner)
+        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
+            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+        })
+        self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
+        self.record1.refresh_from_db()
+        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_DIFFERENCE)
+        self.assertEqual(self.record1.china_confirmed_by, self.partner)
+
+    def test_一括確認済みにできる(self):
+        self.client.force_login(self.partner)
+        self.client.post(reverse('expenses:china_invoice_china_check_update'), {
+            'pks': [self.record1.pk, self.record2.pk], 'bulk_status': T_ChinaInvoice.CHINA_STATUS_CONFIRMED,
+        })
+        self.record1.refresh_from_db()
+        self.record2.refresh_from_db()
+        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+        self.assertEqual(self.record2.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+
+    def test_一括で差異ありには変更できない(self):
+        self.client.force_login(self.partner)
+        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
+            'pks': [self.record1.pk], 'bulk_status': T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+        })
+        self.assertEqual(res.status_code, 400)
+        self.record1.refresh_from_db()
+        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+
+    def test_日本側の経理確認状態は中国側の操作で変わらない(self):
+        self.record1.accounting_confirmed = True
+        self.record1.save(update_fields=['accounting_confirmed'])
+        self.client.force_login(self.partner)
+        self.client.post(reverse('expenses:china_invoice_china_check_update'), {
+            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+        })
+        self.record1.refresh_from_db()
+        self.assertTrue(self.record1.accounting_confirmed)

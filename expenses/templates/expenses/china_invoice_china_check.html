@@ -1,0 +1,49 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}中国側確認 | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <h2 class="page-title"><i class="fas fa-globe-asia"></i> 中国側確認</h2>
+
+    <form method="post" action="{% url 'expenses:china_invoice_china_check_update' %}">
+        {% csrf_token %}
+        <button type="submit" name="bulk_status" value="confirmed" class="btn btn-outline-primary btn-sm mb-2">選択項目を確認済みにする</button>
+        <table class="table table-sm table-hover">
+            <thead><tr><th></th><th>管理番号</th><th>Invoice No</th><th>金額</th><th>輸出日</th><th>貨物概要</th><th>確認状態</th></tr></thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td><input type="checkbox" name="pks" value="{{ r.pk }}"></td>
+                    <td>{{ r.management_no }}</td>
+                    <td>{{ r.invoice_no }}</td>
+                    <td class="text-end">{{ r.invoice_total }}</td>
+                    <td>{{ r.export_date }}</td>
+                    <td>{{ r.cargo_category.content }}</td>
+                    <td>{{ r.get_china_confirm_status_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-3">データがありません</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+
+    {% for r in records %}
+    <form method="post" action="{% url 'expenses:china_invoice_china_check_update' %}" class="d-inline">
+        {% csrf_token %}
+        <input type="hidden" name="pk" value="{{ r.pk }}">
+        <input type="hidden" name="status" value="difference">
+        <button type="submit" class="btn btn-sm btn-outline-warning">{{ r.management_no }}を差異ありにする</button>
+    </form>
+    {% endfor %}
+</div>
+{% endblock %}
