@@ -37,6 +37,7 @@ from .views_china_invoice import (
     china_invoice_month_close,
     china_invoice_china_check,
     china_invoice_china_check_update,
+    china_invoice_excel,
 )  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,

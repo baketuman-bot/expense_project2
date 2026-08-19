@@ -3,13 +3,18 @@
 import datetime
 import logging
 
+import openpyxl
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
 from .china_invoice_files import validate_china_invoice_file
@@ -305,3 +310,66 @@ def china_invoice_china_check_update(request):
         messages.success(request, '確認結果を更新しました。')
 
     return redirect('expenses:china_invoice_china_check')
+
+
+_EXCEL_HEADERS = [
+    '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分', '貨物概要補足',
+    '加算調整率', '報告者', '登録日時', '経理確認',
+]
+
+
+def _china_invoice_to_excel_row(r):
+    return [
+        r.management_no, r.invoice_no, float(r.invoice_total), r.export_date,
+        r.cargo_category.content, r.cargo_note, float(r.adjustment_rate_value),
+        r.reporter.user_name, r.registered_at.replace(tzinfo=None),
+        '確認済み' if r.accounting_confirmed else '未確認',
+    ]
+
+
+@login_required
+def china_invoice_excel(request):
+    _require_role(request.user, *_LIST_ROLES)
+    year_month = request.GET.get('year_month')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+
+    records = T_ChinaInvoice.objects.select_related('cargo_category', 'reporter')
+    filename = '中国輸出実績_全件.xlsx'
+    if year_month:
+        records = records.filter(registered_at__date__startswith=year_month)
+        filename = f'中国輸出実績_{year_month.replace("-", "")}.xlsx'
+    elif date_from and date_to:
+        records = records.filter(registered_at__date__gte=date_from, registered_at__date__lte=date_to)
+        filename = f'中国輸出実績_{date_from.replace("-", "")}-{date_to.replace("-", "")}.xlsx'
+    records = records.order_by('invoice_no')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '中国輸出Invoice'
+    ws.append(_EXCEL_HEADERS)
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='495057', end_color='495057', fill_type='solid')
+    for col_idx in range(1, len(_EXCEL_HEADERS) + 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    for r in records.iterator():
+        ws.append(_china_invoice_to_excel_row(r))
+
+    for col_idx, width in enumerate([16, 16, 14, 12, 12, 20, 10, 14, 18, 10], start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+    ws.freeze_panes = 'A2'
+    ws.auto_filter.ref = ws.dimensions
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    # 日本語ファイル名は RFC 5987 (filename*=UTF-8''...) で出力する。
+    # f'filename="{fname}"' 直書きだと Django が非Latin-1ヘッダを RFC 2047 で
+    # エンコードし、ブラウザが解釈できず既定名になる（expenses/views.py の
+    # データ出力CSVで既に踏んでいる既知の落とし穴と同じ対処）。
+    response['Content-Disposition'] = content_disposition_header(as_attachment=True, filename=filename)
+    wb.save(response)
+    return response

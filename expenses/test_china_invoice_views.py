@@ -1,7 +1,10 @@
 """中国輸出Invoice管理: ビューのテスト"""
+import io
 from datetime import date
 from decimal import Decimal
+from urllib.parse import quote
 
+import openpyxl
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -537,3 +540,56 @@ class ChinaInvoiceChinaCheckViewTests(TestCase):
         self.client.force_login(self.partner)
         res = self.client.get(reverse('expenses:china_invoice_china_check'))
         self.assertNotContains(res, 'SENTINEL_NOTE_VALUE')
+
+
+class ChinaInvoiceExcelViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.cargo, cls.adjrate = _make_masters()
+        cls.record_b = T_ChinaInvoice.objects.create(
+            invoice_no='INV-XL-B', invoice_total=Decimal('200.00'), export_date=date(2026, 8, 2),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=cls.reporter,
+        )
+        cls.record_a = T_ChinaInvoice.objects.create(
+            invoice_no='INV-XL-A', invoice_total=Decimal('100.00'), export_date=date(2026, 8, 1),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i2.pdf', b'b'), reporter=cls.reporter,
+        )
+
+    def test_権限がなければ403(self):
+        self.client.force_login(self.other)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        self.assertEqual(res.status_code, 403)
+
+    def test_Invoice_No昇順で出力される(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        self.assertEqual(res.status_code, 200)
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=2)]
+        self.assertEqual(invoice_no_col_values, ['INV-XL-A', 'INV-XL-B'])
+
+    def test_月単位のファイル名になる(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel') + '?year_month=2026-08')
+        # 日本語ファイル名はRFC 5987 (filename*=UTF-8''...) でパーセントエンコードされて出力される
+        # （expenses/views.py のCSV出力と同じ content_disposition_header() を使うため）
+        self.assertIn(quote('中国輸出実績_202608.xlsx'), res['Content-Disposition'])
+
+    def test_同じ月は同じファイル名になる(self):
+        self.client.force_login(self.reporter)
+        res1 = self.client.get(reverse('expenses:china_invoice_excel') + '?year_month=2026-08')
+        res2 = self.client.get(reverse('expenses:china_invoice_excel') + '?year_month=2026-08')
+        self.assertEqual(res1['Content-Disposition'], res2['Content-Disposition'])
+
+    def test_Invoiceファイル等の列は含まれない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        header = [c.value for c in wb.active[1]]
+        self.assertNotIn('Invoiceファイル', header)
+        self.assertNotIn('Packing List', header)
+        self.assertNotIn('中国側確認', header)
