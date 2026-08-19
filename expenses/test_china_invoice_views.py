@@ -690,3 +690,28 @@ class ChinaInvoiceSidebarTests(TestCase):
         self.client.force_login(self.partner)
         res = self.client.get(reverse('expenses:home'))
         self.assertNotContains(res, reverse('expenses:china_invoice_accounting'))
+
+    def test_accountantはサイドバーにメニューが出る(self):
+        self.client.force_login(self.accountant)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertContains(res, '中国輸出Invoice管理')
+
+    def test_reporterには経理確認_月締め_中国側確認リンクが出ない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_accounting'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_month_close'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_china_check'))
+
+    def test_accountantにはInvoice登録_中国側確認リンクが出ない(self):
+        self.client.force_login(self.accountant)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_create'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_china_check'))
+
+    def test_partnerにはInvoice登録_経理確認_月締めリンクが出ない(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:home'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_create'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_accounting'))
+        self.assertNotContains(res, reverse('expenses:china_invoice_month_close'))
