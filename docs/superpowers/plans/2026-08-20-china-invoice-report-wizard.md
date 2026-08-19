@@ -633,6 +633,15 @@ User = get_user_model()
 ```
 
 ```python
+# このプロジェクトの本番設定は whitenoise.CompressedManifestStaticFilesStorage で、
+# {% static %} が 'drop_zone.<hash>.js' というハッシュ付き名を出力し、さらに
+# collectstatic 済みのマニフェストが無いと ValueError で落ちる。
+# アセットの配信方法ではなく「base.html が共通JSを読み込んでいるか」を検証したいので、
+# このテストクラスだけ素の StaticFilesStorage に差し替える。
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
 class DropZoneSharedAssetTests(TestCase):
     """ドロップゾーンのCSS/JSがテンプレートから共通化されたことの回帰テスト。"""
 
