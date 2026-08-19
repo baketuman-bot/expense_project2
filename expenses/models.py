@@ -1441,6 +1441,9 @@ def china_invoice_packing_list_upload_path(instance, filename):
     return f'china_invoice/{instance.invoice.management_no}/packing_list/{ts}_{base}'
 
 
+import datetime
+
+
 class T_ChinaInvoice(models.Model):
     """中国輸出Invoice管理: Invoice単位の実績管理と、経理・中国側の二重確認を行う。
     既存の中国輸出実績報告(T_ChinaExport)とは完全に独立したサブシステム。"""
@@ -1499,7 +1502,7 @@ class T_ChinaInvoice(models.Model):
         """EX-YYYYMMDD-NNN 形式の管理番号を採番する。低頻度な社内ツールのため
         重厚な排他制御(select_for_update等)は行わず、当日分の件数+1を候補とし、
         既に存在すれば+1しながら空きを探す簡易方式とする。"""
-        today = today or timezone.localdate()
+        today = today or datetime.date.today()
         prefix = f"EX-{today.strftime('%Y%m%d')}-"
         seq = cls.objects.filter(management_no__startswith=prefix).count() + 1
         for _ in range(10):
