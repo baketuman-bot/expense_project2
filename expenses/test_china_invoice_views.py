@@ -147,3 +147,136 @@ class ChinaInvoiceListViewTests(TestCase):
         res = self.client.get(reverse('expenses:china_invoice_list') + '?accounting_confirmed=1')
         self.assertContains(res, 'INV-LIST-2')
         self.assertNotContains(res, 'INV-LIST-1')
+
+
+class ChinaInvoiceDetailEditViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.reporter2 = User.objects.create_user(
+            username='view_reporter2', man_number='9405', user_name='view報告者2', password='pass')
+        M_UserRole.objects.create(man_number=cls.reporter2, role='china_reporter')
+        cls.cargo, cls.adjrate = _make_masters()
+
+    def _make_record(self, **overrides):
+        data = dict(
+            invoice_no='INV-EDIT-1', invoice_total=Decimal('999.00'), export_date=date(2026, 8, 1),
+            cargo_category=self.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=self.reporter,
+        )
+        data.update(overrides)
+        return T_ChinaInvoice.objects.create(**data)
+
+    def test_詳細画面が表示される(self):
+        record = self._make_record()
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_detail', args=[record.pk]))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'INV-EDIT-1')
+
+    def test_経理確認前は本人の報告者が編集できる(self):
+        record = self._make_record()
+        self.client.force_login(self.reporter)
+        res = self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': 'INV-EDIT-2', 'invoice_total': '999.00', 'export_date': '2026-08-01',
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+        })
+        self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[record.pk]))
+        record.refresh_from_db()
+        self.assertEqual(record.invoice_no, 'INV-EDIT-2')
+
+    def test_他人の報告者は編集できない(self):
+        record = self._make_record()
+        self.client.force_login(self.reporter2)
+        res = self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': 'HACKED', 'invoice_total': '999.00', 'export_date': '2026-08-01',
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+        })
+        self.assertEqual(res.status_code, 403)
+
+    def test_経理確認後は報告者が編集できない(self):
+        record = self._make_record(accounting_confirmed=True)
+        self.client.force_login(self.reporter)
+        res = self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': 'HACKED', 'invoice_total': '999.00', 'export_date': '2026-08-01',
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+        })
+        self.assertEqual(res.status_code, 403)
+
+    def test_経理確認後でも経理担当者は編集できる(self):
+        record = self._make_record(accounting_confirmed=True)
+        self.client.force_login(self.accountant)
+        res = self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': 'INV-EDIT-3', 'invoice_total': '999.00', 'export_date': '2026-08-01',
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+        })
+        self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[record.pk]))
+        record.refresh_from_db()
+        self.assertEqual(record.invoice_no, 'INV-EDIT-3')
+
+    def test_主要項目を変更すると経理確認と中国側確認がリセットされる(self):
+        record = self._make_record(
+            accounting_confirmed=True, china_confirm_status=T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+        self.client.force_login(self.accountant)
+        self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': 'INV-EDIT-CHANGED', 'invoice_total': '999.00', 'export_date': '2026-08-01',
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+        })
+        record.refresh_from_db()
+        self.assertFalse(record.accounting_confirmed)
+        self.assertEqual(record.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+
+    def test_ファイルを差し替えずに保存してもファイルは維持される(self):
+        record = self._make_record()
+        original_name = record.invoice_file.name
+        self.client.force_login(self.reporter)
+        self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': 'INV-EDIT-4', 'invoice_total': '999.00', 'export_date': '2026-08-01',
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+        })
+        record.refresh_from_db()
+        self.assertEqual(record.invoice_file.name, original_name)
+
+    def test_添付ファイルのみの変更では確認状態が維持される(self):
+        record = self._make_record(
+            accounting_confirmed=True, china_confirm_status=T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+        self.client.force_login(self.accountant)
+        new_file = SimpleUploadedFile('new_invoice.pdf', b'new')
+        self.client.post(reverse('expenses:china_invoice_detail', args=[record.pk]), {
+            'invoice_no': record.invoice_no, 'invoice_total': str(record.invoice_total),
+            'export_date': record.export_date.isoformat(),
+            'cargo_category': self.cargo.pk, 'cargo_note': '', 'adjustment_rate_item': self.adjrate.pk,
+            'invoice_file': new_file,
+        })
+        record.refresh_from_db()
+        self.assertTrue(record.accounting_confirmed)
+        self.assertEqual(record.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+
+
+class ChinaInvoicePackingListViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
+        cls.cargo, cls.adjrate = _make_masters()
+        cls.record = T_ChinaInvoice.objects.create(
+            invoice_no='INV-PL-1', invoice_total=Decimal('1.00'), export_date=date(2026, 8, 1),
+            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
+            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=cls.reporter,
+        )
+
+    def test_報告者はPacking_Listを追加できる(self):
+        self.client.force_login(self.reporter)
+        res = self.client.post(
+            reverse('expenses:china_invoice_packing_list_add', args=[self.record.pk]),
+            {'packing_list_files': SimpleUploadedFile('pl.pdf', b'x')})
+        self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[self.record.pk]))
+        self.assertEqual(self.record.packing_lists.count(), 1)
+
+    def test_報告者はPacking_Listを削除できる(self):
+        from expenses.models import T_ChinaInvoicePackingList
+        pl = T_ChinaInvoicePackingList.objects.create(
+            invoice=self.record, file=SimpleUploadedFile('pl.pdf', b'x'), uploaded_by=self.reporter)
+        self.client.force_login(self.reporter)
+        res = self.client.post(reverse('expenses:china_invoice_packing_list_delete', args=[pl.pk]))
+        self.assertRedirects(res, reverse('expenses:china_invoice_detail', args=[self.record.pk]))
+        self.assertEqual(self.record.packing_lists.count(), 0)

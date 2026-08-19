@@ -60,6 +60,9 @@ urlpatterns = [
     # 中国輸出Invoice管理
     path("china_invoice/new/", views.china_invoice_create, name="china_invoice_create"),
     path("china_invoice/list/", views.china_invoice_list, name="china_invoice_list"),
+    path("china_invoice/<int:pk>/", views.china_invoice_detail, name="china_invoice_detail"),
+    path("china_invoice/<int:pk>/packing_list/add/", views.china_invoice_packing_list_add, name="china_invoice_packing_list_add"),
+    path("china_invoice/packing_list/<int:pk>/delete/", views.china_invoice_packing_list_delete, name="china_invoice_packing_list_delete"),
     # 管理者画面 (設定)
     path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),
     path("settings/data_view/<str:view_name>/", views.settings_data_view_browse, name="settings_data_view_browse"),

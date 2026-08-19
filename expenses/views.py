@@ -28,6 +28,9 @@ from .views_china_export import (
 from .views_china_invoice import (
     china_invoice_create,
     china_invoice_list,
+    china_invoice_detail,
+    china_invoice_packing_list_add,
+    china_invoice_packing_list_delete,
 )  # noqa: F401
 from .models import (
     M_User, M_UserRole, M_Status, M_Account, T_Document, T_DocumentContent,

@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .china_invoice_files import validate_china_invoice_file
 from .china_invoice_pdf import extract_invoice_fields
@@ -120,3 +121,83 @@ def china_invoice_list(request):
         'records': _china_invoice_queryset(request),
         'current': 'china_invoice_list',
     })
+
+
+_KEY_FIELDS = ['invoice_no', 'invoice_total', 'export_date', 'cargo_category_id', 'adjustment_rate_value']
+
+
+def _can_edit(user, invoice):
+    if user.has_role('admin') or user.has_role('accountant'):
+        return True
+    if user.has_role('china_reporter') and invoice.reporter_id == user.pk and not invoice.accounting_confirmed:
+        return True
+    return False
+
+
+def _reset_confirmations_if_key_changed(old_snapshot, new_instance):
+    changed = any(old_snapshot[f] != getattr(new_instance, f) for f in _KEY_FIELDS)
+    if changed:
+        new_instance.accounting_confirmed = False
+        new_instance.accounting_confirmed_by = None
+        new_instance.accounting_confirmed_at = None
+        new_instance.china_confirm_status = T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED
+        new_instance.china_confirmed_by = None
+        new_instance.china_confirmed_at = None
+    return changed
+
+
+@login_required
+def china_invoice_detail(request, pk):
+    _require_role(request.user, *_LIST_ROLES)
+    invoice = get_object_or_404(
+        T_ChinaInvoice.objects.select_related('cargo_category', 'reporter'), pk=pk)
+    can_edit = _can_edit(request.user, invoice)
+
+    if request.method == 'POST':
+        if not can_edit:
+            raise PermissionDenied()
+        old_snapshot = {f: getattr(invoice, f) for f in _KEY_FIELDS}
+        form = ChinaInvoiceForm(request.POST, request.FILES, instance=invoice)
+        form.fields['invoice_file'].required = False
+        if form.is_valid():
+            updated = form.save(commit=False)
+            if not request.FILES.get('invoice_file'):
+                updated.invoice_file = invoice.invoice_file
+            _reset_confirmations_if_key_changed(old_snapshot, updated)
+            updated.save()
+            _handle_packing_list_uploads(request, updated)
+            messages.success(request, f'{updated.management_no} を更新しました。')
+            return redirect('expenses:china_invoice_detail', pk=updated.pk)
+    else:
+        form = ChinaInvoiceForm(instance=invoice) if can_edit else None
+        if form is not None:
+            form.fields['invoice_file'].required = False
+
+    return render(request, 'expenses/china_invoice_detail.html', {
+        'invoice': invoice, 'form': form, 'can_edit': can_edit, 'current': 'china_invoice_list',
+    })
+
+
+@login_required
+@require_POST
+def china_invoice_packing_list_add(request, pk):
+    invoice = get_object_or_404(T_ChinaInvoice, pk=pk)
+    if not _can_edit(request.user, invoice):
+        raise PermissionDenied()
+    if request.method == 'POST':
+        _handle_packing_list_uploads(request, invoice)
+    return redirect('expenses:china_invoice_detail', pk=invoice.pk)
+
+
+@login_required
+@require_POST
+def china_invoice_packing_list_delete(request, pk):
+    packing_list = get_object_or_404(T_ChinaInvoicePackingList, pk=pk)
+    if not _can_edit(request.user, packing_list.invoice):
+        raise PermissionDenied()
+    if request.method == 'POST':
+        invoice_pk = packing_list.invoice_id
+        packing_list.file.delete(save=False)
+        packing_list.delete()
+        return redirect('expenses:china_invoice_detail', pk=invoice_pk)
+    return redirect('expenses:china_invoice_detail', pk=packing_list.invoice_id)

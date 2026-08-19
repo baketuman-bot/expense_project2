@@ -1,0 +1,72 @@
+{% extends "expenses/base.html" %}
+
+{% block title %}{{ invoice.management_no }} | {% endblock %}
+
+{% block content %}
+<div class="mt-2">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'error' in message.tags %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="閉じる"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <h2 class="page-title"><i class="fas fa-file-invoice"></i> {{ invoice.management_no }}</h2>
+
+    <div class="card p-3 mb-3">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Invoice No</dt><dd class="col-sm-9">{{ invoice.invoice_no }}</dd>
+            <dt class="col-sm-3">Invoice Total</dt><dd class="col-sm-9">{{ invoice.invoice_total }}</dd>
+            <dt class="col-sm-3">輸出日</dt><dd class="col-sm-9">{{ invoice.export_date }}</dd>
+            <dt class="col-sm-3">貨物概要</dt><dd class="col-sm-9">{{ invoice.cargo_category.content }} {{ invoice.cargo_note }}</dd>
+            <dt class="col-sm-3">加算調整率</dt><dd class="col-sm-9">{{ invoice.adjustment_rate_value }}%</dd>
+            <dt class="col-sm-3">報告者</dt><dd class="col-sm-9">{{ invoice.reporter.user_name }}</dd>
+            <dt class="col-sm-3">経理確認</dt><dd class="col-sm-9">{% if invoice.accounting_confirmed %}確認済み{% else %}未確認{% endif %}</dd>
+            <dt class="col-sm-3">中国側確認</dt><dd class="col-sm-9">{{ invoice.get_china_confirm_status_display }}</dd>
+            <dt class="col-sm-3">Invoiceファイル</dt><dd class="col-sm-9"><a href="{{ invoice.invoice_file.url }}" target="_blank">ダウンロード</a></dd>
+        </dl>
+    </div>
+
+    <div class="card p-3 mb-3">
+        <h5>Packing List</h5>
+        <ul>
+            {% for pl in invoice.packing_lists.all %}
+            <li>
+                <a href="{{ pl.file.url }}" target="_blank">{{ pl.file.name }}</a>
+                {% if can_edit %}
+                <form method="post" action="{% url 'expenses:china_invoice_packing_list_delete' pl.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">削除</button>
+                </form>
+                {% endif %}
+            </li>
+            {% empty %}
+            <li class="text-muted">登録されていません</li>
+            {% endfor %}
+        </ul>
+        {% if can_edit %}
+        <form method="post" action="{% url 'expenses:china_invoice_packing_list_add' invoice.pk %}" enctype="multipart/form-data" class="mt-2">
+            {% csrf_token %}
+            <input type="file" name="packing_list_files" multiple class="form-control d-inline w-auto">
+            <button type="submit" class="btn btn-sm btn-outline-primary">追加</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if can_edit and form %}
+    <form method="post" enctype="multipart/form-data" class="card p-3">
+        {% csrf_token %}
+        <div class="mb-2"><label class="form-label">Invoice No</label>{{ form.invoice_no }}{{ form.invoice_no.errors }}</div>
+        <div class="mb-2"><label class="form-label">Invoice Total</label>{{ form.invoice_total }}{{ form.invoice_total.errors }}</div>
+        <div class="mb-2"><label class="form-label">輸出日</label>{{ form.export_date }}{{ form.export_date.errors }}</div>
+        <div class="mb-2"><label class="form-label">貨物概要区分</label>{{ form.cargo_category }}{{ form.cargo_category.errors }}</div>
+        <div class="mb-2"><label class="form-label">貨物概要補足</label>{{ form.cargo_note }}{{ form.cargo_note.errors }}</div>
+        <div class="mb-2"><label class="form-label">加算調整率</label>{{ form.adjustment_rate_item }}{{ form.adjustment_rate_item.errors }}</div>
+        <div class="mb-2"><label class="form-label">Invoiceファイル差替（任意）</label>{{ form.invoice_file }}{{ form.invoice_file.errors }}</div>
+        <button type="submit" class="btn btn-primary">保存</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
