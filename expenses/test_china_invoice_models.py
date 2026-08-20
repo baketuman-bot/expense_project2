@@ -30,6 +30,7 @@ class ManagementNoGenerationTests(TestCase):
 
     def test_同日2件目は002になる(self):
         T_ChinaInvoice.objects.create(
+            management_no='EX-20260819-001',   # 実時刻に依存させない
             invoice_no='INV-1', invoice_total=Decimal('100.00'), export_date=date(2026, 8, 1),
             cargo_category=self.cargo, adjustment_rate_value=Decimal('0.00'),
             invoice_file=_make_invoice_file(), reporter=self.reporter,
