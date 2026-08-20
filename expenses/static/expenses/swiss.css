@@ -1361,6 +1361,11 @@ label.required::after {
 }
 .drop-zone:hover { border-color: #0d6efd; background-color: #e9f2ff; }
 .drop-zone.dragover { border-color: #0d6efd; background-color: #e7f1ff; color: #0d6efd; }
+.drop-zone:focus-visible {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 .25rem rgba(13,110,253,.25);
+}
 .drop-zone.selected { border-color: #198754; background-color: #eef7f1; }
 .drop-zone.disabled { pointer-events: none; opacity: .5; }
 .drop-zone__prompt { font-size: .95rem; line-height: 1.4; }

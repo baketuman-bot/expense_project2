@@ -15,7 +15,11 @@ echo   SRC: %SRC%
 echo   DST: %DST%
 echo.
 
-robocopy "%SRC%" "%DST%" /E /Z /R:3 /W:5 /NFL /NDL /LOG+:"%LOG%" /TEE
+REM china_invoice_tmp is a working area for unconfirmed/unreported Invoice
+REM files (expenses/china_invoice_batch.py); it must not be mirrored to the
+REM accounting file server since this robocopy is not /MIR and can't remove
+REM anything it copies there.
+robocopy "%SRC%" "%DST%" /E /XD china_invoice_tmp /Z /R:3 /W:5 /NFL /NDL /LOG+:"%LOG%" /TEE
 
 echo.
 echo Done. Log: %LOG%

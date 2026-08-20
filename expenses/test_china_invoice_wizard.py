@@ -403,6 +403,19 @@ class ChinaInvoiceReportUploadTests(TestCase):
         self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
         self.assertFalse(os.path.exists(batch_mod.batch_dir(batch_id)))
 
+    def test_破棄されたバッチでステップ2をGETするとステップ1へ戻される(self):
+        self.client.force_login(self.reporter)
+        self.client.post(self.url, {'invoice_files': [
+            SimpleUploadedFile('a.pdf', _pdf_bytes(), content_type='application/pdf'),
+        ]})
+        # ステップ1を再度GETすると残存バッチが破棄される（test_GETで残存バッチが破棄されると同じ操作）
+        self.client.get(self.url)
+
+        review_url = reverse('expenses:china_invoice_report_review')
+        res = self.client.get(review_url)
+
+        self.assertRedirects(res, self.url)
+
 
 class ChinaInvoiceReportReviewDisplayTests(TestCase):
     @classmethod
@@ -798,3 +811,24 @@ class ChinaInvoiceReportSubmitTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(T_ChinaInvoice.objects.count(), 0)
         self.assertEqual(T_ChinaInvoicePackingList.objects.count(), 0)
+
+    def test_検証エラーで再描画時に行と一時ファイルの対応が保たれる(self):
+        batch = self._upload(count=2)
+        data = self._submit_data(batch, {1: {'invoice_no': ''}})
+
+        res = self.client.post(self.url, data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['row_count'], 2)
+        self.assertEqual(len(res.context['rows']), 2)
+        html = res.content.decode()
+        for item in batch['items']:
+            self.assertIn(item['original_name'], html)
+
+    def test_報告成功後にステップ2をGETするとステップ1へ戻される(self):
+        batch = self._upload(count=1)
+        self.client.post(self.url, self._submit_data(batch))
+
+        res = self.client.get(self.url)
+
+        self.assertRedirects(res, self.upload_url)

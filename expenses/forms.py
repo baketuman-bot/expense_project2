@@ -994,6 +994,9 @@ class ChinaInvoiceForm(forms.ModelForm):
                 data_kbn='CHN_ADJRT', content2=str(self.instance.adjustment_rate_value)).first()
             if match:
                 self.fields['adjustment_rate_item'].initial = match.pk
+        for field in self.fields.values():
+            css = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
+            field.widget.attrs.setdefault('class', css)
 
     def clean_invoice_file(self):
         f = self.cleaned_data.get('invoice_file')
