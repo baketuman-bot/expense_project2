@@ -4,34 +4,54 @@
 
 {% block content %}
 <div class="mt-2">
-    <h2 class="page-title"><i class="fas fa-ship"></i> 中国輸出Invoice管理</h2>
-    <div class="row g-3 mb-3">
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><i class="fas fa-ship"></i></span>
+            中国輸出Invoice管理
+        </h2>
+        <div class="page-actions">
+            {% if can_register_china_invoice %}
+            <a href="{% url 'expenses:china_invoice_report_upload' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Invoice報告</a>
+            {% endif %}
+            <a href="{% url 'expenses:china_invoice_list' %}" class="btn btn-outline-secondary btn-sm">輸出実績一覧</a>
+        </div>
+    </div>
+
+    <div class="row g-3">
         <div class="col-md-4">
-            <div class="card p-3">
-                <div class="text-muted small">経理未確認</div>
-                <div class="fs-3">{{ unconfirmed_accounting_count }}件</div>
-                {% if can_confirm_china_invoice_accounting %}
-                <a href="{% url 'expenses:china_invoice_accounting' %}">経理確認へ</a>
-                {% endif %}
+            <div class="card h-100">
+                <div class="card-header card-header-navy">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>経理未確認</h5>
+                </div>
+                <div class="card-body">
+                    <div class="fs-3">{{ unconfirmed_accounting_count }}件</div>
+                    {% if can_confirm_china_invoice_accounting %}
+                    <a href="{% url 'expenses:china_invoice_accounting' %}" class="small">経理確認へ</a>
+                    {% endif %}
+                </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card p-3">
-                <div class="text-muted small">中国側 差異あり</div>
-                <div class="fs-3">{{ difference_count }}件</div>
-                <a href="{% url 'expenses:china_invoice_list' %}?china_confirm_status=difference">一覧で確認</a>
+            <div class="card h-100">
+                <div class="card-header card-header-navy">
+                    <h5 class="mb-0"><i class="fas fa-triangle-exclamation me-2"></i>中国側 差異あり</h5>
+                </div>
+                <div class="card-body">
+                    <div class="fs-3">{{ difference_count }}件</div>
+                    <a href="{% url 'expenses:china_invoice_list' %}?china_confirm_status=difference" class="small">一覧で確認</a>
+                </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card p-3">
-                <div class="text-muted small">今月の登録件数</div>
-                <div class="fs-3">{{ this_month_count }}件</div>
+            <div class="card h-100">
+                <div class="card-header card-header-navy">
+                    <h5 class="mb-0"><i class="fas fa-calendar-day me-2"></i>今月の登録件数</h5>
+                </div>
+                <div class="card-body">
+                    <div class="fs-3">{{ this_month_count }}件</div>
+                </div>
             </div>
         </div>
     </div>
-    {% if can_register_china_invoice %}
-    <a href="{% url 'expenses:china_invoice_report_upload' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Invoice報告</a>
-    {% endif %}
-    <a href="{% url 'expenses:china_invoice_list' %}" class="btn btn-outline-secondary">輸出実績一覧</a>
 </div>
 {% endblock %}
