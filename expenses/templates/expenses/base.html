@@ -432,6 +432,46 @@
     {% endif %}
     {% endblock %}
 
+    <script>
+    // サイドメニューのアコーディオン展開とスクロール位置の復元。
+    // DOMContentLoaded を待たずにサイドバー直後で実行し、画面遷移時のちらつきを防ぐ。
+    (function() {
+        var STORAGE_KEY = 'sidebarScrollTop';
+        var nav = document.querySelector('.precision-sidebar');
+        if (!nav) return;
+
+        // アクティブリンクを含むグループを自動展開（スクロール位置を復元する前に高さを確定させる）
+        nav.querySelectorAll('.precision-group-toggle').forEach(function(btn) {
+            var targetId = btn.getAttribute('data-bs-target');
+            var collapseEl = targetId ? nav.querySelector(targetId) : null;
+            if (collapseEl && collapseEl.querySelector('.precision-link.is-active')) {
+                btn.classList.remove('collapsed');
+                btn.setAttribute('aria-expanded', 'true');
+                collapseEl.classList.add('show');
+            }
+        });
+
+        // 直前の画面のスクロール位置を復元
+        try {
+            var saved = parseInt(sessionStorage.getItem(STORAGE_KEY), 10);
+            if (saved > 0) nav.scrollTop = saved;
+        } catch (e) {}
+
+        // スクロールのたびに位置を記録（rAF で書き込み回数を抑える）
+        var ticking = false;
+        nav.addEventListener('scroll', function() {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(function() {
+                ticking = false;
+                try {
+                    sessionStorage.setItem(STORAGE_KEY, String(nav.scrollTop));
+                } catch (e) {}
+            });
+        }, { passive: true });
+    })();
+    </script>
+
     <main class="precision-main">
         <div class="precision-shell">
         {% block content %}
@@ -441,18 +481,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    // アクティブリンクを含むアコーディオングループを自動展開
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.precision-group-toggle').forEach(function(btn) {
-            var targetId = btn.getAttribute('data-bs-target');
-            var collapseEl = document.querySelector(targetId);
-            if (collapseEl && collapseEl.querySelector('.precision-link.is-active')) {
-                btn.classList.remove('collapsed');
-                btn.setAttribute('aria-expanded', 'true');
-                collapseEl.classList.add('show');
-            }
-        });
-
         // サイドメニューの表示/非表示トグル
         var sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
         if (sidebarToggleBtn) {
