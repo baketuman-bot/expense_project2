@@ -56,7 +56,7 @@ cd ~/expense_project2 && python3 manage.py test expenses --keepdb -v 1
 | `expenses/views.py` | re-export の追加・削除 | 4, 7 |
 | `expenses/views_china_invoice.py` | `china_invoice_create` の削除 | 7 |
 | `expenses/templates/expenses/china_invoice_{list,dashboard,detail}.html` | デザイン統一 | 8 |
-| `expenses/templates/expenses/china_invoice_{accounting,china_check,month_close,form}.html` | デザイン統一 | 9 |
+| `expenses/templates/expenses/china_invoice_{accounting,china_check,month_close}.html` | デザイン統一 | 9 |
 | `expenses/test_china_invoice_wizard.py` | ウィザードのテスト | 1, 2, 4, 5, 6 |
 
 ---
@@ -2288,7 +2288,6 @@ git commit -m "feat: 中国輸出Invoice報告ウィザードの報告確定を�
 - Modify: `expenses/templates/expenses/base.html`（377〜384行目付近）
 - Modify: `expenses/templates/expenses/china_invoice_list.html`（20行目）
 - Modify: `expenses/templates/expenses/china_invoice_dashboard.html`（33行目）
-- Modify: `expenses/templates/expenses/china_invoice_form.html`（登録モードの分岐を削除）
 - Modify: `expenses/test_china_invoice_views.py`（`ChinaInvoiceCreateViewTests` を削除）
 
 **Interfaces:**
@@ -2368,13 +2367,18 @@ from .china_invoice_pdf import extract_invoice_fields
     <a href="{% url 'expenses:china_invoice_report_upload' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Invoice報告</a>
 ```
 
-- [ ] **Step 7: `china_invoice_form.html` を編集専用にする**
+- [ ] **Step 7: `china_invoice_form.html` を削除する**
 
-`{% block title %}` を `{% block title %}Invoice編集 | {% endblock %}` にし、見出しの `{% if mode == 'edit' %}Invoice編集{% else %}Invoice登録{% endif %}` を `Invoice編集` に置き換え、`{% if prefill %}` ... `{% endif %}` のブロック（26〜31行目）を削除し、送信ボタンのラベルを `更新` に変える。
+このテンプレートを render していたのは `china_invoice_create` だけだった。編集フォームは `china_invoice_detail` が `china_invoice_detail.html` の中にインラインで持っているため、`china_invoice_create` を消した時点でこのファイルは完全な孤児になる。**編集専用に手直しするのではなく、ファイルごと削除する。**
 
-```html
-        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 更新</button>
+```bash
+git rm expenses/templates/expenses/china_invoice_form.html
 ```
+
+削除後、参照が残っていないことを確認する。
+
+Run: `cd ~/expense_project2 && grep -rn "china_invoice_form.html" expenses/ --include=*.py --include=*.html`
+Expected: 出力なし
 
 - [ ] **Step 8: 旧URLが消えたことと既存機能が壊れていないことを確認する**
 
@@ -2387,7 +2391,7 @@ Expected: 出力なし
 - [ ] **Step 9: コミット**
 
 ```bash
-git add expenses/views_china_invoice.py expenses/views.py expenses/urls.py expenses/templates/expenses/base.html expenses/templates/expenses/china_invoice_list.html expenses/templates/expenses/china_invoice_dashboard.html expenses/templates/expenses/china_invoice_form.html expenses/test_china_invoice_views.py
+git add expenses/views_china_invoice.py expenses/views.py expenses/urls.py expenses/templates/expenses/base.html expenses/templates/expenses/china_invoice_list.html expenses/templates/expenses/china_invoice_dashboard.html expenses/test_china_invoice_views.py
 git commit -m "refactor: 旧Invoice登録画面を削除し報告ウィザードへ配線を切り替え"
 ```
 
@@ -2550,7 +2554,6 @@ git commit -m "style: 中国輸出Invoice管理の一覧・詳細・ダッシュ
 - Modify: `expenses/templates/expenses/china_invoice_accounting.html`
 - Modify: `expenses/templates/expenses/china_invoice_china_check.html`
 - Modify: `expenses/templates/expenses/china_invoice_month_close.html`
-- Modify: `expenses/templates/expenses/china_invoice_form.html`
 
 **Interfaces:**
 - Consumes: `swiss.css` の `.page-head` / `.page-title` / `.pt-ico` / `.page-actions` / `.card-header-navy`
@@ -2600,7 +2603,6 @@ Task 8 と同一。以下を再掲する（Task 8 を読まずに着手できる
 | `china_invoice_accounting.html` | `fa-check-circle` | 経理確認 | 未確認一覧を `card-header-navy` +「未確認Invoice」（`fa-clock`）のカードに。一括確認ボタン群は `card-footer` へ |
 | `china_invoice_china_check.html` | `fa-globe-asia` | 中国側確認 | 絞り込みを `card-header-navy` +「絞り込み」（`fa-filter`）のカード、一覧を `card-header-navy` +「確認対象」（`fa-table`）のカードに分ける。一括確認ボタンは一覧カードの `card-footer` へ |
 | `china_invoice_month_close.html` | `fa-calendar-check` | 月締め | 締め処理フォームを `card-header-navy` +「月を締める」（`fa-lock`）のカードに、締め済み一覧を `card-header-navy` +「締め済み月」（`fa-list`）のカードに分ける |
-| `china_invoice_form.html` | `fa-file-invoice` | Invoice編集 | 入力欄全体を `card-header-navy` +「Invoice情報」（`fa-file-invoice`）のカードに。送信ボタンは `card-footer` へ |
 
 - [ ] **Step 1: 変更前のテストが緑であることを確認する**
 
@@ -2619,23 +2621,19 @@ Expected: PASS
 
 上表の指定に従う。`name="year_month"` は変更しない。
 
-- [ ] **Step 5: `china_invoice_form.html` を書き換える**
-
-上表の指定に従う。`{{ form.X }}` の出力と `packing_list_files` の `name` は変更しない。Task 7 で編集専用にしてあるので、`mode` による分岐は存在しない前提。
-
-- [ ] **Step 6: テストが通ることを確認する**
+- [ ] **Step 5: テストが通ることを確認する**
 
 Run: `cd ~/expense_project2 && python3 manage.py test expenses.test_china_invoice_views expenses.test_china_invoice_wizard --keepdb -v 2`
 Expected: PASS（全件）
 
-- [ ] **Step 7: app全体の回帰確認**
+- [ ] **Step 6: app全体の回帰確認**
 
 Run: `cd ~/expense_project2 && python3 manage.py test expenses --keepdb -v 1`
 Expected: 既知の事前障害（`m_status.status_kbn` / `m_bumon.cs_kbn` 欠落）による約48件のエラーのみ。**件数が48件から増えていないこと**を確認する。増えていれば本計画による回帰なので調査すること。
 
-- [ ] **Step 8: コミット**
+- [ ] **Step 7: コミット**
 
 ```bash
-git add expenses/templates/expenses/china_invoice_accounting.html expenses/templates/expenses/china_invoice_china_check.html expenses/templates/expenses/china_invoice_month_close.html expenses/templates/expenses/china_invoice_form.html
+git add expenses/templates/expenses/china_invoice_accounting.html expenses/templates/expenses/china_invoice_china_check.html expenses/templates/expenses/china_invoice_month_close.html
 git commit -m "style: 中国輸出Invoice管理の経理確認・中国側確認・月締め・編集フォームのデザインを統一"
 ```
