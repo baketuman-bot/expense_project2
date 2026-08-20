@@ -989,6 +989,11 @@ class ChinaInvoiceForm(forms.ModelForm):
             M_Item.objects.filter(data_kbn='CHN_CARGO').order_by('order_by', 'key'))
         self.fields['adjustment_rate_item'].queryset = (
             M_Item.objects.filter(data_kbn='CHN_ADJRT').order_by('order_by', 'key'))
+        # M_Item.__str__ は 'key - content'（例: '1 - 材料等 0%'）を返すが、
+        # 報告ウィザード側は content だけを描画している。同じ選択肢が画面ごとに
+        # 違って見えないよう、ここでも content だけを表示する。
+        self.fields['cargo_category'].label_from_instance = lambda obj: obj.content
+        self.fields['adjustment_rate_item'].label_from_instance = lambda obj: obj.content
         if self.instance.pk and self.instance.adjustment_rate_value is not None:
             match = M_Item.objects.filter(
                 data_kbn='CHN_ADJRT', content2=str(self.instance.adjustment_rate_value)).first()
@@ -1057,6 +1062,10 @@ class ChinaInvoiceRowForm(forms.Form):
             M_Item.objects.filter(data_kbn='CHN_CARGO').order_by('order_by', 'key'))
         self.fields['adjustment_rate_item'].queryset = (
             M_Item.objects.filter(data_kbn='CHN_ADJRT').order_by('order_by', 'key'))
+        # 詳細画面の ChinaInvoiceForm と表示を揃える（M_Item.__str__ の
+        # 'key - content' ではなく content だけを出す）
+        self.fields['cargo_category'].label_from_instance = lambda obj: obj.content
+        self.fields['adjustment_rate_item'].label_from_instance = lambda obj: obj.content
 
     def clean(self):
         cleaned = super().clean()
