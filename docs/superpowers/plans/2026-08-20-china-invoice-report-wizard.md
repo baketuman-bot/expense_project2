@@ -2299,6 +2299,24 @@ git commit -m "feat: 中国輸出Invoice報告ウィザードの報告確定を�
 
 `expenses/test_china_invoice_views.py` から `class ChinaInvoiceCreateViewTests(TestCase):`（38行目付近）のクラス全体を削除する。次のクラス定義（`class ChinaInvoiceListViewTests` 付近）は残す。`_make_users` / `_make_masters` は他のクラスが使うので削除しない。
 
+- [ ] **Step 1b: 権限ゲートのテストを新URLへ差し替える**
+
+`ChinaInvoiceRoleGatedButtonTests` と `ChinaInvoiceSidebarTests` にも `reverse('expenses:china_invoice_create')` を使う箇所が5つある（795, 800, 856, 862, 868行目付近）。これらは「誰にInvoice登録リンクが見えるか」を検証する有用なテストなので**削除せず、新URLへ差し替える**。
+
+`reverse('expenses:china_invoice_create')` を**すべて** `reverse('expenses:china_invoice_report_upload')` に置換する。
+
+あわせて、メニュー名の変更に合わせて次の4つのテストメソッド名を変更する（日本語のまま）。
+
+| 変更前 | 変更後 |
+|---|---|
+| `test_china_partnerのみのユーザーにはダッシュボードでInvoice登録リンクが出ない` | `test_china_partnerのみのユーザーにはダッシュボードでInvoice報告リンクが出ない` |
+| `test_china_partnerのみのユーザーには一覧でInvoice登録リンクが出ない` | `test_china_partnerのみのユーザーには一覧でInvoice報告リンクが出ない` |
+| `test_reporterのメニューにはInvoice登録リンクがある` | `test_reporterのメニューにはInvoice報告リンクがある` |
+| `test_accountantにはInvoice登録_中国側確認リンクが出ない` | `test_accountantにはInvoice報告_中国側確認リンクが出ない` |
+| `test_partnerにはInvoice登録_経理確認_月締めリンクが出ない` | `test_partnerにはInvoice報告_経理確認_月締めリンクが出ない` |
+
+これ以外のテストメソッドには手を入れない。
+
 - [ ] **Step 2: `expenses/views_china_invoice.py` から `china_invoice_create` を削除する**
 
 `@login_required` から始まる `def china_invoice_create(request):` の関数全体（78〜133行目）を削除する。あわせて、この関数でしか使っていない次の import 行を削除する。
