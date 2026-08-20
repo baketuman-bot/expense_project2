@@ -1,6 +1,6 @@
 {% extends "expenses/base.html" %}
 
-{% block title %}Invoice登録 | {% endblock %}
+{% block title %}Invoice編集 | {% endblock %}
 
 {% block content %}
 <div class="mt-2">
@@ -15,19 +15,12 @@
 
     <div class="page-head mb-3">
         <h2 class="page-title mb-0"><i class="fas fa-file-invoice"></i>
-            {% if mode == 'edit' %}Invoice編集{% else %}Invoice登録{% endif %}
+            Invoice編集
         </h2>
     </div>
 
     {% if form.non_field_errors %}
     <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-    {% endif %}
-
-    {% if prefill %}
-    <div class="alert alert-info">
-        PDFから自動読取しました（Invoice No: {{ prefill.invoice_no|default:"読取失敗" }} / Total:
-        {{ prefill.invoice_total|default:"読取失敗" }}）。内容を確認のうえ、下記の項目に反映してください。
-    </div>
     {% endif %}
 
     <form method="post" enctype="multipart/form-data" class="card p-3">
@@ -71,7 +64,7 @@
             <label class="form-label">Packing List（任意・複数可）</label>
             <input type="file" name="packing_list_files" multiple class="form-control">
         </div>
-        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 登録</button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> 更新</button>
     </form>
 </div>
 {% endblock %}

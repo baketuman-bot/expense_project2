@@ -376,9 +376,9 @@
                 </li>
                 {% if can_register_china_invoice %}
                 <li>
-                    <a class="precision-link {% if current == 'china_invoice_create' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_create' %}">
+                    <a class="precision-link {% if current == 'china_invoice_report' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_report_upload' %}">
                         <span class="precision-ico" aria-hidden="true"><i class="fas fa-plus"></i></span>
-                        <span>Invoice登録</span>
+                        <span>Invoice報告</span>
                     </a>
                 </li>
                 {% endif %}

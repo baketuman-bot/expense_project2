@@ -59,7 +59,6 @@ urlpatterns = [
     path("china_export/upload/confirm/", views.china_export_upload_confirm, name="china_export_upload_confirm"),
     # 中国輸出Invoice管理
     path("china_invoice/", views.china_invoice_dashboard, name="china_invoice_dashboard"),
-    path("china_invoice/new/", views.china_invoice_create, name="china_invoice_create"),
     path("china_invoice/report/", views.china_invoice_report_upload, name="china_invoice_report_upload"),
     path("china_invoice/report/review/", views.china_invoice_report_review, name="china_invoice_report_review"),
     path("china_invoice/list/", views.china_invoice_list, name="china_invoice_list"),

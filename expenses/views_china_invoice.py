@@ -19,7 +19,6 @@ from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
 from .china_invoice_files import validate_china_invoice_file
-from .china_invoice_pdf import extract_invoice_fields
 from .forms import ChinaInvoiceForm
 from .models import M_Item, M_User, T_ChinaInvoice, T_ChinaInvoiceMonthClose, T_ChinaInvoicePackingList
 
@@ -77,64 +76,6 @@ def china_invoice_dashboard(request):
         'this_month_count': T_ChinaInvoice.objects.filter(
             registered_at__date__startswith=this_month_prefix).count(),
         'current': 'china_invoice_dashboard',
-    })
-
-
-@login_required
-def china_invoice_create(request):
-    _require_role(request.user, 'china_reporter')
-
-    if request.method == 'POST':
-        form = ChinaInvoiceForm(request.POST, request.FILES)
-        if not form.is_valid():
-            uploaded = request.FILES.get('invoice_file')
-            prefill = None
-            if uploaded and (not form.data.get('invoice_no') or not form.data.get('invoice_total')):
-                uploaded.seek(0)
-                prefill = extract_invoice_fields(uploaded.read())
-                uploaded.seek(0)
-            return render(request, 'expenses/china_invoice_form.html', {
-                'form': form, 'current': 'china_invoice_list', 'mode': 'create', 'prefill': prefill,
-            })
-
-        today = datetime.date.today()
-        if _is_month_closed(today):
-            form.add_error(None, '今月は月締め済みのため新規登録できません。')
-            return render(request, 'expenses/china_invoice_form.html', {
-                'form': form, 'current': 'china_invoice_list', 'mode': 'create',
-            })
-
-        pl_errors = _validate_packing_list_uploads(request)
-        if pl_errors:
-            for msg in pl_errors:
-                form.add_error(None, msg)
-            return render(request, 'expenses/china_invoice_form.html', {
-                'form': form, 'current': 'china_invoice_list', 'mode': 'create',
-            })
-
-        is_duplicate_invoice_no = T_ChinaInvoice.objects.filter(
-            invoice_no=form.cleaned_data['invoice_no']).exists()
-
-        with transaction.atomic():
-            instance = form.save(commit=False)
-            instance.reporter = request.user
-            instance.save()
-            _handle_packing_list_uploads(request, instance)
-
-        if is_duplicate_invoice_no:
-            messages.warning(request, '同じInvoice Noが既に登録されています。')
-
-        if instance.export_date.strftime('%Y-%m') != today.strftime('%Y-%m'):
-            messages.warning(
-                request,
-                f'{instance.management_no}: 登録月（{today.strftime("%Y-%m")}）と輸出月'
-                f'（{instance.export_date.strftime("%Y-%m")}）が異なります。')
-        messages.success(request, f'{instance.management_no} を登録しました。')
-        return redirect('expenses:china_invoice_detail', pk=instance.pk)
-
-    form = ChinaInvoiceForm()
-    return render(request, 'expenses/china_invoice_form.html', {
-        'form': form, 'current': 'china_invoice_list', 'mode': 'create',
     })
 
 
