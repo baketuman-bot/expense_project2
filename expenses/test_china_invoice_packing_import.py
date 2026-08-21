@@ -134,3 +134,33 @@ class ParsePackingListTests(SimpleTestCase):
         f = _packing_xlsx([_row('', '2026/07/01', 5)])
         with self.assertRaises(PackingListParseError):
             parse_packing_list(f)
+
+    def test_壊れたxlsxファイルは例外を出すが位置は先頭に戻る(self):
+        """Important #1: load_workbook失敗時もseek(0)を保証"""
+        f = io.BytesIO(b'this is not a valid xlsx file')
+        with self.assertRaises(Exception):
+            parse_packing_list(f)
+        self.assertEqual(f.tell(), 0)
+
+    def test_数値セルの金額を正しく合計できる(self):
+        """Important #2: 基幹システム出力の数値(float)セル対応
+        実際のpacking listは金額_取引が数値セル(float)で格納される。
+        例: 955.94, 0.7, 0.0003 の合計が 956.64 になることを確認"""
+        f = _packing_xlsx([
+            _row('TH1', '2026/07/01', 955.94),
+            _row('TH1', '2026/07/01', 0.7),
+        ])
+        result = parse_packing_list(f)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['invoice_total'], Decimal('956.64'))
+
+    def test_小数点以下の細かい数値セルも正しく処理できる(self):
+        """Important #2: 小数第4位以上の数値の四捨五入動作確認"""
+        f = _packing_xlsx([
+            _row('TH2', '2026/07/01', 0.0003),
+            _row('TH2', '2026/07/01', 0.0002),
+        ])
+        result = parse_packing_list(f)
+        self.assertEqual(len(result), 1)
+        # 0.0003 + 0.0002 = 0.0005 → 小数2桁に丸める → 0.00
+        self.assertEqual(result[0]['invoice_total'], Decimal('0.00'))

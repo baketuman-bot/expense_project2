@@ -49,7 +49,8 @@ def is_packing_list_file(uploaded_file):
     try:
         headers = _header_map(ws)
     finally:
-        wb.close()
+        if wb is not None:
+            wb.close()
         uploaded_file.seek(0)
     return all(col in headers for col in REQUIRED_COLUMNS)
 
@@ -76,8 +77,9 @@ def parse_packing_list(uploaded_file):
     - INVOICE_NOが空の行・全列空の行は読み飛ばす
     - 値が解釈できない行・通貨混在・集約結果0件は PackingListParseError（部分取り込みはしない）
     """
-    wb, ws = _load_first_sheet(uploaded_file)
+    wb = None
     try:
+        wb, ws = _load_first_sheet(uploaded_file)
         headers = _header_map(ws)
         missing = [c for c in REQUIRED_COLUMNS if c not in headers]
         if missing:
@@ -137,5 +139,6 @@ def parse_packing_list(uploaded_file):
             for invoice_no, group in sorted(groups.items())
         ]
     finally:
-        wb.close()
+        if wb is not None:
+            wb.close()
         uploaded_file.seek(0)
