@@ -20,6 +20,7 @@ from expenses.models import (
     M_Item, M_UserRole, T_ChinaInvoice, T_ChinaInvoiceMonthClose,
     T_ChinaInvoicePackingList,
 )
+from expenses.test_china_invoice_packing_import import _packing_xlsx, _row
 
 User = get_user_model()
 
@@ -874,3 +875,132 @@ class ChinaInvoiceReportSubmitTests(TestCase):
         res = self.client.get(self.url)
 
         self.assertRedirects(res, self.upload_url)
+
+
+def _packing_upload(name='packing.xlsx', rows=None):
+    rows = rows if rows is not None else [
+        _row('TH6A110', '2026/07/01', '158.49'),
+        _row('TH6A110', '2026/07/01', '357.40'),
+        _row('TH6A113', '2026/07/04', '222.44'),
+    ]
+    return SimpleUploadedFile(
+        name, _packing_xlsx(rows).getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+class ChinaInvoiceWizardExcelTests(TestCase):
+    """パッキングリストExcel取り込み（報告ウィザード統合）"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter, cls.outsider, cls.admin = _wizard_users()
+        cls.cargo = M_Item.objects.create(
+            data_kbn='CHN_CARGO', key='x1', content='材料', content2='')
+        cls.rate = M_Item.objects.create(
+            data_kbn='CHN_ADJRT', key='x1', content='0%', content2='0.00')
+
+    def setUp(self):
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
+        self.upload_url = reverse('expenses:china_invoice_report_upload')
+        self.review_url = reverse('expenses:china_invoice_report_review')
+        self.client.force_login(self.reporter)
+
+    def _submit_data(self, batch):
+        items = batch['items']
+        data = {
+            'action': 'submit',
+            'form-TOTAL_FORMS': str(len(items)),
+            'form-INITIAL_FORMS': '0',
+            'form-MIN_NUM_FORMS': '0',
+            'form-MAX_NUM_FORMS': '1000',
+        }
+        for pos, item in enumerate(items):
+            row = {
+                'index': item['index'],
+                'invoice_no': item['invoice_no'],
+                'invoice_total': item['invoice_total'],
+                # PDF行はexport_dateを持たない（None）ため当日を補う
+                'export_date': item['export_date'] or date.today().strftime('%Y-%m-%d'),
+                'cargo_category': self.cargo.pk,
+                'cargo_note': '',
+                'adjustment_rate_item': self.rate.pk,
+            }
+            for key, value in row.items():
+                data[f'form-{pos}-{key}'] = value
+        return data
+
+    def test_パッキングリストxlsxはINVOICE_NOごとに展開される(self):
+        res = self.client.post(self.upload_url, {'invoice_files': [_packing_upload()]})
+        self.assertRedirects(res, self.review_url)
+        items = self.client.session[batch_mod.SESSION_KEY]['items']
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[0]['invoice_no'], 'TH6A110')
+        self.assertEqual(items[0]['invoice_total'], '515.89')
+        self.assertEqual(items[0]['export_date'], '2026-07-01')
+        self.assertEqual(items[0]['source'], 'excel')
+        self.assertEqual(items[1]['invoice_no'], 'TH6A113')
+
+    def test_パース不能な行があると何も保管されずエラー表示(self):
+        res = self.client.post(self.upload_url, {'invoice_files': [
+            _packing_upload(rows=[_row('TH1', '2026/07/01', 'abc')]),
+        ]})
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn(batch_mod.SESSION_KEY, self.client.session)
+        self.assertContains(res, '金額_取引')
+
+    def test_ヘッダーが合わないxlsxは従来どおり1ファイル1行の添付扱い(self):
+        plain = SimpleUploadedFile(
+            'plain.xlsx', _packing_xlsx([], headers=['A', 'B']).getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        self.client.post(self.upload_url, {'invoice_files': [plain]})
+        items = self.client.session[batch_mod.SESSION_KEY]['items']
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['source'], 'file')
+        self.assertIsNone(items[0]['invoice_no'])
+
+    def test_ステップ2に輸出日が自動入力されExcel取込バッジが出る(self):
+        self.client.post(self.upload_url, {'invoice_files': [_packing_upload()]})
+        res = self.client.get(self.review_url)
+        self.assertContains(res, '2026-07-01')
+        self.assertContains(res, 'Excel取込')
+
+    def test_報告確定でinvoice_fileなしのT_ChinaInvoiceが作られる(self):
+        self.client.post(self.upload_url, {'invoice_files': [_packing_upload()]})
+        batch = self.client.session[batch_mod.SESSION_KEY]
+        res = self.client.post(self.review_url, self._submit_data(batch))
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        self.assertEqual(T_ChinaInvoice.objects.count(), 2)
+        inv = T_ChinaInvoice.objects.get(invoice_no='TH6A110')
+        self.assertEqual(inv.invoice_total, Decimal('515.89'))
+        self.assertEqual(inv.export_date, date(2026, 7, 1))
+        self.assertEqual(inv.invoice_file.name, '')
+        self.assertEqual(inv.reporter_id, self.reporter.pk)
+
+    def test_PDFとExcelの混在バッチも報告できる(self):
+        self.client.post(self.upload_url, {'invoice_files': [
+            SimpleUploadedFile('a.pdf', _pdf_bytes('MIX-1', '10.00'),
+                               content_type='application/pdf'),
+            _packing_upload(rows=[_row('TH9', '2026/07/01', '5')]),
+        ]})
+        batch = self.client.session[batch_mod.SESSION_KEY]
+        self.assertEqual(len(batch['items']), 2)
+        res = self.client.post(self.review_url, self._submit_data(batch))
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        pdf_inv = T_ChinaInvoice.objects.get(invoice_no='MIX-1')
+        self.assertTrue(pdf_inv.invoice_file.name)
+        excel_inv = T_ChinaInvoice.objects.get(invoice_no='TH9')
+        self.assertEqual(excel_inv.invoice_file.name, '')
+
+    def test_Excel由来の行を除外しても残りの行を報告できる(self):
+        self.client.post(self.upload_url, {'invoice_files': [_packing_upload()]})
+        self.client.post(self.review_url, {'action': 'remove_0'})
+        batch = self.client.session[batch_mod.SESSION_KEY]
+        self.assertEqual(len(batch['items']), 1)
+        res = self.client.post(self.review_url, self._submit_data(batch))
+        self.assertRedirects(res, reverse('expenses:china_invoice_list'))
+        self.assertEqual(T_ChinaInvoice.objects.count(), 1)
+        self.assertEqual(T_ChinaInvoice.objects.first().invoice_no, 'TH6A113')

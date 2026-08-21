@@ -19,6 +19,9 @@ from .china_invoice_batch import (
     batch_file_path, create_batch, discard_batch, get_batch, remove_item,
 )
 from .china_invoice_files import validate_china_invoice_file
+from .china_invoice_packing_import import (
+    PackingListParseError, is_packing_list_file, parse_packing_list,
+)
 from .china_invoice_pdf import extract_invoice_fields
 from .forms import ChinaInvoiceRowFormSet
 from .models import M_Item, T_ChinaInvoice
@@ -61,13 +64,30 @@ def china_invoice_report_upload(request):
             })
 
         extracted = []
+        parse_errors = []
         for uploaded in files:
-            if os.path.splitext(uploaded.name)[1].lower() == '.pdf':
+            ext = os.path.splitext(uploaded.name)[1].lower()
+            if ext == '.pdf':
                 uploaded.seek(0)
                 extracted.append(extract_invoice_fields(uploaded.read()))
                 uploaded.seek(0)
+            elif ext == '.xlsx' and is_packing_list_file(uploaded):
+                # パッキングリスト形式: INVOICE_NOごとに集約して複数行に展開する
+                try:
+                    extracted.append(parse_packing_list(uploaded))
+                except PackingListParseError as e:
+                    parse_errors.extend(f'{uploaded.name}: {m}' for m in e.errors)
+                    extracted.append({'invoice_no': None, 'invoice_total': None})
             else:
                 extracted.append({'invoice_no': None, 'invoice_total': None})
+
+        if parse_errors:
+            logger.warning('パッキングリストExcelの解析エラー: %s', parse_errors)
+            for msg in parse_errors:
+                messages.error(request, msg)
+            return render(request, 'expenses/china_invoice_report_upload.html', {
+                'month_closed': month_closed, 'current': CURRENT_MENU,
+            })
 
         create_batch(request, files, extracted)
         return redirect('expenses:china_invoice_report_review')
@@ -146,7 +166,8 @@ def _handle_report_submit(request, batch):
     if valid:
         missing = [
             item for item in batch['items']
-            if not os.path.exists(batch_file_path(batch['batch_id'], item['stored_name']))
+            if item.get('source') != 'excel'
+            and not os.path.exists(batch_file_path(batch['batch_id'], item['stored_name']))
         ]
         if missing:
             logger.error('一時ファイルが見つかりません: %s', [i['stored_name'] for i in missing])
@@ -177,12 +198,16 @@ def _handle_report_submit(request, batch):
             # 自分自身がヒットしないよう、保存前に既存の重複を調べる
             is_duplicate = T_ChinaInvoice.objects.filter(
                 invoice_no=data['invoice_no']).exists()
-            path = batch_file_path(batch['batch_id'], item['stored_name'])
-            with open(path, 'rb') as fp:
-                # upload_to が management_no を使うため、手動で .save() せず
-                # instance.save() のファイルコミットに委ねる
-                invoice.invoice_file = File(fp, name=item['original_name'])
+            if item.get('source') == 'excel':
+                # パッキングリストExcel由来: Invoiceファイルなしで登録する
                 invoice.save()
+            else:
+                path = batch_file_path(batch['batch_id'], item['stored_name'])
+                with open(path, 'rb') as fp:
+                    # upload_to が management_no を使うため、手動で .save() せず
+                    # instance.save() のファイルコミットに委ねる
+                    invoice.invoice_file = File(fp, name=item['original_name'])
+                    invoice.save()
             _handle_packing_list_uploads(
                 request, invoice, field_name=f'packing_list_{data["index"]}')
             created += 1
@@ -239,6 +264,7 @@ def china_invoice_report_review(request):
             'index': item['index'],
             'invoice_no': item['invoice_no'] or '',
             'invoice_total': item['invoice_total'] or '',
+            'export_date': item.get('export_date') or '',
         }
         for item in batch['items']
     ])

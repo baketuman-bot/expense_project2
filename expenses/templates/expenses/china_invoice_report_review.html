@@ -99,7 +99,9 @@
                         <span>
                             <span class="fw-semibold small">Invoice {{ forloop.counter }}</span>
                             <span class="text-muted small ms-2">{{ item.original_name }}</span>
-                            {% if item.invoice_no and item.invoice_total %}
+                            {% if item.source == 'excel' %}
+                            <span class="badge bg-info ms-2">Excel取込</span>
+                            {% elif item.invoice_no and item.invoice_total %}
                             <span class="badge bg-success ms-2">読取OK</span>
                             {% else %}
                             <span class="badge bg-warning text-dark ms-2">読取失敗</span>
