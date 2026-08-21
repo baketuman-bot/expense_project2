@@ -43,7 +43,7 @@
                 <dt class="col-sm-3">報告者</dt><dd class="col-sm-9">{{ invoice.reporter.user_name }}</dd>
                 <dt class="col-sm-3">経理確認</dt><dd class="col-sm-9">{% if invoice.accounting_confirmed %}確認済み{% else %}未確認{% endif %}</dd>
                 <dt class="col-sm-3">中国側確認</dt><dd class="col-sm-9">{{ invoice.get_china_confirm_status_display }}</dd>
-                <dt class="col-sm-3">Invoiceファイル</dt><dd class="col-sm-9"><a href="{{ invoice.invoice_file.url }}" target="_blank">ダウンロード</a></dd>
+                <dt class="col-sm-3">Invoiceファイル</dt><dd class="col-sm-9">{% if invoice.invoice_file %}<a href="{{ invoice.invoice_file.url }}" target="_blank">ダウンロード</a>{% else %}<span class="text-muted">なし（Excel取込）</span>{% endif %}</dd>
             </dl>
         </div>
     </div>

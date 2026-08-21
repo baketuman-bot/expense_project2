@@ -761,3 +761,36 @@ class ChinaInvoiceSidebarTests(TestCase):
         self.assertNotContains(res, reverse('expenses:china_invoice_report_upload'))
         self.assertNotContains(res, reverse('expenses:china_invoice_accounting'))
         self.assertNotContains(res, reverse('expenses:china_invoice_month_close'))
+
+
+class ChinaInvoiceFileOptionalTests(TestCase):
+    """invoice_file 任意化（パッキングリストExcel取込対応）"""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.reporter = User.objects.create_user(
+            username='opt_reporter', man_number='9701', user_name='opt報告者', password='pass')
+        M_UserRole.objects.create(man_number=cls.reporter, role='china_reporter')
+        cls.cargo = M_Item.objects.create(
+            data_kbn='CHN_CARGO', key='o1', content='製品', content2='')
+
+    def test_invoice_fileなしで保存できる(self):
+        invoice = T_ChinaInvoice.objects.create(
+            invoice_no='NOFILE-1', invoice_total=Decimal('10.00'),
+            export_date=date(2026, 7, 1), cargo_category=self.cargo,
+            adjustment_rate_value=Decimal('0.00'), reporter=self.reporter,
+        )
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.invoice_file.name, '')
+
+    def test_ファイルなしInvoiceの詳細画面が開けてダウンロードリンクが出ない(self):
+        invoice = T_ChinaInvoice.objects.create(
+            invoice_no='NOFILE-2', invoice_total=Decimal('10.00'),
+            export_date=date(2026, 7, 1), cargo_category=self.cargo,
+            adjustment_rate_value=Decimal('0.00'), reporter=self.reporter,
+        )
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_detail', args=[invoice.pk]))
+        self.assertEqual(res.status_code, 200)
+        self.assertNotContains(res, 'ダウンロード')
+        self.assertContains(res, 'なし（Excel取込）')

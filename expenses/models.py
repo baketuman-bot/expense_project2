@@ -1467,7 +1467,8 @@ class T_ChinaInvoice(models.Model):
     )
     cargo_note = models.CharField("貨物概要補足", max_length=200, blank=True)
     adjustment_rate_value = models.DecimalField("加算調整率", max_digits=5, decimal_places=2)
-    invoice_file = models.FileField("Invoiceファイル", upload_to=china_invoice_upload_path)
+    invoice_file = models.FileField(
+        "Invoiceファイル", upload_to=china_invoice_upload_path, blank=True)
     reporter = models.ForeignKey(
         M_User, verbose_name="報告者", on_delete=models.PROTECT, related_name='china_invoices',
     )

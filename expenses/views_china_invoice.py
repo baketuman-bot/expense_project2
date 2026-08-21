@@ -168,7 +168,6 @@ def china_invoice_detail(request, pk):
         # 差替時に旧ファイルを削除するため、フォームによるinstance書き換え前に参照を保持する
         old_invoice_file = invoice.invoice_file
         form = ChinaInvoiceForm(request.POST, request.FILES, instance=invoice)
-        form.fields['invoice_file'].required = False
         pl_errors = []
         if form.is_valid():
             pl_errors = _validate_packing_list_uploads(request)
@@ -194,8 +193,6 @@ def china_invoice_detail(request, pk):
             display_invoice = T_ChinaInvoice.objects.select_related('cargo_category', 'reporter').get(pk=invoice.pk)
     else:
         form = ChinaInvoiceForm(instance=invoice) if can_edit else None
-        if form is not None:
-            form.fields['invoice_file'].required = False
 
     return render(request, 'expenses/china_invoice_detail.html', {
         'invoice': display_invoice, 'form': form, 'can_edit': can_edit,
