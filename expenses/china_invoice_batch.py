@@ -53,8 +53,12 @@ def create_batch(request, files, extracted):
     """filesを一時ディレクトリへ保存し、sessionにメタを書いてbatch_idを返す。
 
     files: UploadedFile のリスト
-    extracted: files と同じ長さの dict のリスト。
-               各要素は {'invoice_no': str|None, 'invoice_total': Decimal|None}
+    extracted: files と同じ長さのリスト。各要素は次のいずれか:
+      - dict {'invoice_no': str|None, 'invoice_total': Decimal|None}
+        → 従来どおり1ファイル=1行（source='file'）
+      - list[dict] {'invoice_no': str, 'invoice_total': Decimal, 'export_date': date}
+        → パッキングリストExcel。1ファイルからN行を展開する（source='excel'）。
+          N行は同じ一時ファイル(stored_name)を共有する。
     """
     discard_batch(request)
     batch_id = uuid.uuid4().hex
@@ -62,21 +66,31 @@ def create_batch(request, files, extracted):
     os.makedirs(target_dir, exist_ok=True)
 
     items = []
-    for index, (uploaded, ex) in enumerate(zip(files, extracted)):
+    index = 0
+    for file_no, (uploaded, ex) in enumerate(zip(files, extracted)):
         original_name = os.path.basename(uploaded.name)
-        stored_name = _safe_stored_name(index, original_name)
+        stored_name = _safe_stored_name(file_no, original_name)
         with open(os.path.join(target_dir, stored_name), 'wb') as out:
             for chunk in uploaded.chunks():
                 out.write(chunk)
-        total = ex.get('invoice_total')
-        items.append({
-            'index': index,
-            'original_name': original_name,
-            'stored_name': stored_name,
-            'invoice_no': ex.get('invoice_no'),
-            # sessionはJSON化されるためDecimalを直接置けない
-            'invoice_total': str(total) if total is not None else None,
-        })
+        if isinstance(ex, list):
+            rows, source = ex, 'excel'
+        else:
+            rows, source = [ex], 'file'
+        for row in rows:
+            total = row.get('invoice_total')
+            export_date = row.get('export_date')
+            items.append({
+                'index': index,
+                'original_name': original_name,
+                'stored_name': stored_name,
+                'source': source,
+                'invoice_no': row.get('invoice_no'),
+                # sessionはJSON化されるためDecimal/dateを直接置けない
+                'invoice_total': str(total) if total is not None else None,
+                'export_date': export_date.isoformat() if export_date else None,
+            })
+            index += 1
 
     request.session[SESSION_KEY] = {
         'batch_id': batch_id,
@@ -107,9 +121,12 @@ def remove_item(request, index):
     if item is None:
         return len(batch['items'])
     path = batch_file_path(batch['batch_id'], item['stored_name'])
-    if os.path.exists(path):
-        os.remove(path)
     batch['items'] = [i for i in batch['items'] if i['index'] != index]
+    # パッキングリストExcel由来の複数行は一時ファイルを共有しているため、
+    # 同じファイルを参照する行が残っている間は実ファイルを消さない
+    still_used = any(i['stored_name'] == item['stored_name'] for i in batch['items'])
+    if not still_used and os.path.exists(path):
+        os.remove(path)
     request.session[SESSION_KEY] = batch
     request.session.modified = True
     return len(batch['items'])

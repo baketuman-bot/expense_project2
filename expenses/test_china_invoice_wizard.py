@@ -145,6 +145,48 @@ class ChinaInvoiceBatchTests(TestCase):
     def test_一時ルートが存在しなくてもcleanupは0を返す(self):
         self.assertEqual(batch_mod.cleanup_stale_batches(), 0)
 
+    def _excel_extracted(self):
+        return [
+            {'invoice_no': 'ABC-1', 'invoice_total': Decimal('100.00')},
+            [
+                {'invoice_no': 'TH-1', 'invoice_total': Decimal('10.00'),
+                 'export_date': date(2026, 7, 1)},
+                {'invoice_no': 'TH-2', 'invoice_total': Decimal('20.50'),
+                 'export_date': date(2026, 7, 3)},
+            ],
+        ]
+
+    def test_リスト形式のextractedは1ファイルから複数itemに展開される(self):
+        batch_id = batch_mod.create_batch(self.request, self._files(), self._excel_extracted())
+        items = self.request.session[batch_mod.SESSION_KEY]['items']
+        self.assertEqual(len(items), 3)
+        self.assertEqual([i['index'] for i in items], [0, 1, 2])
+        self.assertEqual(items[0]['source'], 'file')
+        self.assertIsNone(items[0]['export_date'])
+        self.assertEqual(items[1]['source'], 'excel')
+        self.assertEqual(items[1]['invoice_no'], 'TH-1')
+        self.assertEqual(items[1]['invoice_total'], '10.00')
+        self.assertEqual(items[1]['export_date'], '2026-07-01')
+        self.assertEqual(items[2]['export_date'], '2026-07-03')
+        # Excel由来の2行は同じ一時ファイルを共有する
+        self.assertEqual(items[1]['stored_name'], items[2]['stored_name'])
+        self.assertNotEqual(items[0]['stored_name'], items[1]['stored_name'])
+        self.assertTrue(os.path.exists(
+            batch_mod.batch_file_path(batch_id, items[1]['stored_name'])))
+
+    def test_共有ファイルは全行を除外するまで削除されない(self):
+        batch_id = batch_mod.create_batch(self.request, self._files(), self._excel_extracted())
+        items = self.request.session[batch_mod.SESSION_KEY]['items']
+        shared_path = batch_mod.batch_file_path(batch_id, items[1]['stored_name'])
+
+        remaining = batch_mod.remove_item(self.request, 1)
+        self.assertEqual(remaining, 2)
+        self.assertTrue(os.path.exists(shared_path))  # TH-2がまだ参照している
+
+        remaining = batch_mod.remove_item(self.request, 2)
+        self.assertEqual(remaining, 1)
+        self.assertFalse(os.path.exists(shared_path))  # 最後の参照が消えたら削除
+
 
 class ChinaInvoiceRowFormTests(TestCase):
     @classmethod
