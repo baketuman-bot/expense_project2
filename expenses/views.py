@@ -5010,7 +5010,8 @@ def settlement_menu(request):
     journal_kbns = _JOURNAL_MODES['journal']['kbns']
     debt_kbns    = _JOURNAL_MODES['debt']['kbns']
     counts = {
-        'classify':    base_qs.filter(settle_kbn__isnull=True).count(),
+        # 分類画面は申請単位で表示するため、バッジも申請単位で数える
+        'classify':    base_qs.filter(settle_kbn__isnull=True).values('document_id').distinct().count(),
         'cash_hq':     base_qs.filter(settle_kbn='CAS_PRE', document__pay_kbn='03').count(),
         'cash_osaka':  base_qs.filter(settle_kbn='CAS_PRE', document__pay_kbn='02').count(),
         'transfer':    base_qs.filter(settle_kbn='LON_PRE').count(),

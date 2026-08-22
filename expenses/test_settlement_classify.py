@@ -131,6 +131,26 @@ class SettlementClassifyGetTest(SettlementClassifyFixtureMixin, TestCase):
         self.assertEqual(len(rows), 0)   # self.doc はpay_kbn=03(現金)のみ、給与(SAL_PRE)には一致しない
 
 
+class SettlementMenuClassifyBadgeTest(SettlementClassifyFixtureMixin, TestCase):
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def test_classify_badge_counts_documents_not_contents(self):
+        """未精算データ分類のバッジは分類画面と同じ申請単位で数える（明細単位ではない）"""
+        doc = T_Document.objects.create(
+            document_type=self.doc_type, title='複数明細申請', man_number=self.user,
+            status_cd=self.status_fns, pay_kbn='03',
+        )
+        for day in (1, 2, 3, 4):
+            T_DocumentContent.objects.create(
+                document=doc, date=datetime.date(2026, 7, day), account=self.account,
+                amount=Decimal('1000'), settle_kbn=None,
+            )
+        res = self.client.get('/settings/settlement/')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.context['counts']['classify'], 1)
+
+
 class SettlementClassifyPostTest(SettlementClassifyFixtureMixin, TestCase):
     def setUp(self):
         self.client.force_login(self.user)
