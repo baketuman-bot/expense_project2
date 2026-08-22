@@ -5,7 +5,8 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 import openpyxl
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.worksheet.properties import PageSetupProperties
 from openpyxl.utils import get_column_letter
 
 from django.contrib import messages
@@ -340,10 +341,15 @@ def china_invoice_china_check_update(request):
     return redirect('expenses:china_invoice_china_check')
 
 
+# 検印欄付き帳票として出力する（経理確認・中国確認の項目は出力しない）
 _EXCEL_HEADERS = [
     '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分', '貨物概要補足',
-    '加算調整率', '報告者', '登録日時', '経理確認',
+    '加算調整率', '報告者', '登録日時',
 ]
+# 帳票レイアウト: 1-2行目=タイトル・検印欄、3行目=空行、4行目=表ヘッダー、5行目〜=データ
+_EXCEL_HEADER_ROW = 4
+_EXCEL_DATA_START_ROW = 5
+_STAMP_LABELS = ('承認', '確認', '担当')
 
 
 def _china_invoice_to_excel_row(r):
@@ -351,7 +357,6 @@ def _china_invoice_to_excel_row(r):
         r.management_no, r.invoice_no, float(r.invoice_total), r.export_date,
         r.cargo_category.content, r.cargo_note, float(r.adjustment_rate_value),
         r.reporter.user_name, r.registered_at.replace(tzinfo=None),
-        '確認済み' if r.accounting_confirmed else '未確認',
     ]
 
 
@@ -364,33 +369,68 @@ def china_invoice_excel(request):
 
     records = T_ChinaInvoice.objects.select_related('cargo_category', 'reporter')
     filename = '中国輸出実績_全件.xlsx'
+    period_label = '全件'
     if year_month:
         records = records.filter(registered_at__date__startswith=year_month)
         filename = f'中国輸出実績_{year_month.replace("-", "")}.xlsx'
+        period_label = year_month
     elif date_from and date_to:
         records = records.filter(registered_at__date__gte=date_from, registered_at__date__lte=date_to)
         filename = f'中国輸出実績_{date_from.replace("-", "")}-{date_to.replace("-", "")}.xlsx'
+        period_label = f'{date_from} 〜 {date_to}'
     records = records.order_by('invoice_no')
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = '中国輸出Invoice'
-    ws.append(_EXCEL_HEADERS)
+    n_cols = len(_EXCEL_HEADERS)
+    thin = Side(style='thin')
+    box = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # タイトル・対象期間（検印欄の左側、A〜F列にマージ）
+    title_span = n_cols - len(_STAMP_LABELS)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=title_span)
+    ws.cell(row=1, column=1, value='中国輸出実績報告').font = Font(bold=True, size=14)
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=title_span)
+    ws.cell(row=2, column=1,
+            value=f'対象期間: {period_label}　出力日: {datetime.date.today().isoformat()}')
+
+    # 検印欄（右上3枠: ラベル行＋押印用の空欄行）
+    for i, label in enumerate(_STAMP_LABELS):
+        col = n_cols - len(_STAMP_LABELS) + 1 + i
+        cell = ws.cell(row=1, column=col, value=label)
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = box
+        ws.cell(row=2, column=col).border = box
+    ws.row_dimensions[2].height = 45
+
+    # 表ヘッダー
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill(start_color='495057', end_color='495057', fill_type='solid')
-    for col_idx in range(1, len(_EXCEL_HEADERS) + 1):
-        cell = ws.cell(row=1, column=col_idx)
+    for col_idx, header in enumerate(_EXCEL_HEADERS, start=1):
+        cell = ws.cell(row=_EXCEL_HEADER_ROW, column=col_idx, value=header)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = box
 
-    for r in records.iterator():
-        ws.append(_china_invoice_to_excel_row(r))
+    for row_idx, r in enumerate(records.iterator(), start=_EXCEL_DATA_START_ROW):
+        for col_idx, value in enumerate(_china_invoice_to_excel_row(r), start=1):
+            ws.cell(row=row_idx, column=col_idx, value=value).border = box
 
-    for col_idx, width in enumerate([16, 16, 14, 12, 12, 20, 10, 14, 18, 10], start=1):
+    for col_idx, width in enumerate([16, 16, 14, 12, 12, 20, 10, 14, 18], start=1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
-    ws.freeze_panes = 'A2'
-    ws.auto_filter.ref = ws.dimensions
+    ws.freeze_panes = f'A{_EXCEL_DATA_START_ROW}'
+    ws.auto_filter.ref = (
+        f'A{_EXCEL_HEADER_ROW}:{get_column_letter(n_cols)}{ws.max_row}')
+
+    # 印刷設定: A4横・横1ページ収め・表ヘッダーを各ページに繰り返し
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    ws.print_title_rows = f'{_EXCEL_HEADER_ROW}:{_EXCEL_HEADER_ROW}'
 
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

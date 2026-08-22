@@ -593,13 +593,17 @@ class ChinaInvoiceExcelViewTests(TestCase):
         res = self.client.get(reverse('expenses:china_invoice_excel'))
         self.assertEqual(res.status_code, 403)
 
+    # 帳票レイアウト: 1-2行目=タイトル・検印欄、4行目=表ヘッダー、5行目〜=データ
+    HEADER_ROW = 4
+    DATA_START_ROW = 5
+
     def test_Invoice_No昇順で出力される(self):
         self.client.force_login(self.reporter)
         res = self.client.get(reverse('expenses:china_invoice_excel'))
         self.assertEqual(res.status_code, 200)
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
-        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=2)]
+        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=self.DATA_START_ROW)]
         self.assertEqual(invoice_no_col_values, ['INV-XL-A', 'INV-XL-B', 'INV-XL-C'])
 
     def test_月単位のファイル名になる(self):
@@ -614,7 +618,7 @@ class ChinaInvoiceExcelViewTests(TestCase):
         res = self.client.get(reverse('expenses:china_invoice_excel') + '?year_month=2026-08')
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
-        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=2)]
+        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=self.DATA_START_ROW)]
         self.assertIn('INV-XL-A', invoice_no_col_values)
         self.assertIn('INV-XL-B', invoice_no_col_values)
         self.assertNotIn('INV-XL-C', invoice_no_col_values)
@@ -626,7 +630,7 @@ class ChinaInvoiceExcelViewTests(TestCase):
         self.assertEqual(res.status_code, 200)
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
-        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=2)]
+        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=self.DATA_START_ROW)]
         self.assertEqual(invoice_no_col_values, ['INV-XL-C'])
         self.assertIn(quote('中国輸出実績_20260901-20260930.xlsx'), res['Content-Disposition'])
 
@@ -640,10 +644,39 @@ class ChinaInvoiceExcelViewTests(TestCase):
         self.client.force_login(self.reporter)
         res = self.client.get(reverse('expenses:china_invoice_excel'))
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
-        header = [c.value for c in wb.active[1]]
+        header = [c.value for c in wb.active[self.HEADER_ROW]]
         self.assertNotIn('Invoiceファイル', header)
         self.assertNotIn('Packing List', header)
         self.assertNotIn('中国側確認', header)
+        self.assertNotIn('経理確認', header)
+
+    def test_ヘッダーは経理確認と中国確認を除く全項目(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        header = [c.value for c in wb.active[self.HEADER_ROW]]
+        self.assertEqual(header, [
+            '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分',
+            '貨物概要補足', '加算調整率', '報告者', '登録日時',
+        ])
+
+    def test_検印欄がシート右上にある(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        # 検印欄: 1行目のG/H/I列に承認・確認・担当のラベル、2行目が押印用の空欄
+        self.assertEqual([ws['G1'].value, ws['H1'].value, ws['I1'].value], ['承認', '確認', '担当'])
+        self.assertEqual([ws['G2'].value, ws['H2'].value, ws['I2'].value], [None, None, None])
+        self.assertIsNotNone(ws['G2'].border.bottom.style)   # 押印枠に罫線がある
+
+    def test_タイトルと対象期間が出力される(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel') + '?year_month=2026-08')
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        self.assertEqual(ws['A1'].value, '中国輸出実績報告')
+        self.assertIn('2026-08', ws['A2'].value)
 
 
 class ChinaInvoiceDashboardViewTests(TestCase):
