@@ -5340,6 +5340,21 @@ _JOURNAL_KBN_LABEL = {
     'LON_INPRO': '前借証',
 }
 
+# 現金精算は pay_kbn（M_Item data_kbn='PAY'）で本社/大阪の精算区分を持つ
+_CASH_PAY_KBN_LABEL = {
+    '02': '現金精算（大阪）',
+    '03': '現金精算（本社）',
+}
+
+
+def _journal_settle_label(settle_kbn, pay_kbn=None):
+    """仕訳系一覧の精算方法ラベル。現金精算は pay_kbn で本社/大阪を区別する"""
+    if settle_kbn == 'CAS_INPRO':
+        label = _CASH_PAY_KBN_LABEL.get((pay_kbn or '').strip())
+        if label:
+            return label
+    return _JOURNAL_KBN_LABEL.get(settle_kbn, settle_kbn or '')
+
 # 仕訳作成／債務管理データ作成で共有するモード設定。
 # 口座振込(LON_INPRO)は仕訳ではなく債務管理データとして扱う
 _JOURNAL_MODES = {
@@ -5580,7 +5595,7 @@ def _journal_entry_view(request, mode):
             'amount':       c.journal_amont if is_split else c.amount,
             'purpose':      c.purpose or '',
             'settle_kbn':   c.settle_kbn or '',
-            'settle_label': _JOURNAL_KBN_LABEL.get(c.settle_kbn, c.settle_kbn or ''),
+            'settle_label': _journal_settle_label(c.settle_kbn, c.document.pay_kbn),
             'journal_done': c.journal_done,
             'warn':         acd5.startswith('??'),
             'is_split':     is_split,
@@ -6161,7 +6176,7 @@ def journal_split(request, pk):
             'applicant':    str(parent.document.man_number) if parent.document.man_number else '',
             'purpose':      split.purpose or '',
             'settle_kbn':   split.settle_kbn or '',
-            'settle_label': _JOURNAL_KBN_LABEL.get(split.settle_kbn, split.settle_kbn or ''),
+            'settle_label': _journal_settle_label(split.settle_kbn, parent.document.pay_kbn),
         },
     })
 
