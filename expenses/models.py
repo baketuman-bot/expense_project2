@@ -141,7 +141,7 @@ class M_AccountSub(models.Model):
 
 # 汎用項目マスタ
 class M_Item(models.Model):
-    data_kbn = models.CharField("データ区分", max_length=10, blank=True)
+    data_kbn = models.CharField("データ区分", max_length=10, blank=True, db_comment='データ区分（CUR=通貨/PAY=精算方法/TRA=日当単価/MST=マスタ設定メニュー等）')
     key = models.CharField("キー", max_length=20, blank=True)
     content = models.CharField("内容", max_length=50, blank=True)
     content2 = models.CharField("内容2", max_length=50)
@@ -1174,26 +1174,27 @@ class T_Assets(models.Model):
 class T_AssetsLowValue(models.Model):
     """少額資産テーブル"""
 
-    low_value_asset_no             = models.CharField("小額資産番号",         max_length=13, primary_key=True)
-    maker_name                     = models.CharField("メーカー名",           max_length=50, null=True, blank=True)
-    item_name                      = models.CharField("品名",                 max_length=100, null=True, blank=True)
-    model_no                       = models.CharField("品番",                 max_length=50, null=True, blank=True)
-    serial_no                      = models.CharField("製造番号",             max_length=50, null=True, blank=True)
-    purpose                        = models.CharField("用途",                 max_length=100, null=True, blank=True)
-    acquisition_price              = models.DecimalField("取得価格",          max_digits=18, decimal_places=4, null=True, blank=True)
-    acquisition_date               = models.DateTimeField("年月日",           null=True, blank=True)
-    bumon_cd                       = models.CharField("部門コード",           max_length=10, null=True, blank=True)
-    bumon_name                     = models.CharField("部門名",               max_length=50, null=True, blank=True)
-    location_cd                    = models.CharField("設置場所コード",       max_length=10, null=True, blank=True)
-    location_name                  = models.CharField("設置場所名",           max_length=50, null=True, blank=True)
-    cre_date                       = models.DateTimeField("作成日",           auto_now_add=True)
-    up_date                        = models.DateTimeField("更新日",           auto_now=True)
+    low_value_asset_no             = models.CharField("小額資産番号",         max_length=13, primary_key=True, db_comment='小額資産番号（PK）')
+    maker_name                     = models.CharField("メーカー名",           max_length=50, null=True, blank=True, db_comment='メーカー名')
+    item_name                      = models.CharField("品名",                 max_length=100, null=True, blank=True, db_comment='品名')
+    model_no                       = models.CharField("品番",                 max_length=50, null=True, blank=True, db_comment='品番')
+    serial_no                      = models.CharField("製造番号",             max_length=50, null=True, blank=True, db_comment='製造番号')
+    purpose                        = models.CharField("用途",                 max_length=100, null=True, blank=True, db_comment='用途')
+    acquisition_price              = models.DecimalField("取得価格",          max_digits=18, decimal_places=4, null=True, blank=True, db_comment='取得価格')
+    acquisition_date               = models.DateTimeField("年月日",           null=True, blank=True, db_comment='取得年月日')
+    bumon_cd                       = models.CharField("部門コード",           max_length=10, null=True, blank=True, db_comment='部門コード')
+    bumon_name                     = models.CharField("部門名",               max_length=50, null=True, blank=True, db_comment='部門名')
+    location_cd                    = models.CharField("設置場所コード",       max_length=10, null=True, blank=True, db_comment='設置場所コード')
+    location_name                  = models.CharField("設置場所名",           max_length=50, null=True, blank=True, db_comment='設置場所名')
+    cre_date                       = models.DateTimeField("作成日",           auto_now_add=True, db_comment='作成日時')
+    up_date                        = models.DateTimeField("更新日",           auto_now=True, db_comment='更新日時')
 
     def __str__(self):
         return f"{self.low_value_asset_no} {self.item_name}"
 
     class Meta:
         db_table = 't_assets_low_value'
+        db_table_comment = '少額資産台帳'
         verbose_name = '少額資産'
         verbose_name_plural = '少額資産'
         ordering = ['low_value_asset_no']
@@ -1204,24 +1205,26 @@ class T_AssetsSyncQueue(models.Model):
     OPERATION_CHOICES = [('insert', '新規登録'), ('update', '更新')]
     STATUS_CHOICES = [('pending', '未送信'), ('done', '送信済'), ('error', 'エラー')]
 
-    queue_id = models.AutoField("キューID", primary_key=True)
-    asset_no = models.CharField("資産NO", max_length=13)
-    operation = models.CharField("操作", max_length=10, choices=OPERATION_CHOICES)
-    payload = models.JSONField("変更内容")
-    status = models.CharField("状態", max_length=10, choices=STATUS_CHOICES, default='pending')
-    error_msg = models.CharField("エラー内容", max_length=500, blank=True, default='')
+    queue_id = models.AutoField("キューID", primary_key=True, db_comment='キューID（PK）')
+    asset_no = models.CharField("資産NO", max_length=13, db_comment='資産NO')
+    operation = models.CharField("操作", max_length=10, choices=OPERATION_CHOICES, db_comment='操作（insert=新規登録/update=更新）')
+    payload = models.JSONField("変更内容", db_comment='変更内容（変更フィールドのみのJSON）')
+    status = models.CharField("状態", max_length=10, choices=STATUS_CHOICES, default='pending', db_comment='状態（pending=未送信/done=送信済/error=エラー）')
+    error_msg = models.CharField("エラー内容", max_length=500, blank=True, default='', db_comment='エラー内容')
     created_by = models.ForeignKey(
         M_User, to_field='man_number', db_column='created_by',
         on_delete=models.PROTECT, verbose_name="登録者",
+        db_comment='登録者社員番号（FK: m_user.man_number）',
     )
-    created_at = models.DateTimeField("登録日時", auto_now_add=True)
-    processed_at = models.DateTimeField("処理日時", null=True, blank=True)
+    created_at = models.DateTimeField("登録日時", auto_now_add=True, db_comment='登録日時')
+    processed_at = models.DateTimeField("処理日時", null=True, blank=True, db_comment='処理日時')
 
     def __str__(self):
         return f"{self.asset_no} ({self.get_operation_display()}/{self.get_status_display()})"
 
     class Meta:
         db_table = 't_assets_sync_queue'
+        db_table_comment = '固定資産同期キュー（Web編集→本物MDBへのPush待ち）'
         verbose_name = '固定資産同期キュー'
         verbose_name_plural = '固定資産同期キュー'
         ordering = ['-created_at']
@@ -1229,12 +1232,13 @@ class T_AssetsSyncQueue(models.Model):
 
 # 換算為替レートマスタ
 class M_ExchangeRate(models.Model):
-    keijo_ym      = models.CharField("計上年月", max_length=6)
-    tsuka_cd      = models.CharField("通貨コード", max_length=3)
-    exchange_rate = models.DecimalField("換算レート", max_digits=5, decimal_places=2)
+    keijo_ym      = models.CharField("計上年月", max_length=6, db_comment='計上年月（YYYYMM）')
+    tsuka_cd      = models.CharField("通貨コード", max_length=3, db_comment='通貨コード')
+    exchange_rate = models.DecimalField("換算レート", max_digits=5, decimal_places=2, db_comment='換算レート')
 
     class Meta:
         db_table = 'M_ExchangeRate'
+        db_table_comment = '換算為替レートマスタ'
         unique_together = [('keijo_ym', 'tsuka_cd')]
         verbose_name = '換算為替レート'
         verbose_name_plural = '換算為替レート'
@@ -1247,28 +1251,29 @@ class M_ExchangeRate(models.Model):
 class GS_Ringi(models.Model):
     """稟議データ本体（旧GSESSIONのRNG_RNDATAより参照専用インポート）"""
 
-    rng_sid        = models.IntegerField("旧稟議SID", primary_key=True)
-    rng_title      = models.CharField("件名", max_length=100, null=True, blank=True)
-    rng_makedate   = models.DateTimeField("作成日時", null=True, blank=True)
-    rng_applicate  = models.IntegerField("申請者旧USR_SID", null=True, blank=True)
-    rng_appldate   = models.DateTimeField("申請日時", null=True, blank=True)
-    rng_status     = models.IntegerField("ステータス", null=True, blank=True)
-    rng_compflg    = models.IntegerField("完了フラグ", null=True, blank=True)
-    rng_admcomment = models.CharField("管理者コメント", max_length=300, null=True, blank=True)
-    rng_auid       = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
-    rng_adate      = models.DateTimeField("作成日時(監査)", null=True, blank=True)
-    rng_euid       = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
-    rng_edate      = models.DateTimeField("更新日時(監査)", null=True, blank=True)
-    rng_id         = models.CharField("表示用ID", max_length=120, null=True, blank=True)
-    rtp_sid        = models.IntegerField("テンプレート旧SID", null=True, blank=True)
-    rtp_ver        = models.IntegerField("テンプレートバージョン", null=True, blank=True)
-    rct_ver        = models.IntegerField("カテゴリバージョン", default=0, null=True, blank=True)
+    rng_sid        = models.IntegerField("旧稟議SID", primary_key=True, db_comment='旧稟議SID（PK）')
+    rng_title      = models.CharField("件名", max_length=100, null=True, blank=True, db_comment='件名')
+    rng_makedate   = models.DateTimeField("作成日時", null=True, blank=True, db_comment='作成日時')
+    rng_applicate  = models.IntegerField("申請者旧USR_SID", null=True, blank=True, db_comment='申請者旧USR_SID')
+    rng_appldate   = models.DateTimeField("申請日時", null=True, blank=True, db_comment='申請日時')
+    rng_status     = models.IntegerField("ステータス", null=True, blank=True, db_comment='ステータス')
+    rng_compflg    = models.IntegerField("完了フラグ", null=True, blank=True, db_comment='完了フラグ')
+    rng_admcomment = models.CharField("管理者コメント", max_length=300, null=True, blank=True, db_comment='管理者コメント')
+    rng_auid       = models.IntegerField("作成者旧USR_SID", null=True, blank=True, db_comment='作成者旧USR_SID')
+    rng_adate      = models.DateTimeField("作成日時(監査)", null=True, blank=True, db_comment='作成日時（監査）')
+    rng_euid       = models.IntegerField("更新者旧USR_SID", null=True, blank=True, db_comment='更新者旧USR_SID')
+    rng_edate      = models.DateTimeField("更新日時(監査)", null=True, blank=True, db_comment='更新日時（監査）')
+    rng_id         = models.CharField("表示用ID", max_length=120, null=True, blank=True, db_comment='表示用ID')
+    rtp_sid        = models.IntegerField("テンプレート旧SID", null=True, blank=True, db_comment='テンプレート旧SID')
+    rtp_ver        = models.IntegerField("テンプレートバージョン", null=True, blank=True, db_comment='テンプレートバージョン')
+    rct_ver        = models.IntegerField("カテゴリバージョン", default=0, null=True, blank=True, db_comment='カテゴリバージョン')
 
     def __str__(self):
         return f"{self.rng_sid} {self.rng_title}"
 
     class Meta:
         db_table = 'GS_RINGI'
+        db_table_comment = '稟議データ本体（GSESSIONのRNG_RNDATAより参照専用インポート）'
         verbose_name = '旧稟議データ(GSESSION)'
         verbose_name_plural = '旧稟議データ(GSESSION)'
         ordering = ['-rng_sid']
@@ -1280,24 +1285,25 @@ class GS_Usr(models.Model):
     パスワードハッシュ(USR_PSWD)はセキュリティ上の理由で取り込まない。
     """
 
-    usr_sid           = models.IntegerField("旧ユーザーSID", primary_key=True)
-    usr_lgid           = models.CharField("ログインID", max_length=256, null=True, blank=True)
-    usr_jkbn           = models.IntegerField("在籍区分", null=True, blank=True)
-    usi_sei            = models.CharField("姓", max_length=30, null=True, blank=True)
-    usi_mei            = models.CharField("名", max_length=30, null=True, blank=True)
-    usi_sei_kn         = models.CharField("姓カナ", max_length=60, null=True, blank=True)
-    usi_mei_kn         = models.CharField("名カナ", max_length=60, null=True, blank=True)
-    usi_syain_no       = models.CharField("社員番号", max_length=20, null=True, blank=True)
-    usi_syozoku        = models.CharField("所属名", max_length=60, null=True, blank=True)
-    usi_yakusyoku      = models.CharField("役職名", max_length=30, null=True, blank=True)
-    pos_sid            = models.IntegerField("旧役職SID", null=True, blank=True)
-    usi_entrance_date  = models.DateTimeField("入社日", null=True, blank=True)
+    usr_sid           = models.IntegerField("旧ユーザーSID", primary_key=True, db_comment='旧ユーザーSID（PK）')
+    usr_lgid           = models.CharField("ログインID", max_length=256, null=True, blank=True, db_comment='ログインID')
+    usr_jkbn           = models.IntegerField("在籍区分", null=True, blank=True, db_comment='在籍区分')
+    usi_sei            = models.CharField("姓", max_length=30, null=True, blank=True, db_comment='姓')
+    usi_mei            = models.CharField("名", max_length=30, null=True, blank=True, db_comment='名')
+    usi_sei_kn         = models.CharField("姓カナ", max_length=60, null=True, blank=True, db_comment='姓カナ')
+    usi_mei_kn         = models.CharField("名カナ", max_length=60, null=True, blank=True, db_comment='名カナ')
+    usi_syain_no       = models.CharField("社員番号", max_length=20, null=True, blank=True, db_comment='社員番号')
+    usi_syozoku        = models.CharField("所属名", max_length=60, null=True, blank=True, db_comment='所属名')
+    usi_yakusyoku      = models.CharField("役職名", max_length=30, null=True, blank=True, db_comment='役職名')
+    pos_sid            = models.IntegerField("旧役職SID", null=True, blank=True, db_comment='旧役職SID')
+    usi_entrance_date  = models.DateTimeField("入社日", null=True, blank=True, db_comment='入社日')
 
     def __str__(self):
         return f"{self.usr_sid} {self.usi_sei}{self.usi_mei}"
 
     class Meta:
         db_table = 'GS_USR'
+        db_table_comment = 'ユーザー参照データ（GSESSIONのCMN_USRM+CMN_USRM_INFより参照専用インポート）'
         verbose_name = '旧ユーザー(GSESSION)'
         verbose_name_plural = '旧ユーザー(GSESSION)'
         ordering = ['usr_sid']
@@ -1306,23 +1312,24 @@ class GS_Usr(models.Model):
 class GS_Group(models.Model):
     """組織・グループマスタ（旧GSESSIONのCMN_GROUPMより参照専用インポート）"""
 
-    grp_sid     = models.IntegerField("旧グループSID", primary_key=True)
-    grp_id      = models.CharField("グループID", max_length=50, null=True, blank=True)
-    grp_name    = models.CharField("グループ名", max_length=50, null=True, blank=True)
-    grp_name_kn = models.CharField("グループ名カナ", max_length=75, null=True, blank=True)
-    grp_comment = models.CharField("コメント", max_length=1000, null=True, blank=True)
-    grp_auid    = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
-    grp_adate   = models.DateTimeField("作成日時", null=True, blank=True)
-    grp_euid    = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
-    grp_edate   = models.DateTimeField("更新日時", null=True, blank=True)
-    grp_sort    = models.IntegerField("表示順", null=True, blank=True)
-    grp_jkbn    = models.IntegerField("状態区分", null=True, blank=True)
+    grp_sid     = models.IntegerField("旧グループSID", primary_key=True, db_comment='旧グループSID（PK）')
+    grp_id      = models.CharField("グループID", max_length=50, null=True, blank=True, db_comment='グループID')
+    grp_name    = models.CharField("グループ名", max_length=50, null=True, blank=True, db_comment='グループ名')
+    grp_name_kn = models.CharField("グループ名カナ", max_length=75, null=True, blank=True, db_comment='グループ名カナ')
+    grp_comment = models.CharField("コメント", max_length=1000, null=True, blank=True, db_comment='コメント')
+    grp_auid    = models.IntegerField("作成者旧USR_SID", null=True, blank=True, db_comment='作成者旧USR_SID')
+    grp_adate   = models.DateTimeField("作成日時", null=True, blank=True, db_comment='作成日時')
+    grp_euid    = models.IntegerField("更新者旧USR_SID", null=True, blank=True, db_comment='更新者旧USR_SID')
+    grp_edate   = models.DateTimeField("更新日時", null=True, blank=True, db_comment='更新日時')
+    grp_sort    = models.IntegerField("表示順", null=True, blank=True, db_comment='表示順')
+    grp_jkbn    = models.IntegerField("状態区分", null=True, blank=True, db_comment='状態区分')
 
     def __str__(self):
         return f"{self.grp_sid} {self.grp_name}"
 
     class Meta:
         db_table = 'GS_GROUP'
+        db_table_comment = '組織・グループマスタ（GSESSIONのCMN_GROUPMより参照専用インポート）'
         verbose_name = '旧組織グループ(GSESSION)'
         verbose_name_plural = '旧組織グループ(GSESSION)'
         ordering = ['grp_sort', 'grp_sid']
@@ -1331,20 +1338,21 @@ class GS_Group(models.Model):
 class GS_Belong(models.Model):
     """所属（グループ-ユーザーの紐付け。旧GSESSIONのCMN_BELONGMより参照専用インポート）"""
 
-    grp_sid    = models.IntegerField("旧グループSID", null=True, blank=True)
-    usr_sid    = models.IntegerField("旧ユーザーSID", null=True, blank=True)
-    beg_auid   = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
-    beg_adate  = models.DateTimeField("作成日時", null=True, blank=True)
-    beg_euid   = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
-    beg_edate  = models.DateTimeField("更新日時", null=True, blank=True)
-    beg_defgrp = models.IntegerField("デフォルトグループ区分", null=True, blank=True)
-    beg_grpkbn = models.IntegerField("グループ区分", null=True, blank=True)
+    grp_sid    = models.IntegerField("旧グループSID", null=True, blank=True, db_comment='旧グループSID')
+    usr_sid    = models.IntegerField("旧ユーザーSID", null=True, blank=True, db_comment='旧ユーザーSID')
+    beg_auid   = models.IntegerField("作成者旧USR_SID", null=True, blank=True, db_comment='作成者旧USR_SID')
+    beg_adate  = models.DateTimeField("作成日時", null=True, blank=True, db_comment='作成日時')
+    beg_euid   = models.IntegerField("更新者旧USR_SID", null=True, blank=True, db_comment='更新者旧USR_SID')
+    beg_edate  = models.DateTimeField("更新日時", null=True, blank=True, db_comment='更新日時')
+    beg_defgrp = models.IntegerField("デフォルトグループ区分", null=True, blank=True, db_comment='デフォルトグループ区分')
+    beg_grpkbn = models.IntegerField("グループ区分", null=True, blank=True, db_comment='グループ区分')
 
     def __str__(self):
         return f"grp={self.grp_sid} usr={self.usr_sid}"
 
     class Meta:
         db_table = 'GS_BELONG'
+        db_table_comment = '所属（グループ-ユーザー紐付け。GSESSIONのCMN_BELONGMより参照専用インポート）'
         verbose_name = '旧所属(GSESSION)'
         verbose_name_plural = '旧所属(GSESSION)'
         unique_together = [('grp_sid', 'usr_sid', 'beg_grpkbn')]
@@ -1353,21 +1361,22 @@ class GS_Belong(models.Model):
 class GS_Position(models.Model):
     """役職マスタ（旧GSESSIONのCMN_POSITIONより参照専用インポート）"""
 
-    pos_sid   = models.IntegerField("旧役職SID", primary_key=True)
-    pos_code  = models.CharField("役職コード", max_length=15, null=True, blank=True)
-    pos_name  = models.CharField("役職名", max_length=30, null=True, blank=True)
-    pos_biko  = models.CharField("備考", max_length=300, null=True, blank=True)
-    pos_sort  = models.IntegerField("表示順", null=True, blank=True)
-    pos_auid  = models.IntegerField("作成者旧USR_SID", null=True, blank=True)
-    pos_adate = models.DateTimeField("作成日時", null=True, blank=True)
-    pos_euid  = models.IntegerField("更新者旧USR_SID", null=True, blank=True)
-    pos_edate = models.DateTimeField("更新日時", null=True, blank=True)
+    pos_sid   = models.IntegerField("旧役職SID", primary_key=True, db_comment='旧役職SID（PK）')
+    pos_code  = models.CharField("役職コード", max_length=15, null=True, blank=True, db_comment='役職コード')
+    pos_name  = models.CharField("役職名", max_length=30, null=True, blank=True, db_comment='役職名')
+    pos_biko  = models.CharField("備考", max_length=300, null=True, blank=True, db_comment='備考')
+    pos_sort  = models.IntegerField("表示順", null=True, blank=True, db_comment='表示順')
+    pos_auid  = models.IntegerField("作成者旧USR_SID", null=True, blank=True, db_comment='作成者旧USR_SID')
+    pos_adate = models.DateTimeField("作成日時", null=True, blank=True, db_comment='作成日時')
+    pos_euid  = models.IntegerField("更新者旧USR_SID", null=True, blank=True, db_comment='更新者旧USR_SID')
+    pos_edate = models.DateTimeField("更新日時", null=True, blank=True, db_comment='更新日時')
 
     def __str__(self):
         return f"{self.pos_sid} {self.pos_name}"
 
     class Meta:
         db_table = 'GS_POSITION'
+        db_table_comment = '役職マスタ（GSESSIONのCMN_POSITIONより参照専用インポート）'
         verbose_name = '旧役職(GSESSION)'
         verbose_name_plural = '旧役職(GSESSION)'
         ordering = ['pos_sort', 'pos_sid']
@@ -1375,15 +1384,16 @@ class GS_Position(models.Model):
 
 # 見出し⇔フィールド変換マスタ（アップロード機能で汎用的に使用。テーブル非依存）
 class M_ExchangeField(models.Model):
-    table_name = models.CharField("アップロード先テーブル", max_length=100)
-    updata_title = models.CharField("読み込みファイルの見出し名", max_length=100)
-    up_field_name = models.CharField("書き出し先フィールド名", max_length=100)
+    table_name = models.CharField("アップロード先テーブル", max_length=100, db_comment='アップロード先テーブル名')
+    updata_title = models.CharField("読み込みファイルの見出し名", max_length=100, db_comment='読み込みファイルの見出し名')
+    up_field_name = models.CharField("書き出し先フィールド名", max_length=100, db_comment='書き出し先フィールド名')
 
     def __str__(self):
         return f"{self.table_name}: {self.updata_title} → {self.up_field_name}"
 
     class Meta:
         db_table = 'm_exchange_fields'
+        db_table_comment = '見出し⇔フィールド変換マスタ（アップロード機能で汎用使用）'
         unique_together = [('table_name', 'updata_title')]
         ordering = ['table_name', 'updata_title']
         verbose_name = '見出し変換マスタ'
@@ -1394,37 +1404,39 @@ class T_ChinaExport(models.Model):
     """中国輸出実績報告: 経理が輸出目的の購入データを直接投入し、
     担当社員が輸出予定日・輸出日・インボイスNoを入力してフォローする。"""
 
-    order_no = models.CharField("注文番号", max_length=15, null=True, blank=True)
-    supplier_cd = models.CharField("仕入先コード", max_length=10, null=True, blank=True)
-    supplier_name = models.CharField("仕入先名", max_length=30, null=True, blank=True)
-    item_name1 = models.CharField("品目名1", max_length=50)
-    item_name2 = models.CharField("品目名2", max_length=50, null=True, blank=True)
-    unit_price = models.DecimalField("仕入単価", max_digits=15, decimal_places=2, null=True, blank=True)
-    purchase_date = models.DateField("購入日", null=True, blank=True)
-    quantity = models.DecimalField("数量", max_digits=10, decimal_places=2, null=True, blank=True)
-    amount = models.DecimalField("金額", max_digits=10, decimal_places=2)
-    account_cd = models.CharField("科目コード", max_length=10, null=True, blank=True)
-    account_name = models.CharField("科目名", max_length=30, null=True, blank=True)
-    burden_bumon_cd = models.CharField("負担部門コード", max_length=10, null=True, blank=True)
-    burden_bumon_name = models.CharField("負担部署名", max_length=20, null=True, blank=True)
-    order_bumon_name = models.CharField("発注部署名", max_length=20, null=True, blank=True)
-    order_staff_name = models.CharField("発注担当名", max_length=20, null=True, blank=True)
+    order_no = models.CharField("注文番号", max_length=15, null=True, blank=True, db_comment='注文番号')
+    supplier_cd = models.CharField("仕入先コード", max_length=10, null=True, blank=True, db_comment='仕入先コード')
+    supplier_name = models.CharField("仕入先名", max_length=30, null=True, blank=True, db_comment='仕入先名')
+    item_name1 = models.CharField("品目名1", max_length=50, db_comment='品目名1')
+    item_name2 = models.CharField("品目名2", max_length=50, null=True, blank=True, db_comment='品目名2')
+    unit_price = models.DecimalField("仕入単価", max_digits=15, decimal_places=2, null=True, blank=True, db_comment='仕入単価')
+    purchase_date = models.DateField("購入日", null=True, blank=True, db_comment='購入日')
+    quantity = models.DecimalField("数量", max_digits=10, decimal_places=2, null=True, blank=True, db_comment='数量')
+    amount = models.DecimalField("金額", max_digits=10, decimal_places=2, db_comment='金額')
+    account_cd = models.CharField("科目コード", max_length=10, null=True, blank=True, db_comment='勘定科目コード')
+    account_name = models.CharField("科目名", max_length=30, null=True, blank=True, db_comment='勘定科目名')
+    burden_bumon_cd = models.CharField("負担部門コード", max_length=10, null=True, blank=True, db_comment='負担部門コード')
+    burden_bumon_name = models.CharField("負担部署名", max_length=20, null=True, blank=True, db_comment='負担部署名')
+    order_bumon_name = models.CharField("発注部署名", max_length=20, null=True, blank=True, db_comment='発注部署名')
+    order_staff_name = models.CharField("発注担当名", max_length=20, null=True, blank=True, db_comment='発注担当名')
 
-    export_planned_date = models.DateField("輸出予定日", null=True, blank=True)
-    export_date = models.DateField("輸出日", null=True, blank=True)
-    invoice_no = models.CharField("インボイスNo", max_length=30, null=True, blank=True)
+    export_planned_date = models.DateField("輸出予定日", null=True, blank=True, db_comment='輸出予定日')
+    export_date = models.DateField("輸出日", null=True, blank=True, db_comment='輸出日')
+    invoice_no = models.CharField("インボイスNo", max_length=30, null=True, blank=True, db_comment='インボイスNo')
 
     updated_by = models.ForeignKey(
         M_User, verbose_name="最終更新者", null=True, blank=True,
         on_delete=models.SET_NULL, related_name='+',
+        db_comment='最終更新者ユーザーID（FK: m_user）',
     )
-    updated_at = models.DateTimeField("最終更新日時", auto_now=True)
+    updated_at = models.DateTimeField("最終更新日時", auto_now=True, db_comment='最終更新日時')
 
     def __str__(self):
         return f"{self.order_no or '(注文番号未設定)'} {self.item_name1}"
 
     class Meta:
         db_table = 't_china_export'
+        db_table_comment = '中国輸出実績報告（経理投入の購入データを担当社員がフォロー）'
         verbose_name = '中国輸出実績報告'
         verbose_name_plural = '中国輸出実績報告'
 
@@ -1457,44 +1469,50 @@ class T_ChinaInvoice(models.Model):
         (CHINA_STATUS_DIFFERENCE, '差異あり'),
     ]
 
-    management_no = models.CharField("管理番号", max_length=20, unique=True, blank=True)
-    invoice_no = models.CharField("Invoice No", max_length=50)
-    invoice_total = models.DecimalField("Invoice Total", max_digits=15, decimal_places=2)
-    export_date = models.DateField("輸出日")
+    management_no = models.CharField("管理番号", max_length=20, unique=True, blank=True, db_comment='管理番号（EX-YYYYMMDD-NNN形式で自動採番）')
+    invoice_no = models.CharField("Invoice No", max_length=50, db_comment='Invoice No')
+    invoice_total = models.DecimalField("Invoice Total", max_digits=15, decimal_places=2, db_comment='Invoice合計金額')
+    export_date = models.DateField("輸出日", db_comment='輸出日')
     cargo_category = models.ForeignKey(
         M_Item, verbose_name="貨物概要区分", on_delete=models.PROTECT,
         related_name='+', limit_choices_to={'data_kbn': 'CHN_CARGO'},
+        db_comment='貨物概要区分ID（FK: m_item data_kbn=CHN_CARGO）',
     )
-    cargo_note = models.CharField("貨物概要補足", max_length=200, blank=True)
-    adjustment_rate_value = models.DecimalField("加算調整率", max_digits=5, decimal_places=2)
+    cargo_note = models.CharField("貨物概要補足", max_length=200, blank=True, db_comment='貨物概要補足')
+    adjustment_rate_value = models.DecimalField("加算調整率", max_digits=5, decimal_places=2, db_comment='加算調整率')
     invoice_file = models.FileField(
-        "Invoiceファイル", upload_to=china_invoice_upload_path, blank=True)
+        "Invoiceファイル", upload_to=china_invoice_upload_path, blank=True, db_comment='Invoiceファイルパス')
     reporter = models.ForeignKey(
         M_User, verbose_name="報告者", on_delete=models.PROTECT, related_name='china_invoices',
+        db_comment='報告者ユーザーID（FK: m_user）',
     )
-    registered_at = models.DateTimeField("登録日時", auto_now_add=True)
+    registered_at = models.DateTimeField("登録日時", auto_now_add=True, db_comment='登録日時')
 
-    accounting_confirmed = models.BooleanField("経理確認", default=False)
+    accounting_confirmed = models.BooleanField("経理確認", default=False, db_comment='経理確認フラグ')
     accounting_confirmed_by = models.ForeignKey(
         M_User, verbose_name="経理確認者", null=True, blank=True,
         on_delete=models.SET_NULL, related_name='+',
+        db_comment='経理確認者ユーザーID（FK: m_user）',
     )
-    accounting_confirmed_at = models.DateTimeField("経理確認日時", null=True, blank=True)
+    accounting_confirmed_at = models.DateTimeField("経理確認日時", null=True, blank=True, db_comment='経理確認日時')
 
     china_confirm_status = models.CharField(
         "中国側確認", max_length=20, choices=CHINA_STATUS_CHOICES, default=CHINA_STATUS_UNCONFIRMED,
+        db_comment='中国側確認（unconfirmed=未確認/confirmed=確認済み/difference=差異あり）',
     )
     china_confirmed_by = models.ForeignKey(
         M_User, verbose_name="中国側確認者", null=True, blank=True,
         on_delete=models.SET_NULL, related_name='+',
+        db_comment='中国側確認者ユーザーID（FK: m_user）',
     )
-    china_confirmed_at = models.DateTimeField("中国側確認日時", null=True, blank=True)
+    china_confirmed_at = models.DateTimeField("中国側確認日時", null=True, blank=True, db_comment='中国側確認日時')
 
     def __str__(self):
         return self.management_no or '(未採番)'
 
     class Meta:
         db_table = 't_china_invoice'
+        db_table_comment = '中国輸出Invoice管理（Invoice単位の実績管理・経理と中国側の二重確認）'
         verbose_name = '中国輸出Invoice'
         verbose_name_plural = '中国輸出Invoice'
 
@@ -1531,16 +1549,18 @@ class T_ChinaInvoice(models.Model):
 class T_ChinaInvoicePackingList(models.Model):
     invoice = models.ForeignKey(
         T_ChinaInvoice, verbose_name="Invoice", on_delete=models.CASCADE, related_name='packing_lists',
+        db_comment='InvoiceID（FK: t_china_invoice）',
     )
-    file = models.FileField("Packing Listファイル", upload_to=china_invoice_packing_list_upload_path)
-    uploaded_at = models.DateTimeField("登録日時", auto_now_add=True)
-    uploaded_by = models.ForeignKey(M_User, verbose_name="登録者", on_delete=models.PROTECT, related_name='+')
+    file = models.FileField("Packing Listファイル", upload_to=china_invoice_packing_list_upload_path, db_comment='Packing Listファイルパス')
+    uploaded_at = models.DateTimeField("登録日時", auto_now_add=True, db_comment='登録日時')
+    uploaded_by = models.ForeignKey(M_User, verbose_name="登録者", on_delete=models.PROTECT, related_name='+', db_comment='登録者ユーザーID（FK: m_user）')
 
     def __str__(self):
         return os.path.basename(self.file.name) if self.file else str(self.pk)
 
     class Meta:
         db_table = 't_china_invoice_packing_list'
+        db_table_comment = '中国輸出Invoice添付Packing List'
         verbose_name = 'Packing List'
         verbose_name_plural = 'Packing List'
 
@@ -1558,14 +1578,15 @@ class T_ChinaInvoicePackingList(models.Model):
 
 
 class T_ChinaInvoiceMonthClose(models.Model):
-    year_month = models.CharField("対象年月", max_length=7, unique=True)  # 'YYYY-MM'
-    closed_by = models.ForeignKey(M_User, verbose_name="締め実行者", on_delete=models.PROTECT, related_name='+')
-    closed_at = models.DateTimeField("締め日時", auto_now_add=True)
+    year_month = models.CharField("対象年月", max_length=7, unique=True, db_comment='対象年月（YYYY-MM）')  # 'YYYY-MM'
+    closed_by = models.ForeignKey(M_User, verbose_name="締め実行者", on_delete=models.PROTECT, related_name='+', db_comment='締め実行者ユーザーID（FK: m_user）')
+    closed_at = models.DateTimeField("締め日時", auto_now_add=True, db_comment='締め日時')
 
     def __str__(self):
         return f"{self.year_month} 締め済み"
 
     class Meta:
         db_table = 't_china_invoice_month_close'
+        db_table_comment = '中国輸出Invoice月締め'
         verbose_name = '中国輸出Invoice月締め'
         verbose_name_plural = '中国輸出Invoice月締め'
