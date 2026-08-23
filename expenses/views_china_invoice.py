@@ -346,7 +346,7 @@ _EXCEL_HEADERS = [
     '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分', '貨物概要補足',
     '加算調整率', '報告者', '登録日時',
 ]
-# 帳票レイアウト: 1-2行目=タイトル・検印欄、3行目=空行、4行目=表ヘッダー、5行目〜=データ
+# 帳票レイアウト: 1-2行目=タイトル・検印欄、3行目=空行、4行目=表ヘッダー、5行目〜=データ、最終行=合計
 _EXCEL_HEADER_ROW = 4
 _EXCEL_DATA_START_ROW = 5
 _STAMP_LABELS = ('承認', '確認', '担当')
@@ -383,6 +383,8 @@ def china_invoice_excel(request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = '中国輸出Invoice'
+    # 帳票見映え優先: 表は罫線なし（検印欄の押印枠のみ罫線）＋縞模様で見せる
+    ws.sheet_view.showGridLines = False
     n_cols = len(_EXCEL_HEADERS)
     thin = Side(style='thin')
     box = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -412,17 +414,40 @@ def china_invoice_excel(request):
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center', vertical='center')
-        cell.border = box
 
+    stripe_fill = PatternFill(start_color='EDEFF2', end_color='EDEFF2', fill_type='solid')
+    amount_col = _EXCEL_HEADERS.index('Invoice Total') + 1
+    total_amount = Decimal('0')
+    record_count = 0
+    last_data_row = _EXCEL_DATA_START_ROW - 1
     for row_idx, r in enumerate(records.iterator(), start=_EXCEL_DATA_START_ROW):
+        total_amount += r.invoice_total
+        record_count += 1
+        last_data_row = row_idx
+        striped = (row_idx - _EXCEL_DATA_START_ROW) % 2 == 1
         for col_idx, value in enumerate(_china_invoice_to_excel_row(r), start=1):
-            ws.cell(row=row_idx, column=col_idx, value=value).border = box
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            if striped:
+                cell.fill = stripe_fill
+            if col_idx == amount_col:
+                cell.number_format = '#,##0.00'
+
+    # 合計行（Invoice Total の合計と件数）
+    total_row = last_data_row + 1
+    total_fill = PatternFill(start_color='D9DEE4', end_color='D9DEE4', fill_type='solid')
+    for col_idx in range(1, n_cols + 1):
+        cell = ws.cell(row=total_row, column=col_idx)
+        cell.font = Font(bold=True)
+        cell.fill = total_fill
+    ws.cell(row=total_row, column=1, value=f'合計（{record_count}件）')
+    total_cell = ws.cell(row=total_row, column=amount_col, value=float(total_amount))
+    total_cell.number_format = '#,##0.00'
 
     for col_idx, width in enumerate([16, 16, 14, 12, 12, 20, 10, 14, 18], start=1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
     ws.freeze_panes = f'A{_EXCEL_DATA_START_ROW}'
     ws.auto_filter.ref = (
-        f'A{_EXCEL_HEADER_ROW}:{get_column_letter(n_cols)}{ws.max_row}')
+        f'A{_EXCEL_HEADER_ROW}:{get_column_letter(n_cols)}{max(last_data_row, _EXCEL_HEADER_ROW)}')
 
     # 印刷設定: A4横・横1ページ収め・表ヘッダーを各ページに繰り返し
     ws.page_setup.orientation = 'landscape'

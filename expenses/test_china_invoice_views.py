@@ -593,7 +593,7 @@ class ChinaInvoiceExcelViewTests(TestCase):
         res = self.client.get(reverse('expenses:china_invoice_excel'))
         self.assertEqual(res.status_code, 403)
 
-    # 帳票レイアウト: 1-2行目=タイトル・検印欄、4行目=表ヘッダー、5行目〜=データ
+    # 帳票レイアウト: 1-2行目=タイトル・検印欄、4行目=表ヘッダー、5行目〜=データ、最終行=合計
     HEADER_ROW = 4
     DATA_START_ROW = 5
 
@@ -603,7 +603,8 @@ class ChinaInvoiceExcelViewTests(TestCase):
         self.assertEqual(res.status_code, 200)
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
-        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=self.DATA_START_ROW)]
+        invoice_no_col_values = [
+            row[1].value for row in ws.iter_rows(min_row=self.DATA_START_ROW, max_row=ws.max_row - 1)]
         self.assertEqual(invoice_no_col_values, ['INV-XL-A', 'INV-XL-B', 'INV-XL-C'])
 
     def test_月単位のファイル名になる(self):
@@ -630,7 +631,8 @@ class ChinaInvoiceExcelViewTests(TestCase):
         self.assertEqual(res.status_code, 200)
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
-        invoice_no_col_values = [row[1].value for row in ws.iter_rows(min_row=self.DATA_START_ROW)]
+        invoice_no_col_values = [
+            row[1].value for row in ws.iter_rows(min_row=self.DATA_START_ROW, max_row=ws.max_row - 1)]
         self.assertEqual(invoice_no_col_values, ['INV-XL-C'])
         self.assertIn(quote('中国輸出実績_20260901-20260930.xlsx'), res['Content-Disposition'])
 
@@ -677,6 +679,41 @@ class ChinaInvoiceExcelViewTests(TestCase):
         ws = wb.active
         self.assertEqual(ws['A1'].value, '中国輸出実績報告')
         self.assertIn('2026-08', ws['A2'].value)
+
+    def test_最終行に件数付きの合計行が出力される(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        total_row = ws.max_row
+        self.assertEqual(ws.cell(row=total_row, column=1).value, '合計（3件）')
+        # Invoice Total (C列) の合計: 100 + 200 + 300
+        self.assertEqual(ws.cell(row=total_row, column=3).value, 600.0)
+        self.assertTrue(ws.cell(row=total_row, column=1).font.bold)
+
+    def test_表ヘッダーに色があり偶数データ行が縞模様になる(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        self.assertEqual(ws.cell(row=self.HEADER_ROW, column=1).fill.fill_type, 'solid')
+        # 1行目のデータ行は無地、2行目のデータ行に縞色が付く
+        self.assertIsNone(ws.cell(row=self.DATA_START_ROW, column=1).fill.fill_type)
+        self.assertEqual(ws.cell(row=self.DATA_START_ROW + 1, column=1).fill.fill_type, 'solid')
+
+    def test_データ表には罫線がない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        header_cell = ws.cell(row=self.HEADER_ROW, column=1)
+        data_cell = ws.cell(row=self.DATA_START_ROW, column=1)
+        for cell in (header_cell, data_cell):
+            self.assertIsNone(cell.border.top.style)
+            self.assertIsNone(cell.border.bottom.style)
+            self.assertIsNone(cell.border.left.style)
+            self.assertIsNone(cell.border.right.style)
+        self.assertFalse(ws.sheet_view.showGridLines)
 
 
 class ChinaInvoiceDashboardViewTests(TestCase):
