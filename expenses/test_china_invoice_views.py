@@ -660,6 +660,7 @@ class ChinaInvoiceExcelViewTests(TestCase):
         self.assertEqual(header, [
             '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分',
             '貨物概要補足', '加算調整率', '報告者', '登録日時',
+            '通貨', '元値相当（通貨）', '管理費（通貨）', '元値相当（JPY）', '管理費（JPY）', '金額（JPY）',
         ])
 
     def test_検印欄がシート右上にある(self):
@@ -667,10 +668,33 @@ class ChinaInvoiceExcelViewTests(TestCase):
         res = self.client.get(reverse('expenses:china_invoice_excel'))
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
-        # 検印欄: 1行目のG/H/I列に承認・確認・担当のラベル、2行目が押印用の空欄
-        self.assertEqual([ws['G1'].value, ws['H1'].value, ws['I1'].value], ['承認', '確認', '担当'])
-        self.assertEqual([ws['G2'].value, ws['H2'].value, ws['I2'].value], [None, None, None])
-        self.assertIsNotNone(ws['G2'].border.bottom.style)   # 押印枠に罫線がある
+        # 検印欄: 1行目のM/N/O列に承認・確認・担当のラベル、2行目が押印用の空欄
+        self.assertEqual([ws['M1'].value, ws['N1'].value, ws['O1'].value], ['承認', '確認', '担当'])
+        self.assertEqual([ws['M2'].value, ws['N2'].value, ws['O2'].value], [None, None, None])
+        self.assertIsNotNone(ws['M2'].border.bottom.style)   # 押印枠に罫線がある
+
+    def test_JPY換算列は為替レートセル参照の数式で出力される(self):
+        # INVOICE実績報告書のK〜P列相当。為替レートはN3へ手入力する運用のため数式で出力する
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        self.assertEqual(ws['M3'].value, '為替レート')          # レート入力欄のラベル
+        self.assertIsNotNone(ws['N3'].border.bottom.style)     # レート入力欄に枠がある
+        row = self.DATA_START_ROW
+        self.assertEqual(ws[f'J{row}'].value, 'US$')
+        self.assertEqual(ws[f'K{row}'].value, f'=C{row}/(1+G{row}/100)')
+        self.assertEqual(ws[f'L{row}'].value, f'=C{row}-K{row}')
+        self.assertEqual(ws[f'M{row}'].value, f'=IF($N$3="","",O{row}-N{row})')
+        self.assertEqual(
+            ws[f'N{row}'].value, f'=IF($N$3="","",ROUND(IF(J{row}<>"JPY",$N$3,1)*L{row},0))')
+        self.assertEqual(
+            ws[f'O{row}'].value, f'=IF($N$3="","",ROUND(IF(J{row}<>"JPY",$N$3,1)*C{row},0))')
+        # 合計行には換算系列のSUM数式が入る
+        total_row = ws.max_row
+        self.assertEqual(
+            ws.cell(row=total_row, column=11).value,
+            f'=SUM(K{self.DATA_START_ROW}:K{total_row - 1})')
 
     def test_タイトルと対象期間が出力される(self):
         self.client.force_login(self.reporter)

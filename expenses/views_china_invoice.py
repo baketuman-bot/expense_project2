@@ -8,6 +8,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.properties import PageSetupProperties
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.cell import coordinate_to_tuple
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -342,21 +343,36 @@ def china_invoice_china_check_update(request):
 
 
 # 検印欄付き帳票として出力する（経理確認・中国確認の項目は出力しない）
+# 「通貨」以降の6列は INVOICE実績報告書（Excel手作業帳票）のK〜P列に相当する。
+# 為替レートはDBに持たないため出力後にレートセル（_EXCEL_RATE_CELL）へ手入力する運用とし、
+# JPY換算3列はレートセルを参照する数式で自動計算させる。
 _EXCEL_HEADERS = [
     '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分', '貨物概要補足',
     '加算調整率', '報告者', '登録日時',
+    '通貨', '元値相当（通貨）', '管理費（通貨）', '元値相当（JPY）', '管理費（JPY）', '金額（JPY）',
 ]
-# 帳票レイアウト: 1-2行目=タイトル・検印欄、3行目=空行、4行目=表ヘッダー、5行目〜=データ、最終行=合計
+# 帳票レイアウト: 1-2行目=タイトル・検印欄、3行目=為替レート入力欄、4行目=表ヘッダー、5行目〜=データ、最終行=合計
 _EXCEL_HEADER_ROW = 4
 _EXCEL_DATA_START_ROW = 5
 _STAMP_LABELS = ('承認', '確認', '担当')
+# 為替レート手入力セル（3行目・「管理費（JPY）」列＝N列。位置を変えたら数式参照も変わるためここで一元管理）
+_EXCEL_RATE_CELL = '$N$3'
+_EXCEL_DEFAULT_CURRENCY = 'US$'
 
 
-def _china_invoice_to_excel_row(r):
+def _china_invoice_to_excel_row(r, row_idx):
+    # 加算調整率(G列)は%値（5.00=5%）のため /100 して使う。JPY換算列は通貨がJPYならレートを掛けない
+    rate = _EXCEL_RATE_CELL
     return [
         r.management_no, r.invoice_no, float(r.invoice_total), r.export_date,
         r.cargo_category.content, r.cargo_note, float(r.adjustment_rate_value),
         r.reporter.user_name, r.registered_at.replace(tzinfo=None),
+        _EXCEL_DEFAULT_CURRENCY,
+        f'=C{row_idx}/(1+G{row_idx}/100)',
+        f'=C{row_idx}-K{row_idx}',
+        f'=IF({rate}="","",O{row_idx}-N{row_idx})',
+        f'=IF({rate}="","",ROUND(IF(J{row_idx}<>"JPY",{rate},1)*L{row_idx},0))',
+        f'=IF({rate}="","",ROUND(IF(J{row_idx}<>"JPY",{rate},1)*C{row_idx},0))',
     ]
 
 
@@ -406,6 +422,15 @@ def china_invoice_excel(request):
         ws.cell(row=2, column=col).border = box
     ws.row_dimensions[2].height = 45
 
+    # 為替レート入力欄（_EXCEL_RATE_CELL と同じ位置に配置すること）
+    rate_col = coordinate_to_tuple(_EXCEL_RATE_CELL.replace('$', ''))[1]
+    label_cell = ws.cell(row=3, column=rate_col - 1, value='為替レート')
+    label_cell.alignment = Alignment(horizontal='right', vertical='center')
+    rate_cell = ws.cell(row=3, column=rate_col)
+    rate_cell.border = box
+    rate_cell.fill = PatternFill(start_color='FFF3CD', end_color='FFF3CD', fill_type='solid')
+    rate_cell.number_format = '#,##0.00'
+
     # 表ヘッダー
     header_font = Font(bold=True, color='FFFFFF')
     header_fill = PatternFill(start_color='495057', end_color='495057', fill_type='solid')
@@ -417,6 +442,10 @@ def china_invoice_excel(request):
 
     stripe_fill = PatternFill(start_color='EDEFF2', end_color='EDEFF2', fill_type='solid')
     amount_col = _EXCEL_HEADERS.index('Invoice Total') + 1
+    decimal_cols = {amount_col} | {
+        _EXCEL_HEADERS.index(h) + 1 for h in ('元値相当（通貨）', '管理費（通貨）')}
+    jpy_cols = {
+        _EXCEL_HEADERS.index(h) + 1 for h in ('元値相当（JPY）', '管理費（JPY）', '金額（JPY）')}
     total_amount = Decimal('0')
     record_count = 0
     last_data_row = _EXCEL_DATA_START_ROW - 1
@@ -425,14 +454,16 @@ def china_invoice_excel(request):
         record_count += 1
         last_data_row = row_idx
         striped = (row_idx - _EXCEL_DATA_START_ROW) % 2 == 1
-        for col_idx, value in enumerate(_china_invoice_to_excel_row(r), start=1):
+        for col_idx, value in enumerate(_china_invoice_to_excel_row(r, row_idx), start=1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
             if striped:
                 cell.fill = stripe_fill
-            if col_idx == amount_col:
+            if col_idx in decimal_cols:
                 cell.number_format = '#,##0.00'
+            elif col_idx in jpy_cols:
+                cell.number_format = '#,##0'
 
-    # 合計行（Invoice Total の合計と件数）
+    # 合計行（Invoice Total と換算系列の合計、件数）
     total_row = last_data_row + 1
     total_fill = PatternFill(start_color='D9DEE4', end_color='D9DEE4', fill_type='solid')
     for col_idx in range(1, n_cols + 1):
@@ -442,8 +473,16 @@ def china_invoice_excel(request):
     ws.cell(row=total_row, column=1, value=f'合計（{record_count}件）')
     total_cell = ws.cell(row=total_row, column=amount_col, value=float(total_amount))
     total_cell.number_format = '#,##0.00'
+    if record_count:
+        for col_idx in sorted(decimal_cols - {amount_col} | jpy_cols):
+            letter = get_column_letter(col_idx)
+            cell = ws.cell(
+                row=total_row, column=col_idx,
+                value=f'=SUM({letter}{_EXCEL_DATA_START_ROW}:{letter}{last_data_row})')
+            cell.number_format = '#,##0.00' if col_idx in decimal_cols else '#,##0'
 
-    for col_idx, width in enumerate([16, 16, 14, 12, 12, 20, 10, 14, 18], start=1):
+    for col_idx, width in enumerate(
+            [16, 16, 14, 12, 12, 20, 10, 14, 18, 8, 15, 15, 15, 15, 15], start=1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
     ws.freeze_panes = f'A{_EXCEL_DATA_START_ROW}'
     ws.auto_filter.ref = (
