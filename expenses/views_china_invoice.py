@@ -347,7 +347,7 @@ def china_invoice_china_check_update(request):
 # 為替レートはDBに持たないため出力後にレートセル（_EXCEL_RATE_CELL）へ手入力する運用とし、
 # JPY換算3列はレートセルを参照する数式で自動計算させる。
 _EXCEL_HEADERS = [
-    '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分', '貨物概要補足',
+    '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物\n概要\n区分', '貨物\n概要\n補足',
     '加算調整率', '報告者', '登録日時',
     '通貨', '元値相当（通貨）', '管理費（通貨）', '元値相当（JPY）', '管理費（JPY）', '金額（JPY）',
 ]
@@ -355,6 +355,7 @@ _EXCEL_HEADERS = [
 _EXCEL_HEADER_ROW = 4
 _EXCEL_DATA_START_ROW = 5
 _STAMP_LABELS = ('承認', '確認', '担当')
+_STAMP_START_COL = 5  # 検印欄の開始列（E列。E〜Gに3枠並べる）
 # 為替レート手入力セル（3行目・「管理費（JPY）」列＝N列。位置を変えたら数式参照も変わるためここで一元管理）
 _EXCEL_RATE_CELL = '$N$3'
 _EXCEL_DEFAULT_CURRENCY = 'US$'
@@ -405,17 +406,17 @@ def china_invoice_excel(request):
     thin = Side(style='thin')
     box = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    # タイトル・対象期間（検印欄の左側、A〜F列にマージ）
-    title_span = n_cols - len(_STAMP_LABELS)
+    # タイトル・対象期間（検印欄の左側、A〜D列にマージ）
+    title_span = _STAMP_START_COL - 1
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=title_span)
     ws.cell(row=1, column=1, value='中国輸出実績報告').font = Font(bold=True, size=14)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=title_span)
     ws.cell(row=2, column=1,
             value=f'対象期間: {period_label}　出力日: {datetime.date.today().isoformat()}')
 
-    # 検印欄（右上3枠: ラベル行＋押印用の空欄行）
+    # 検印欄（E〜G列の3枠: ラベル行＋押印用の空欄行）
     for i, label in enumerate(_STAMP_LABELS):
-        col = n_cols - len(_STAMP_LABELS) + 1 + i
+        col = _STAMP_START_COL + i
         cell = ws.cell(row=1, column=col, value=label)
         cell.alignment = Alignment(horizontal='center', vertical='center')
         cell.border = box
@@ -438,7 +439,9 @@ def china_invoice_excel(request):
         cell = ws.cell(row=_EXCEL_HEADER_ROW, column=col_idx, value=header)
         cell.font = header_font
         cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    # 貨物概要区分・補足の3行折り返しヘッダーが収まる高さにする
+    ws.row_dimensions[_EXCEL_HEADER_ROW].height = 48
 
     stripe_fill = PatternFill(start_color='EDEFF2', end_color='EDEFF2', fill_type='solid')
     amount_col = _EXCEL_HEADERS.index('Invoice Total') + 1
@@ -482,15 +485,17 @@ def china_invoice_excel(request):
             cell.number_format = '#,##0.00' if col_idx in decimal_cols else '#,##0'
 
     for col_idx, width in enumerate(
-            [16, 16, 14, 12, 12, 20, 10, 14, 18, 8, 15, 15, 15, 15, 15], start=1):
+            [16, 16, 14, 12, 7, 7, 10, 14, 18, 8, 15, 15, 15, 15, 15], start=1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
     ws.freeze_panes = f'A{_EXCEL_DATA_START_ROW}'
     ws.auto_filter.ref = (
         f'A{_EXCEL_HEADER_ROW}:{get_column_letter(n_cols)}{max(last_data_row, _EXCEL_HEADER_ROW)}')
 
-    # 印刷設定: A4横・横1ページ収め・表ヘッダーを各ページに繰り返し
+    # 印刷設定: A4横・横1ページ収め・左右余白0.5インチ・表ヘッダーを各ページに繰り返し
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_margins.left = 0.5
+    ws.page_margins.right = 0.5
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)

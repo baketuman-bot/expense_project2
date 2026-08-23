@@ -658,20 +658,30 @@ class ChinaInvoiceExcelViewTests(TestCase):
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         header = [c.value for c in wb.active[self.HEADER_ROW]]
         self.assertEqual(header, [
-            '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物概要区分',
-            '貨物概要補足', '加算調整率', '報告者', '登録日時',
+            '管理番号', 'Invoice No', 'Invoice Total', '輸出日', '貨物\n概要\n区分',
+            '貨物\n概要\n補足', '加算調整率', '報告者', '登録日時',
             '通貨', '元値相当（通貨）', '管理費（通貨）', '元値相当（JPY）', '管理費（JPY）', '金額（JPY）',
         ])
+        # 折り返しヘッダー（貨物概要区分・補足）が表示されるよう wrap_text を有効にしている
+        self.assertTrue(wb.active.cell(row=self.HEADER_ROW, column=5).alignment.wrap_text)
 
-    def test_検印欄がシート右上にある(self):
+    def test_検印欄がE列からG列にある(self):
         self.client.force_login(self.reporter)
         res = self.client.get(reverse('expenses:china_invoice_excel'))
         wb = openpyxl.load_workbook(io.BytesIO(res.content))
         ws = wb.active
-        # 検印欄: 1行目のM/N/O列に承認・確認・担当のラベル、2行目が押印用の空欄
-        self.assertEqual([ws['M1'].value, ws['N1'].value, ws['O1'].value], ['承認', '確認', '担当'])
-        self.assertEqual([ws['M2'].value, ws['N2'].value, ws['O2'].value], [None, None, None])
-        self.assertIsNotNone(ws['M2'].border.bottom.style)   # 押印枠に罫線がある
+        # 検印欄: 1行目のE/F/G列に承認・確認・担当のラベル、2行目が押印用の空欄
+        self.assertEqual([ws['E1'].value, ws['F1'].value, ws['G1'].value], ['承認', '確認', '担当'])
+        self.assertEqual([ws['E2'].value, ws['F2'].value, ws['G2'].value], [None, None, None])
+        self.assertIsNotNone(ws['E2'].border.bottom.style)   # 押印枠に罫線がある
+
+    def test_印刷の左右余白が05インチ(self):
+        self.client.force_login(self.reporter)
+        res = self.client.get(reverse('expenses:china_invoice_excel'))
+        wb = openpyxl.load_workbook(io.BytesIO(res.content))
+        ws = wb.active
+        self.assertEqual(ws.page_margins.left, 0.5)
+        self.assertEqual(ws.page_margins.right, 0.5)
 
     def test_JPY換算列は為替レートセル参照の数式で出力される(self):
         # INVOICE実績報告書のK〜P列相当。為替レートはN3へ手入力する運用のため数式で出力する
