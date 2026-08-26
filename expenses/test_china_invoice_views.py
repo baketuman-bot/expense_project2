@@ -471,66 +471,68 @@ class ChinaInvoiceChinaCheckViewTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, 'INV-CC-1')
 
-    def test_個別に差異ありへ変更できる(self):
+    def test_選択した行をまとめて確認済みにできる(self):
         self.client.force_login(self.partner)
         res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
-            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+            'pks': [self.record1.pk, self.record2.pk],
         })
         self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
-        self.record1.refresh_from_db()
-        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_DIFFERENCE)
-        self.assertEqual(self.record1.china_confirmed_by, self.partner)
-
-    def test_一括確認済みにできる(self):
-        self.client.force_login(self.partner)
-        self.client.post(reverse('expenses:china_invoice_china_check_update'), {
-            'pks': [self.record1.pk, self.record2.pk], 'bulk_status': T_ChinaInvoice.CHINA_STATUS_CONFIRMED,
-        })
         self.record1.refresh_from_db()
         self.record2.refresh_from_db()
         self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
         self.assertEqual(self.record2.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+        self.assertEqual(self.record1.china_confirmed_by, self.partner)
 
-    def test_一括で差異ありには変更できない(self):
+    def test_選択しなかった行は確認済みにならない(self):
         self.client.force_login(self.partner)
-        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
-            'pks': [self.record1.pk], 'bulk_status': T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+        self.client.post(reverse('expenses:china_invoice_china_check_update'), {
+            'pks': [self.record1.pk],
         })
-        self.assertEqual(res.status_code, 400)
-        self.record1.refresh_from_db()
-        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+        self.record2.refresh_from_db()
+        self.assertEqual(self.record2.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+        self.assertIsNone(self.record2.china_confirmed_by)
 
     def test_日本側の経理確認状態は中国側の操作で変わらない(self):
         self.record1.accounting_confirmed = True
         self.record1.save(update_fields=['accounting_confirmed'])
         self.client.force_login(self.partner)
         self.client.post(reverse('expenses:china_invoice_china_check_update'), {
-            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+            'pks': [self.record1.pk],
         })
         self.record1.refresh_from_db()
         self.assertTrue(self.record1.accounting_confirmed)
 
-    def test_個別に確認済みへ変更できる(self):
+    def test_トグルで差異ありにできる(self):
         self.client.force_login(self.partner)
-        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
-            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_CONFIRMED,
-        })
-        self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
+        res = self.client.post(
+            reverse('expenses:china_invoice_china_check_toggle', args=[self.record1.pk]))
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data['china_confirm_status'], T_ChinaInvoice.CHINA_STATUS_DIFFERENCE)
+        self.assertTrue(data['is_difference'])
         self.record1.refresh_from_db()
-        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
+        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_DIFFERENCE)
         self.assertEqual(self.record1.china_confirmed_by, self.partner)
 
-    def test_個別に未確認へ戻せる(self):
-        self.record1.china_confirm_status = T_ChinaInvoice.CHINA_STATUS_CONFIRMED
-        self.record1.save(update_fields=['china_confirm_status'])
+    def test_トグルを再度押すと未確認に戻る(self):
+        self.record1.china_confirm_status = T_ChinaInvoice.CHINA_STATUS_DIFFERENCE
+        self.record1.china_confirmed_by = self.partner
+        self.record1.save(update_fields=['china_confirm_status', 'china_confirmed_by'])
         self.client.force_login(self.partner)
-        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
-            'pk': self.record1.pk, 'status': T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED,
-        })
-        self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
+        res = self.client.post(
+            reverse('expenses:china_invoice_china_check_toggle', args=[self.record1.pk]))
+        data = res.json()
+        self.assertEqual(data['china_confirm_status'], T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+        self.assertFalse(data['is_difference'])
         self.record1.refresh_from_db()
         self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
-        self.assertEqual(self.record1.china_confirmed_by, self.partner)
+        self.assertIsNone(self.record1.china_confirmed_by)
+
+    def test_china_partner以外はトグルできない(self):
+        self.client.force_login(self.reporter)
+        res = self.client.post(
+            reverse('expenses:china_invoice_china_check_toggle', args=[self.record1.pk]))
+        self.assertEqual(res.status_code, 403)
 
     def test_一覧に貨物概要補足など詳細項目は表示されない(self):
         self.record1.cargo_note = 'SENTINEL_NOTE_VALUE'
@@ -750,40 +752,8 @@ class ChinaInvoiceExcelViewTests(TestCase):
         self.assertFalse(ws.sheet_view.showGridLines)
 
 
-class ChinaInvoiceDashboardViewTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.reporter, cls.other, cls.accountant, cls.admin = _make_users()
-        cls.cargo, cls.adjrate = _make_masters()
-        T_ChinaInvoice.objects.create(
-            invoice_no='INV-DASH-1', invoice_total=Decimal('1.00'), export_date=date.today(),
-            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
-            invoice_file=SimpleUploadedFile('i.pdf', b'a'), reporter=cls.reporter,
-            china_confirm_status=T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
-        )
-        cls.confirmed_other_record = T_ChinaInvoice.objects.create(
-            invoice_no='INV-DASH-2', invoice_total=Decimal('2.00'), export_date=date.today(),
-            cargo_category=cls.cargo, adjustment_rate_value=Decimal('0.00'),
-            invoice_file=SimpleUploadedFile('i2.pdf', b'b'), reporter=cls.reporter,
-            accounting_confirmed=True, china_confirm_status=T_ChinaInvoice.CHINA_STATUS_CONFIRMED,
-        )
-
-    def test_権限がなければ403(self):
-        self.client.force_login(self.other)
-        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
-        self.assertEqual(res.status_code, 403)
-
-    def test_サマリ件数が表示される(self):
-        self.client.force_login(self.reporter)
-        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.context['unconfirmed_accounting_count'], 1)
-        self.assertEqual(res.context['difference_count'], 1)
-        self.assertEqual(res.context['this_month_count'], 2)
-
-
 class ChinaInvoiceRoleGatedButtonTests(TestCase):
-    """ダッシュボード・一覧のInvoice登録ボタン/経理確認リンクが権限に応じて非表示になることの確認"""
+    """一覧のInvoice登録ボタン/経理確認リンクが権限に応じて非表示になることの確認"""
 
     @classmethod
     def setUpTestData(cls):
@@ -792,20 +762,10 @@ class ChinaInvoiceRoleGatedButtonTests(TestCase):
             username='view_partner_gate', man_number='9411', user_name='viewゲート', password='pass')
         M_UserRole.objects.create(man_number=cls.partner, role='china_partner')
 
-    def test_china_partnerのみのユーザーにはダッシュボードでInvoice報告リンクが出ない(self):
-        self.client.force_login(self.partner)
-        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
-        self.assertNotContains(res, reverse('expenses:china_invoice_report_upload'))
-
     def test_china_partnerのみのユーザーには一覧でInvoice報告リンクが出ない(self):
         self.client.force_login(self.partner)
         res = self.client.get(reverse('expenses:china_invoice_list'))
         self.assertNotContains(res, reverse('expenses:china_invoice_report_upload'))
-
-    def test_china_partnerのみのユーザーにはダッシュボードで経理確認へのリンクが出ない(self):
-        self.client.force_login(self.partner)
-        res = self.client.get(reverse('expenses:china_invoice_dashboard'))
-        self.assertNotContains(res, reverse('expenses:china_invoice_accounting'))
 
 
 class ChinaInvoiceSidebarTests(TestCase):

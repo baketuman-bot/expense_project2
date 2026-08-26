@@ -13,7 +13,7 @@ from openpyxl.utils.cell import coordinate_to_tuple
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import content_disposition_header
@@ -63,21 +63,6 @@ def _handle_packing_list_uploads(request, invoice, field_name='packing_list_file
     _validate_packing_list_uploads() による検証を済ませておくこと（全件有効を前提とする）。"""
     for f in request.FILES.getlist(field_name):
         T_ChinaInvoicePackingList.objects.create(invoice=invoice, file=f, uploaded_by=request.user)
-
-
-@login_required
-def china_invoice_dashboard(request):
-    _require_role(request.user, *_LIST_ROLES)
-    today = datetime.date.today()
-    this_month_prefix = today.strftime('%Y-%m')
-    return render(request, 'expenses/china_invoice_dashboard.html', {
-        'unconfirmed_accounting_count': T_ChinaInvoice.objects.filter(accounting_confirmed=False).count(),
-        'difference_count': T_ChinaInvoice.objects.filter(
-            china_confirm_status=T_ChinaInvoice.CHINA_STATUS_DIFFERENCE).count(),
-        'this_month_count': T_ChinaInvoice.objects.filter(
-            registered_at__date__startswith=this_month_prefix).count(),
-        'current': 'china_invoice_dashboard',
-    })
 
 
 _LIST_ROLES = ('china_reporter', 'accountant', 'china_partner')
@@ -318,28 +303,46 @@ def china_invoice_china_check(request):
 @login_required
 @require_POST
 def china_invoice_china_check_update(request):
+    """チェックした行をまとめて確認済みにする。"""
     _require_role(request.user, 'china_partner')
     now = timezone.now()
 
-    if request.POST.get('bulk_status'):
-        bulk_status = request.POST['bulk_status']
-        if bulk_status != T_ChinaInvoice.CHINA_STATUS_CONFIRMED:
-            return HttpResponseBadRequest('一括操作は「確認済み」への変更のみ許可されています。')
-        pks = request.POST.getlist('pks')
-        updated = T_ChinaInvoice.objects.filter(pk__in=pks).update(
-            china_confirm_status=bulk_status, china_confirmed_by=request.user, china_confirmed_at=now)
+    pks = request.POST.getlist('pks')
+    updated = T_ChinaInvoice.objects.filter(pk__in=pks).update(
+        china_confirm_status=T_ChinaInvoice.CHINA_STATUS_CONFIRMED,
+        china_confirmed_by=request.user, china_confirmed_at=now)
+
+    if updated:
         messages.success(request, f'{updated}件を確認済みにしました。')
     else:
-        pk = request.POST.get('pk')
-        status = request.POST.get('status')
-        valid_statuses = dict(T_ChinaInvoice.CHINA_STATUS_CHOICES)
-        if status not in valid_statuses:
-            return HttpResponseBadRequest('不正な確認状態です。')
-        T_ChinaInvoice.objects.filter(pk=pk).update(
-            china_confirm_status=status, china_confirmed_by=request.user, china_confirmed_at=now)
-        messages.success(request, '確認結果を更新しました。')
+        messages.info(request, '選択された項目がありません。')
 
     return redirect('expenses:china_invoice_china_check')
+
+
+@login_required
+@require_POST
+def china_invoice_china_check_toggle(request, pk):
+    """1行分の「差異あり」フラグをAJAXでトグルする。ONで差異あり、OFFで未確認に戻す。"""
+    _require_role(request.user, 'china_partner')
+    invoice = get_object_or_404(T_ChinaInvoice, pk=pk)
+    now = timezone.now()
+
+    if invoice.china_confirm_status == T_ChinaInvoice.CHINA_STATUS_DIFFERENCE:
+        invoice.china_confirm_status = T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED
+        invoice.china_confirmed_by = None
+        invoice.china_confirmed_at = None
+    else:
+        invoice.china_confirm_status = T_ChinaInvoice.CHINA_STATUS_DIFFERENCE
+        invoice.china_confirmed_by = request.user
+        invoice.china_confirmed_at = now
+    invoice.save(update_fields=['china_confirm_status', 'china_confirmed_by', 'china_confirmed_at'])
+
+    return JsonResponse({
+        'china_confirm_status': invoice.china_confirm_status,
+        'is_difference': invoice.china_confirm_status == T_ChinaInvoice.CHINA_STATUS_DIFFERENCE,
+        'status_display': invoice.get_china_confirm_status_display(),
+    })
 
 
 # 検印欄付き帳票として出力する（経理確認・中国確認の項目は出力しない）

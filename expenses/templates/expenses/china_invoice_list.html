@@ -128,22 +128,19 @@
             <h5 class="mb-0"><i class="fas fa-file-excel me-2"></i>Excel出力</h5>
         </div>
         <div class="card-body">
-            <div class="row g-2 align-items-end">
-                <div class="col-md-4">
-                    <form method="get" action="{% url 'expenses:china_invoice_excel' %}" class="d-flex gap-2">
-                        <input type="month" name="year_month" class="form-control form-control-sm" required>
-                        <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">月単位でダウンロード</button>
-                    </form>
-                </div>
-                <div class="col-md-5">
-                    <form method="get" action="{% url 'expenses:china_invoice_excel' %}" class="d-flex gap-2">
-                        <input type="date" name="date_from" class="form-control form-control-sm" required>
-                        <input type="date" name="date_to" class="form-control form-control-sm" required>
-                        <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">登録日範囲でダウンロード</button>
-                    </form>
-                </div>
-                <div class="col-md-3">
-                    <a href="{% url 'expenses:china_invoice_excel' %}" class="btn btn-outline-secondary btn-sm w-100">全件ダウンロード</a>
+            <div class="d-flex flex-column gap-2">
+                <form method="get" action="{% url 'expenses:china_invoice_excel' %}" class="d-flex flex-wrap gap-2 align-items-center">
+                    <input type="month" name="year_month" class="form-control form-control-sm" style="max-width: 160px;" required>
+                    <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">月単位でダウンロード</button>
+                </form>
+                <form method="get" action="{% url 'expenses:china_invoice_excel' %}" class="d-flex flex-wrap gap-2 align-items-center">
+                    <input type="date" name="date_from" class="form-control form-control-sm" style="max-width: 160px;" required>
+                    <span class="text-muted">〜</span>
+                    <input type="date" name="date_to" class="form-control form-control-sm" style="max-width: 160px;" required>
+                    <button type="submit" class="btn btn-outline-primary btn-sm text-nowrap">登録日範囲でダウンロード</button>
+                </form>
+                <div>
+                    <a href="{% url 'expenses:china_invoice_excel' %}" class="btn btn-outline-secondary btn-sm text-nowrap">全件ダウンロード</a>
                 </div>
             </div>
         </div>

@@ -58,7 +58,6 @@ urlpatterns = [
     path("china_export/upload/", views.china_export_upload, name="china_export_upload"),
     path("china_export/upload/confirm/", views.china_export_upload_confirm, name="china_export_upload_confirm"),
     # 中国輸出Invoice管理
-    path("china_invoice/", views.china_invoice_dashboard, name="china_invoice_dashboard"),
     path("china_invoice/report/", views.china_invoice_report_upload, name="china_invoice_report_upload"),
     path("china_invoice/report/review/", views.china_invoice_report_review, name="china_invoice_report_review"),
     path("china_invoice/list/", views.china_invoice_list, name="china_invoice_list"),
@@ -71,6 +70,7 @@ urlpatterns = [
     path("china_invoice/month_close/", views.china_invoice_month_close, name="china_invoice_month_close"),
     path("china_invoice/china_check/", views.china_invoice_china_check, name="china_invoice_china_check"),
     path("china_invoice/china_check/update/", views.china_invoice_china_check_update, name="china_invoice_china_check_update"),
+    path("china_invoice/china_check/<int:pk>/toggle/", views.china_invoice_china_check_toggle, name="china_invoice_china_check_toggle"),
     path("china_invoice/excel/", views.china_invoice_excel, name="china_invoice_excel"),
     # 管理者画面 (設定)
     path("settings/data_view/", views.settings_data_view_home, name="settings_data_view_home"),

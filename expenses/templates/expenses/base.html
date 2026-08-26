@@ -368,12 +368,6 @@
         <div class="precision-section">
             <div class="precision-section-label">中国輸出Invoice管理</div>
             <ul class="precision-nav">
-                <li>
-                    <a class="precision-link {% if current == 'china_invoice_dashboard' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_dashboard' %}">
-                        <span class="precision-ico" aria-hidden="true"><i class="fas fa-tachometer-alt"></i></span>
-                        <span>ダッシュボード</span>
-                    </a>
-                </li>
                 {% if can_register_china_invoice %}
                 <li>
                     <a class="precision-link {% if current == 'china_invoice_report' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_report_upload' %}">
