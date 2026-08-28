@@ -471,6 +471,12 @@ class ChinaInvoiceChinaCheckViewTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, 'INV-CC-1')
 
+    def test_トグルスイッチに行ごとの正しいURLが埋め込まれる(self):
+        self.client.force_login(self.partner)
+        res = self.client.get(reverse('expenses:china_invoice_china_check'))
+        expected_url = reverse('expenses:china_invoice_china_check_toggle', args=[self.record1.pk])
+        self.assertContains(res, f'data-url="{expected_url}"')
+
     def test_選択した行をまとめて確認済みにできる(self):
         self.client.force_login(self.partner)
         res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {
@@ -482,6 +488,15 @@ class ChinaInvoiceChinaCheckViewTests(TestCase):
         self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
         self.assertEqual(self.record2.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_CONFIRMED)
         self.assertEqual(self.record1.china_confirmed_by, self.partner)
+
+    def test_チェックなしで報告してもステータスは変わらない(self):
+        self.client.force_login(self.partner)
+        res = self.client.post(reverse('expenses:china_invoice_china_check_update'), {})
+        self.assertRedirects(res, reverse('expenses:china_invoice_china_check'))
+        self.record1.refresh_from_db()
+        self.record2.refresh_from_db()
+        self.assertEqual(self.record1.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
+        self.assertEqual(self.record2.china_confirm_status, T_ChinaInvoice.CHINA_STATUS_UNCONFIRMED)
 
     def test_選択しなかった行は確認済みにならない(self):
         self.client.force_login(self.partner)

@@ -77,7 +77,7 @@
                         <tbody>
                             {% for r in records %}
                             <tr>
-                                <td><input type="checkbox" name="pks" value="{{ r.pk }}"></td>
+                                <td><input type="checkbox" name="pks" value="{{ r.pk }}" class="china-check-pk"></td>
                                 <td>{{ r.management_no }}</td>
                                 <td>{{ r.invoice_no }}</td>
                                 <td class="text-end">{{ r.invoice_total }}</td>
@@ -85,11 +85,15 @@
                                 <td>{{ r.cargo_category.content }}</td>
                                 <td id="status-display-{{ r.pk }}">{{ r.get_china_confirm_status_display }}</td>
                                 <td>
-                                    <button type="button"
-                                            class="btn btn-sm china-diff-toggle {% if r.china_confirm_status == 'difference' %}btn-warning{% else %}btn-outline-warning{% endif %}"
-                                            data-id="{{ r.pk }}">
-                                        {% if r.china_confirm_status == 'difference' %}有差异（差異あり）{% else %}无差异（差異なし）{% endif %}
-                                    </button>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input china-diff-toggle" type="checkbox" role="switch"
+                                               id="diff_{{ r.pk }}"
+                                               data-url="{% url 'expenses:china_invoice_china_check_toggle' r.pk %}"
+                                               {% if r.china_confirm_status == 'difference' %}checked{% endif %}>
+                                        <label class="form-check-label small" for="diff_{{ r.pk }}" id="diff_label_{{ r.pk }}">
+                                            {% if r.china_confirm_status == 'difference' %}有差异（差異あり）{% else %}无差异（差異なし）{% endif %}
+                                        </label>
+                                    </div>
                                 </td>
                             </tr>
                             {% empty %}
@@ -99,8 +103,9 @@
                     </table>
                 </div>
             </div>
-            <div class="card-footer">
-                <button type="submit" class="btn btn-outline-primary btn-sm">全部标记为已确认（全て確認済みにする）</button>
+            <div class="card-footer d-flex align-items-center gap-2">
+                <button type="button" id="china-check-all-btn" class="btn btn-outline-secondary btn-sm">全部勾选（全てチェックを入れる）</button>
+                <button type="submit" class="btn btn-primary btn-sm">报告（送信）（報告する）</button>
             </div>
         </div>
     </form>
@@ -108,33 +113,41 @@
 
 <script>
 (function () {
-    const TOGGLE_URL_BASE = "{% url 'expenses:china_invoice_china_check_toggle' 0 %}".replace('/0/', '/');
+    const checkAllBtn = document.getElementById('china-check-all-btn');
+    if (checkAllBtn) {
+        checkAllBtn.addEventListener('click', function () {
+            document.querySelectorAll('.china-check-pk').forEach(function (cb) {
+                cb.checked = true;
+            });
+        });
+    }
+}());
 
-    document.querySelectorAll('.china-diff-toggle').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const pk = this.dataset.id;
-            const url = TOGGLE_URL_BASE + pk + '/toggle/';
+(function () {
+    document.querySelectorAll('.china-diff-toggle').forEach(function (sw) {
+        sw.addEventListener('change', function () {
+            const pk = this.id.replace('diff_', '');
+            const url = this.dataset.url;
             const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+            const label = document.getElementById('diff_label_' + pk);
+            const statusCell = document.getElementById('status-display-' + pk);
+            const wasChecked = sw.checked;
 
             fetch(url, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken },
             })
-            .then(function (res) { return res.json(); })
+            .then(function (res) {
+                if (!res.ok) { throw new Error('request failed'); }
+                return res.json();
+            })
             .then(function (data) {
-                const statusCell = document.getElementById('status-display-' + pk);
+                sw.checked = data.is_difference;
                 statusCell.textContent = data.status_display;
-                if (data.is_difference) {
-                    btn.classList.add('btn-warning');
-                    btn.classList.remove('btn-outline-warning');
-                    btn.textContent = '有差异（差異あり）';
-                } else {
-                    btn.classList.remove('btn-warning');
-                    btn.classList.add('btn-outline-warning');
-                    btn.textContent = '无差异（差異なし）';
-                }
+                label.textContent = data.is_difference ? '有差异（差異あり）' : '无差异（差異なし）';
             })
             .catch(function () {
+                sw.checked = !wasChecked;
                 alert('更新に失敗しました。');
             });
         });

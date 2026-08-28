@@ -303,7 +303,7 @@ def china_invoice_china_check(request):
 @login_required
 @require_POST
 def china_invoice_china_check_update(request):
-    """チェックした行をまとめて確認済みにする。"""
+    """チェックした行をまとめて確認済みにする（報告）。"""
     _require_role(request.user, 'china_partner')
     now = timezone.now()
 
