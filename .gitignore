@@ -54,3 +54,9 @@ tmp/
 deploy/gs2db_sync/*.jar
 deploy/gs2db_sync/csv/
 deploy/gs2db_sync/work/
+
+# Windows由来のゴミファイル（NTFSのZone.Identifier実体化、コピー時に破損したファイル名等）
+# Windowsでは使えない禁止文字（< > : " ? |）を含むファイル名は誤って生成されたゴミの可能性が高く、
+# コミットするとWindows側でのcheckoutが失敗するため除外する
+*Zone.Identifier*
+*[<>:"?|]*
