@@ -6,7 +6,16 @@ REM migration of pre-existing files, or manual recovery if auto-sync failed.
 REM Run: double-click this file.
 
 setlocal
-set SRC=\\wsl.localhost\Ubuntu-24.04\home\idc_user\expense_project2\media
+REM The WSL distro name differs per machine (dev: Ubuntu-24.04, this PC: Ubuntu),
+REM so resolve the UNC path with wslpath instead of hard-coding it.
+REM wsl.exe without -d uses the default distro.
+set "SRC="
+for /f "usebackq delims=" %%i in (`wsl.exe wslpath -w /home/idc_user/expense_project2/media`) do set "SRC=%%i"
+if not defined SRC (
+    echo [ERROR] Failed to resolve the WSL media path. Is WSL available?
+    pause
+    exit /b 1
+)
 set DST=\\172.16.100.15\keirifile\DATA\expense_project2\media
 set LOG=%~dp0sync_media.log
 

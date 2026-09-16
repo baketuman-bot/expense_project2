@@ -14,11 +14,19 @@ REM      （update_or_createのみ。DELETE/TRUNCATEは一切行わない）
 
 setlocal
 
-set WSL_DISTRO=Ubuntu-24.04
+REM WSLのディストロ名は環境ごとに異なる（開発環境: Ubuntu-24.04、本番PC: Ubuntu）ため
+REM ハードコードしない。-d を付けない wsl.exe は既定のディストロを使う。
 set PROJECT_DIR=/home/idc_user/expense_project2
 set SRC_DIR=\\172.16.100.15\keirifile\DATA\Dump\GropuSession\db\gs2db
 set SRC_FILE=gs2db.h2.db
-set DST_DIR=\\wsl.localhost\Ubuntu-24.04\home\idc_user\expense_project2\deploy\gs2db_sync\work
+REM WSL側の作業ディレクトリのUNCパスは wslpath に解決させる。
+set "DST_DIR="
+for /f "usebackq delims=" %%i in (`wsl.exe wslpath -w %PROJECT_DIR%/deploy/gs2db_sync/work`) do set "DST_DIR=%%i"
+if not defined DST_DIR (
+    echo [ERROR] WSL側の作業ディレクトリのパス解決に失敗しました。WSLが利用可能か確認してください。
+    pause
+    exit /b 1
+)
 set DST_FILE=gs2db_src.h2.db
 set LOG=%~dp0sync_gs2db.log
 
@@ -45,7 +53,7 @@ echo   Copied and staged as %DST_FILE%.
 echo.
 
 echo Step 2/3: Extracting CSV from %DST_FILE% (WSL)...
-wsl.exe -d %WSL_DISTRO% -- bash -lc "cd %PROJECT_DIR% && .venv/bin/python deploy/gs2db_sync/extract_gs2db.py deploy/gs2db_sync/work/gs2db_src.h2.db deploy/gs2db_sync/csv/" >> "%LOG%" 2>&1
+wsl.exe -- bash -lc "cd %PROJECT_DIR% && .venv/bin/python deploy/gs2db_sync/extract_gs2db.py deploy/gs2db_sync/work/gs2db_src.h2.db deploy/gs2db_sync/csv/" >> "%LOG%" 2>&1
 if errorlevel 1 (
     echo [%date% %time%] [ERROR] extract_gs2db.py failed >> "%LOG%"
     echo [ERROR] extract_gs2db.py failed. See log: %LOG%
@@ -56,7 +64,7 @@ echo   CSV extraction done.
 echo.
 
 echo Step 3/3: Importing CSV into MySQL (WSL)...
-wsl.exe -d %WSL_DISTRO% -- bash -lc "cd %PROJECT_DIR% && .venv/bin/python manage.py import_gs2db deploy/gs2db_sync/csv/" >> "%LOG%" 2>&1
+wsl.exe -- bash -lc "cd %PROJECT_DIR% && .venv/bin/python manage.py import_gs2db deploy/gs2db_sync/csv/" >> "%LOG%" 2>&1
 if errorlevel 1 (
     echo [%date% %time%] [ERROR] import_gs2db failed >> "%LOG%"
     echo [ERROR] import_gs2db failed. See log: %LOG%
