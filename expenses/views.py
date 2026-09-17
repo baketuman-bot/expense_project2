@@ -4536,6 +4536,8 @@ MASTER_REGISTRY = {
         'list_fields': [('man_number', '社員'), ('role', 'ロール')],
         'form_fields': ['man_number', 'role'],
         'pk_attr': 'pk',
+        # man_number はFKのため CharField 自動検出の対象外。社員番号・ユーザー名で検索できるよう明示指定
+        'search_fields': ['man_number__man_number', 'man_number__username'],
     },
     'm_mail_manage': {
         'model': M_MailManage,
@@ -4683,6 +4685,28 @@ def _master_get_obj(cfg, pk_str):
     if pk_attr == 'pk':
         return get_object_or_404(cfg['model'], pk=pk_str)
     return get_object_or_404(cfg['model'], **{pk_attr: pk_str})
+
+
+def _master_search_q(cfg, q):
+    """キーワード検索用のQオブジェクトを構築する。
+    cfg に 'search_fields'（FK越しの検索など明示指定）があればそれを使い、
+    無ければ list_fields のうち CharField/TextField 列を自動検出して使う。
+    """
+    from django.db.models import CharField, TextField
+    search_fields = cfg.get('search_fields')
+    if search_fields is None:
+        char_fields = {
+            f.name for f in cfg['model']._meta.get_fields()
+            if isinstance(f, (CharField, TextField))
+        }
+        search_fields = [fn for fn, _ in cfg['list_fields'] if fn in char_fields]
+    if not search_fields:
+        return None
+    conditions = [Q(**{f'{fn}__icontains': q}) for fn in search_fields]
+    combined = conditions[0]
+    for cond in conditions[1:]:
+        combined |= cond
+    return combined
 
 
 DATA_VIEW_REGISTRY = {
@@ -6545,7 +6569,6 @@ def settings_master_list(request, master_key):
         return group_manager_list(request)
     if master_key == 'm_user':
         return user_manager_list(request)
-    from django.db.models import CharField, TextField
     cfg = MASTER_REGISTRY.get(master_key)
     if not cfg:
         raise Http404
@@ -6554,22 +6577,11 @@ def settings_master_list(request, master_key):
 
     qs = cfg['model'].objects.all()
 
-    # キーワード検索: list_fields のうち CharField/TextField 列を対象に OR icontains
+    # キーワード検索: cfg['search_fields'] があればそれを、無ければ list_fields から自動検出
     q = request.GET.get('q', '').strip()
     if q:
-        char_fields = {
-            f.name for f in cfg['model']._meta.get_fields()
-            if isinstance(f, (CharField, TextField))
-        }
-        q_conditions = [
-            Q(**{f'{fn}__icontains': q})
-            for fn, _ in cfg['list_fields']
-            if fn in char_fields
-        ]
-        if q_conditions:
-            combined = q_conditions[0]
-            for cond in q_conditions[1:]:
-                combined |= cond
+        combined = _master_search_q(cfg, q)
+        if combined:
             qs = qs.filter(combined)
 
     total_count = qs.count()
@@ -6686,7 +6698,6 @@ def settings_master_delete(request, master_key, pk):
 def settings_master_csv(request, master_key):
     """マスタ一覧 CSV ダウンロード（検索条件引き継ぎ、全件出力）"""
     import csv as _csv
-    from django.db.models import CharField, TextField
     from django.http import StreamingHttpResponse
 
     cfg = MASTER_REGISTRY.get(master_key)
@@ -6697,19 +6708,8 @@ def settings_master_csv(request, master_key):
 
     q = request.GET.get('q', '').strip()
     if q:
-        char_fields = {
-            f.name for f in cfg['model']._meta.get_fields()
-            if isinstance(f, (CharField, TextField))
-        }
-        q_conditions = [
-            Q(**{f'{fn}__icontains': q})
-            for fn, _ in cfg['list_fields']
-            if fn in char_fields
-        ]
-        if q_conditions:
-            combined = q_conditions[0]
-            for cond in q_conditions[1:]:
-                combined |= cond
+        combined = _master_search_q(cfg, q)
+        if combined:
             qs = qs.filter(combined)
 
     list_fields = cfg['list_fields']
