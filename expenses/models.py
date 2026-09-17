@@ -76,6 +76,10 @@ class M_User(AbstractUser):
     user_name = models.CharField("氏名", max_length=30)
     bumon_cd = models.ForeignKey(M_Bumon, verbose_name="部門", on_delete=models.PROTECT, null=True, blank=True)
     post_cd = models.ForeignKey(M_Post, verbose_name="役職", on_delete=models.PROTECT, null=True, blank=True)
+    lunch_site_cd = models.IntegerField(
+        "お弁当受取拠点", null=True, blank=True,
+        db_comment='お弁当受取拠点（m_item data_kbn=LUNCH の key）',
+    )
 
     groups = None
     user_permissions = None
