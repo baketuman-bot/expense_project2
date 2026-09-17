@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django import forms
 from django.forms import modelformset_factory, BaseModelFormSet
 from .china_invoice_files import validate_china_invoice_file
-from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets, M_User, M_Group, M_BelongTo, T_ChinaExport, T_ChinaInvoice
+from .models import T_Document, T_DocumentContent, M_Account, M_Item, T_Assets, M_User, M_UserRole, M_Group, M_BelongTo, T_ChinaExport, T_ChinaInvoice
 
 
 def _get_item_choices(data_kbn, empty_label='選択してください', fallback=None):
@@ -963,6 +963,26 @@ class MUserMasterForm(forms.ModelForm):
                 existing.save(update_fields=['group_cd'])
         else:
             M_BelongTo.objects.create(man_number=user, group_cd=group)
+
+
+class MUserRoleForm(forms.ModelForm):
+    """マスタ設定のユーザーロール新規登録/編集フォーム。
+
+    man_number はM_UserへのFKで対象ユーザーが多いため、社員番号・氏名・
+    ユーザー名を選択肢ラベルに含めた上で、テンプレート側のJSで絞り込み検索できるようにする。
+    """
+    class Meta:
+        model = M_UserRole
+        fields = ['man_number', 'role']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        field = self.fields['man_number']
+        field.queryset = field.queryset.order_by('man_number')
+        field.label_from_instance = lambda u: f"{u.man_number}  {u.user_name}（{u.username}）"
+        field.widget.attrs['class'] = (
+            field.widget.attrs.get('class', '') + ' js-searchable-select'
+        ).strip()
 
 
 class ChinaExportUpdateForm(forms.ModelForm):

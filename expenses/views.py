@@ -59,7 +59,7 @@ from .forms import (
     TravelDetailFormSet, TravelDetailEditFormSet,
     AccommodationFormSet, AccommodationEditFormSet,
     AllowanceFormSet, AllowanceEditFormSet,
-    MUserMasterForm,
+    MUserMasterForm, MUserRoleForm,
 )
 from .utils import (
     send_notification, steps_with_candidates, get_pending_approvers, candidates_for_step,
@@ -4657,6 +4657,9 @@ def _master_get_form_class(cfg, is_create):
     if cfg['model'] is M_User:
         # ユーザーマスタのみ専用フォーム（所属部署の同時設定）を使用
         return MUserMasterForm
+    if cfg['model'] is M_UserRole:
+        # man_number選択肢に社員番号・氏名・ユーザー名を表示し、検索絞り込みできる専用フォームを使用
+        return MUserRoleForm
     form_fields = list(cfg['form_fields'])
     pk_attr = cfg['pk_attr']
     if not is_create and pk_attr != 'pk' and pk_attr in form_fields:
