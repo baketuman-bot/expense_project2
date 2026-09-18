@@ -1,4 +1,3 @@
 @echo off
-cd /d "%~dp0"
-python sync_assets.py %*
+python "%~dp0sync_assets.py" %*
 pause
