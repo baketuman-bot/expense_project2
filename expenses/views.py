@@ -747,17 +747,18 @@ def expense_list(request):
         man_number=request.user,
         document_type__menu_group__category__in=['expense', 'assets'],
     ).select_related(
-        'status_cd', 'document_type', 'bumon_cd'
+        'status_cd', 'document_type', 'document_type__menu_group', 'bumon_cd'
     ).prefetch_related('contents').order_by("-created_at")
 
-    # フィルター
+    # フィルター（状態は tab= で指定。旧 status= も互換のため残す）
+    tab = request.GET.get('tab', '') or 'all'
     status_filter = request.GET.get('status', '')
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
     keyword = request.GET.get('keyword', '')
 
     if status_filter:
-        # ドロップダウンの選択値は status_name。同名の複数ステータス(例: 精算完了)をまとめて絞り込む
+        # 旧UIのドロップダウン値は status_name。同名の複数ステータス(例: 精算完了)をまとめて絞り込む
         qs = qs.filter(status_cd__status_name=status_filter)
     qs = _apply_created_at_date_range(qs, date_from, date_to)
     if keyword:
@@ -768,33 +769,135 @@ def expense_list(request):
             Q(memo__icontains=keyword)
         ).distinct()
 
+    # 状態タブの件数はキーワード・期間の絞り込み後、タブ適用前で集計する
+    tab_counts = _expense_list_tab_counts(qs)
+    qs = _apply_expense_list_tab(qs, tab)
+
     # ページネーション
     paginator = Paginator(qs, 20)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
 
-    # status_name 単位で重複除去し、order_by 昇順で並べる
-    from django.db.models import Min
-    statuses = (
-        M_Status.objects
-        .values('status_name')
-        .annotate(min_order=Min('order_by'))
-        .order_by('min_order', 'status_name')
-    )
-
-    # 承認進行マップ（ステータスバッジに current/total を表示するため）
+    # 承認進行マップと行の補足情報（種別グループ・進行テキスト）
     progress_by_doc = _get_step_progress_map([d.document_id for d in page_obj])
+    row_info_by_doc = _expense_list_row_info(list(page_obj), progress_by_doc)
+
+    tabs = [{'key': key, 'label': label, 'count': tab_counts.get(key, 0)} for key, label in EXPENSE_LIST_TABS]
 
     return render(request, "expenses/expense_list.html", {
         "expenses": page_obj,
         "page_obj": page_obj,
-        "statuses": statuses,
+        "tabs": tabs,
+        "current_tab": tab if tab in tab_counts else 'all',
         "status_filter": status_filter,
         "date_from": date_from,
         "date_to": date_to,
         "keyword": keyword,
         "progress_by_doc": progress_by_doc,
+        "row_info_by_doc": row_info_by_doc,
     })
+
+
+# 申請一覧の状態タブ。'done' は他のタブに属さない全ステータス（FNS と精算系: BAN/PAY/SAL/*_INPRO/*_PRE）
+EXPENSE_LIST_TABS = (
+    ('all', 'すべて'),
+    ('draft', '下書き'),
+    ('wait', '承認待ち'),
+    ('return', '差戻し'),
+    ('done', '完了'),
+    ('other', '却下・取消'),
+)
+_EXPENSE_LIST_TAB_CODES = {
+    'draft': ('DRAFT',),
+    'wait': ('INPRO', 'APPROVED'),
+    'return': ('RETURNED',),
+    'other': ('REJECTED', 'CANCEL'),
+}
+_EXPENSE_LIST_NOT_DONE_CODES = tuple(c for codes in _EXPENSE_LIST_TAB_CODES.values() for c in codes)
+_SETTLED_CODES = ('BAN', 'PAY', 'SAL')
+
+
+def expense_list_tab_of(status_cd):
+    """ステータスコードが属する一覧タブのキーを返す。"""
+    for key, codes in _EXPENSE_LIST_TAB_CODES.items():
+        if status_cd in codes:
+            return key
+    return 'done'
+
+
+def _apply_expense_list_tab(qs, tab):
+    if tab == 'done':
+        return qs.exclude(status_cd__status_cd__in=_EXPENSE_LIST_NOT_DONE_CODES)
+    codes = _EXPENSE_LIST_TAB_CODES.get(tab)
+    return qs.filter(status_cd__status_cd__in=codes) if codes else qs
+
+
+def _expense_list_tab_counts(qs):
+    """タブごとの件数 {'all': N, 'draft': N, ...}。1クエリで status_cd 別に集計して振り分ける。"""
+    from django.db.models import Count
+    counts = {key: 0 for key, _ in EXPENSE_LIST_TABS}
+    for row in qs.order_by().values('status_cd__status_cd').annotate(c=Count('document_id', distinct=True)):
+        counts[expense_list_tab_of(row['status_cd__status_cd'])] += row['c']
+        counts['all'] += row['c']
+    return counts
+
+
+def _next_approver_label_map(doc_ids):
+    """doc_id → 次の承認者ラベル（役職名、無ければ氏名）。T_DocumentApprover の未処理行のうち最小ステップを採用。"""
+    labels = {}
+    if not doc_ids:
+        return labels
+    rows = (
+        T_DocumentApprover.objects
+        .filter(document_id__in=doc_ids, status__in=['pending', 'draft'])
+        .select_related('man_number', 'man_number__post_cd')
+        .order_by('step_order', 'id')
+    )
+    for r in rows:
+        did = r.document_id_id
+        if did in labels:
+            continue
+        u = r.man_number
+        post = u.post_cd.post_name if (u and u.post_cd) else ''
+        labels[did] = post or (u.user_name if u else '')
+    return labels
+
+
+def _expense_list_row_info(docs, progress_by_doc):
+    """一覧行の補足情報 doc_id → {'group': menu_group, 'text': 進行テキスト, 'cls': ok/ng/wait/''}。"""
+    next_label = _next_approver_label_map([d.document_id for d in docs])
+    info = {}
+    for d in docs:
+        code = d.status_cd.status_cd if d.status_cd else ''
+        prog = progress_by_doc.get(d.document_id) or {}
+        cur, total = prog.get('current', 0), prog.get('total', 0)
+        text, cls = '', ''
+        if code in ('INPRO', 'APPROVED'):
+            text = f"{cur}／{total} 段" if total else ''
+            nl = next_label.get(d.document_id)
+            if nl:
+                text += ('・' if text else '') + f"次は {nl}"
+            cls = 'wait'
+        elif code == 'RETURNED':
+            text = f"{cur + 1}段目で差戻し・修正して再申請できます" if total else '差戻し・修正して再申請できます'
+            cls = 'ng'
+        elif code == 'REJECTED':
+            text = f"{cur + 1}段目で却下" if total else '却下'
+            cls = 'ng'
+        elif code == 'CANCEL':
+            text = '取り下げ済み'
+        elif code == 'FNS':
+            text = f"{total}／{total} 段 承認済み" if total else '承認済み'
+            cls = 'ok'
+        elif code in _SETTLED_CODES:
+            text = '承認済み・精算完了'
+            cls = 'ok'
+        elif code and code != 'DRAFT':
+            text = '承認済み・精算処理中'
+            cls = 'ok'
+        grp = getattr(getattr(d.document_type, 'menu_group', None), 'menu_group', '') or ''
+        info[d.document_id] = {'group': grp, 'text': text, 'cls': cls}
+    return info
 
 
 @login_required
@@ -805,12 +908,15 @@ def expense_csv(request):
     ).prefetch_related('contents').order_by("-created_at")
 
     status_filter = request.GET.get('status', '')
+    tab = request.GET.get('tab', '')
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
     keyword = request.GET.get('keyword', '')
 
     if status_filter:
         qs = qs.filter(status_cd__status_cd=status_filter)
+    if tab:
+        qs = _apply_expense_list_tab(qs, tab)
     qs = _apply_created_at_date_range(qs, date_from, date_to)
     if keyword:
         qs = qs.filter(

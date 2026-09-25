@@ -5,215 +5,169 @@
 
 {% block content %}
 <div class="mt-4">
-            <div class="page-head mb-3">
-                <h2 class="page-title mb-0">
-                    <span class="pt-ico"><i class="fas fa-file-invoice"></i></span>
-                    経費申請一覧
-                </h2>
-                <div class="page-actions">
-                    <a href="{% url 'expenses:expense_csv' %}?status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword }}" class="btn btn-outline-success btn-sm">
-                        <i class="fas fa-file-csv"></i> CSV出力
+    <div class="page-head mb-3">
+        <h2 class="page-title mb-0">
+            <span class="pt-ico"><svg class="lu" aria-hidden="true"><use href="#lu-file-text"/></svg></span>
+            経費申請一覧
+            <small class="xl-title-sub">自分の申請 {{ page_obj.paginator.count }}件</small>
+        </h2>
+        <div class="page-actions">
+            <a href="{% url 'expenses:expense_csv' %}?tab={{ current_tab }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword|urlencode }}" class="btn btn-outline-success btn-sm">
+                <svg class="lu lu-sm" aria-hidden="true"><use href="#lu-download"/></svg> CSV出力
+            </a>
+            <a href="{% url 'expenses:expense_type_launcher' %}" class="btn btn-primary btn-sm">
+                <svg class="lu lu-sm" aria-hidden="true"><use href="#lu-plus"/></svg> 新規申請
+            </a>
+        </div>
+    </div>
+
+    <!-- 状態タブ + 検索 -->
+    <div class="xl-toolbar">
+        <div class="xl-tabs" role="tablist" aria-label="状態で絞り込み">
+            {% for t in tabs %}
+            <a class="xl-tab" role="tab" aria-selected="{% if t.key == current_tab %}true{% else %}false{% endif %}"
+               href="?tab={{ t.key }}&keyword={{ keyword|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}">
+                {{ t.label }}<span class="xl-tab-n">{{ t.count }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        <form method="get" class="xl-search" id="xlSearchForm">
+            <input type="hidden" name="tab" value="{{ current_tab }}">
+            <label class="xl-search-box">
+                <svg class="lu lu-sm" aria-hidden="true"><use href="#lu-search"/></svg>
+                <input type="search" name="keyword" value="{{ keyword }}" placeholder="目的・支払先・備考で検索" aria-label="キーワード検索">
+            </label>
+            <button type="button" class="xl-more{% if date_from or date_to %} is-on{% endif %}" data-bs-toggle="collapse" data-bs-target="#xlDateFilter"
+                    aria-expanded="{% if date_from or date_to %}true{% else %}false{% endif %}" aria-controls="xlDateFilter">
+                <svg class="lu lu-sm" aria-hidden="true"><use href="#lu-sliders"/></svg>期間で絞り込む
+            </button>
+            <div class="collapse{% if date_from or date_to %} show{% endif %} xl-date" id="xlDateFilter">
+                <label>申請日 <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}" aria-label="申請日（から）"></label>
+                <span class="xl-date-sep">〜</span>
+                <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}" aria-label="申請日（まで）">
+                <button type="submit" class="btn btn-primary btn-sm">適用</button>
+                <a href="?tab={{ current_tab }}&keyword={{ keyword|urlencode }}" class="btn btn-outline-secondary btn-sm">解除</a>
+            </div>
+        </form>
+    </div>
+
+    {% if keyword or date_from or date_to or status_filter %}
+    <div class="xl-chips">
+        <span>絞り込み中:</span>
+        {% if keyword %}<a class="xl-chip" href="?tab={{ current_tab }}&date_from={{ date_from }}&date_to={{ date_to }}">「{{ keyword }}」 <i class="fas fa-times"></i></a>{% endif %}
+        {% if date_from or date_to %}<a class="xl-chip" href="?tab={{ current_tab }}&keyword={{ keyword|urlencode }}">申請日 {{ date_from|default:"…" }}〜{{ date_to|default:"…" }} <i class="fas fa-times"></i></a>{% endif %}
+        {% if status_filter %}<a class="xl-chip" href="?tab={{ current_tab }}&keyword={{ keyword|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}">ステータス: {{ status_filter }} <i class="fas fa-times"></i></a>{% endif %}
+        <a class="xl-chip-clear" href="{% url 'expenses:expense_list' %}">すべて解除</a>
+    </div>
+    {% endif %}
+
+    {% if expenses %}
+    <div class="xl-list">
+        {% for expense in expenses %}
+        {% with info=row_info_by_doc|get_item:expense.document_id %}
+        <div class="xl-row">
+            <span class="xl-tile xl-tile-{{ info.group|default:'PAY' }}" aria-hidden="true">
+                <svg class="lu">
+                    {% if info.group == 'TRV' %}<use href="#lu-plane"/>
+                    {% elif info.group == 'REC' %}<use href="#lu-wine"/>
+                    {% elif info.group == 'AST' %}<use href="#lu-building-2"/>
+                    {% elif info.group == 'LON' %}<use href="#lu-banknote"/>
+                    {% else %}<use href="#lu-receipt-yen"/>{% endif %}
+                </svg>
+            </span>
+            <div class="xl-body">
+                {% with first=expense.contents.first %}
+                <a class="xl-title stretched-link" href="{% url 'expenses:expense_detail' expense.expense_main_id %}" title="{{ first.purpose|default:expense.title }}">
+                    {{ first.purpose|default:expense.title|default:"（目的未入力）" }}
+                </a>
+                <div class="xl-sub">
+                    <span>{{ expense.document_type.document_type_name|default:"-" }}</span>
+                    <span class="xl-id">#{{ expense.expense_main_id }}</span>
+                    {% if first.shiharaisaki %}<span class="xl-payee">{{ first.shiharaisaki|truncatechars:20 }}</span>{% endif %}
+                    {% if info.text %}<span class="xl-prog xl-prog-{{ info.cls }}">{{ info.text }}</span>{% endif %}
+                </div>
+                {% endwith %}
+            </div>
+            <div class="xl-amt">{{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}</div>
+            <div class="xl-when"><small>申請日</small>{{ expense.created_at|date:"Y年n月j日" }}</div>
+            <div class="xl-status"><span class="{{ expense.status_cd.status_cd|status_badge_class }}">{{ expense.status_cd.status_name }}</span></div>
+            <div class="xl-act">
+                {% if expense.status_cd.status_cd == 'DRAFT' and expense.man_number == request.user %}
+                <form method="post" action="{% url 'expenses:expense_delete' expense.expense_main_id %}" class="d-inline js-delete-draft-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger xl-del" title="下書きを削除" aria-label="下書きを削除">
+                        <svg class="lu lu-sm" aria-hidden="true"><use href="#lu-trash"/></svg>
+                    </button>
+                </form>
+                {% else %}
+                <svg class="lu xl-chev" aria-hidden="true"><use href="#lu-chevron-right"/></svg>
+                {% endif %}
+            </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+    </div>
+
+    <!-- ページネーション -->
+    <div class="xl-foot">
+        <small class="text-muted">
+            全{{ page_obj.paginator.count }}件中 {{ page_obj.start_index }}〜{{ page_obj.end_index }}件を表示
+        </small>
+        {% if page_obj.paginator.num_pages > 1 %}
+        <nav aria-label="ページネーション">
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab={{ current_tab }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword|urlencode }}" aria-label="前のページ">
+                        <i class="fas fa-chevron-left"></i>
                     </a>
-                    <a href="{% url 'expenses:expense_type_launcher' %}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i> 新規申請
-                    </a>
-                </div>
-            </div>
-
-            <!-- フィルター条件チップ -->
-            {% if status_filter or date_from or date_to or keyword %}
-            <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
-                <span class="text-muted small">絞り込み中:</span>
-                {% if keyword %}
-                <a href="?status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
-                    キーワード: {{ keyword }} <i class="fas fa-times ms-1"></i>
-                </a>
-                {% endif %}
-                {% if status_filter %}
-                <a href="?keyword={{ keyword }}&date_from={{ date_from }}&date_to={{ date_to }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
-                    ステータス: {{ status_filter }} <i class="fas fa-times ms-1"></i>
-                </a>
-                {% endif %}
-                {% if date_from %}
-                <a href="?keyword={{ keyword }}&status={{ status_filter }}&date_to={{ date_to }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
-                    から: {{ date_from }} <i class="fas fa-times ms-1"></i>
-                </a>
-                {% endif %}
-                {% if date_to %}
-                <a href="?keyword={{ keyword }}&status={{ status_filter }}&date_from={{ date_from }}" class="badge rounded-pill border text-dark text-decoration-none" style="background:var(--primary-soft);">
-                    まで: {{ date_to }} <i class="fas fa-times ms-1"></i>
-                </a>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            <!-- フィルター -->
-            <div class="card mb-3">
-                <div class="card-body py-2">
-                    <form method="get" class="row g-2 align-items-end">
-                        <div class="col-md-3">
-                            <label class="form-label small mb-1">キーワード</label>
-                            <input type="text" name="keyword" class="form-control form-control-sm" placeholder="目的・支払先・タイトル・備考" value="{{ keyword }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small mb-1">ステータス</label>
-                            <select name="status" class="form-select form-select-sm">
-                                <option value="">すべて</option>
-                                {% for s in statuses %}
-                                    <option value="{{ s.status_name }}" {% if status_filter == s.status_name %}selected{% endif %}>{{ s.status_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small mb-1">申請日（から）</label>
-                            <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small mb-1">申請日（まで）</label>
-                            <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}">
-                        </div>
-                        <div class="col-md-3 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-search"></i> 検索</button>
-                            <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary btn-sm">クリア</a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            {% if expenses %}
-                <div class="card" style="display:inline-block; min-width:480px; max-width:100%;">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-list"></i>
-                            申請一覧（全{{ page_obj.paginator.count }}件）
-                        </h5>
-                        <span class="text-muted small">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }} ページ</span>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0" style="width:auto; min-width:100%;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="text-center" style="width:80px">申請ID</th>
-                                        <th style="width:110px">申請日時</th>
-                                        <th>申請種別</th>
-                                        <th>目的</th>
-                                        <th class="text-end" style="width:120px">合計金額</th>
-                                        <th style="width:90px">ステータス</th>
-                                        <th class="text-center" style="width:60px">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for expense in expenses %}
-                                    <tr class="table-row-link" data-href="{% url 'expenses:expense_detail' expense.expense_main_id %}" tabindex="0">
-                                        <td class="text-center">
-                                            <span class="badge bg-primary" style="font-size:14px;">#{{ expense.expense_main_id }}</span>
-                                        </td>
-                                        <td>
-                                            <small class="text-muted">{{ expense.created_at|date:"Y/m/d" }}</small>
-                                        </td>
-                                        <td>
-                                            <small>{{ expense.document_type.document_type_name|default:"-" }}</small>
-                                        </td>
-                                        <td>
-                                            {% with shiharaisaki=expense.contents.first.shiharaisaki %}
-                                            {% if shiharaisaki %}
-                                            <small class="text-muted">{{ shiharaisaki|truncatechars:20 }}</small><br>
-                                            {% endif %}
-                                            {% endwith %}
-                                            <span class="text-truncate d-inline-block" style="max-width:220px" title="{{ expense.contents.first.purpose|default:'' }}">
-                                                {{ expense.contents.first.purpose|default:"-"|truncatechars:35 }}
-                                            </span>
-                                        </td>
-                                        <td class="text-end">
-                                            <span class="fw-bold text-success">
-                                                {{ expense.tsuka_cd|currency_display }} {{ expense.total_amount|amount_format:expense.tsuka_cd }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="{{ expense.status_cd.status_cd|status_badge_class }}">
-                                                {% status_label expense progress_by_doc %}
-                                            </span>
-                                        </td>
-                                        <td class="text-center" onclick="event.stopPropagation();">
-                                            {% if expense.status_cd.status_cd == 'DRAFT' and expense.man_number == request.user %}
-                                            <form method="post" action="{% url 'expenses:expense_delete' expense.expense_main_id %}" class="d-inline js-delete-draft-form">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="下書きを削除">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
-                                            </form>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ページネーション -->
-                {% if page_obj.paginator.num_pages > 1 %}
-                <div class="text-center mt-3">
-                    <small class="text-muted d-block mb-2">
-                        全{{ page_obj.paginator.count }}件中
-                        {{ page_obj.start_index }}〜{{ page_obj.end_index }}件を表示
-                    </small>
-                    <nav aria-label="ページネーション">
-                    <ul class="pagination justify-content-center mb-0">
-                        {% if page_obj.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword }}">
-                                    <i class="fas fa-chevron-left"></i>
-                                </a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-left"></i></span></li>
-                        {% endif %}
-
-                        {% for num in page_obj.paginator.page_range %}
-                            {% if page_obj.number == num %}
-                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                            {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ num }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword }}">{{ num }}</a>
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-
-                        {% if page_obj.has_next %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword }}">
-                                    <i class="fas fa-chevron-right"></i>
-                                </a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-right"></i></span></li>
-                        {% endif %}
-                    </ul>
-                    </nav>
-                </div>
-                {% endif %}
-
+                </li>
             {% else %}
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i class="fas fa-file-invoice-dollar"></i></div>
-                    {% if status_filter or date_from or date_to or keyword %}
-                        <div class="empty-state-title">条件に一致する申請がありません</div>
-                        <div class="empty-state-desc">フィルターを変更してみてください。</div>
-                        <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary me-2">
-                            <i class="fas fa-times"></i> フィルタークリア
-                        </a>
-                    {% else %}
-                        <div class="empty-state-title">経費申請はありません</div>
-                        <div class="empty-state-desc">まだ申請がありません。新規申請を作成しましょう。</div>
-                    {% endif %}
-                    <a href="{% url 'expenses:expense_type_launcher' %}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> 新規申請
-                    </a>
-                </div>
+                <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-left"></i></span></li>
             {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}&tab={{ current_tab }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword|urlencode }}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&tab={{ current_tab }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword|urlencode }}" aria-label="次のページ">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link"><i class="fas fa-chevron-right"></i></span></li>
+            {% endif %}
+        </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+        {% if current_tab != 'all' or date_from or date_to or keyword or status_filter %}
+            <div class="empty-state-title">条件に一致する申請がありません</div>
+            <div class="empty-state-desc">タブや検索条件を変更してみてください。</div>
+            <a href="{% url 'expenses:expense_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-times"></i> 絞り込みを解除
+            </a>
+        {% else %}
+            <div class="empty-state-title">経費申請はありません</div>
+            <div class="empty-state-desc">まだ申請がありません。新規申請を作成しましょう。</div>
+        {% endif %}
+        <a href="{% url 'expenses:expense_type_launcher' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> 新規申請
+        </a>
+    </div>
+    {% endif %}
 </div>
 <!-- 下書き削除確認モーダル -->
 <div class="modal fade" id="deleteDraftListModal" tabindex="-1" aria-hidden="true">

@@ -1,0 +1,238 @@
+{% load expense_extras %}
+{% comment %}
+サイドメニュー。アイコンは _lucide_sprite.html（Lucide）。body.sidebar-rail でアイコンのみの細いレール表示になり、
+title 属性がツールチップ、グループ（申請種別）はホバー/フォーカスでフライアウト表示になる（base.html 末尾のJS参照）。
+{% endcomment %}
+{% if user.is_authenticated %}
+{% with current=request.resolver_match.url_name doc_type=request.resolver_match.kwargs.document_type_id|default:'' %}
+<nav class="precision-sidebar" aria-label="サイドメニュー">
+    <div class="precision-brand">
+        <span class="precision-mark" aria-hidden="true"><svg class="lu"><use href="#lu-file-text"/></svg></span>
+        <a href="{% url 'expenses:home' %}">
+            <div class="precision-brand-title">経費精算</div>
+        </a>
+    </div>
+    <ul class="precision-nav">
+        <li>
+            <a class="precision-link {% if current == 'home' %}is-active{% endif %}" href="{% url 'expenses:home' %}" title="トップ">
+                <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-house"/></svg></span>
+                <span>トップ</span>
+            </a>
+        </li>
+        <li>
+            <a class="precision-link {% if current == 'expense_list' or current == 'expense_detail' or current == 'expense_edit' %}is-active{% endif %}" href="{% url 'expenses:expense_list' %}" title="経費一覧">
+                <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-list"/></svg></span>
+                <span>経費一覧</span>
+            </a>
+        </li>
+    </ul>
+
+    {% for grp, dtypes in sidebar_expense_groups %}
+    <div class="precision-section has-group">
+        <button class="precision-group-toggle collapsed"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#sidebar-grp-{{ forloop.counter }}"
+                aria-expanded="false"
+                aria-controls="sidebar-grp-{{ forloop.counter }}"
+                title="{{ grp.menu_group_name }}">
+            <span class="precision-group-label">
+                <svg class="lu grp-ico" aria-hidden="true">
+                    {% if grp.menu_group == 'PAY' %}<use href="#lu-receipt-yen"/>
+                    {% elif grp.menu_group == 'TRV' %}<use href="#lu-plane"/>
+                    {% elif grp.menu_group == 'REC' %}<use href="#lu-wine"/>
+                    {% elif grp.menu_group == 'LON' %}<use href="#lu-banknote"/>
+                    {% else %}<use href="#lu-folder"/>{% endif %}
+                </svg>
+                <span class="precision-group-text">{{ grp.menu_group_name }}</span>
+            </span>
+            <svg class="lu precision-chevron-icon" aria-hidden="true"><use href="#lu-chevron-right"/></svg>
+        </button>
+        <div class="collapse" id="sidebar-grp-{{ forloop.counter }}">
+            <div class="precision-flyout-title" aria-hidden="true">{{ grp.menu_group_name }}</div>
+            <ul class="precision-nav">
+                {% for dt in dtypes %}
+                <li>
+                    <a class="precision-link {% if current == 'expense_create_by_type' and doc_type|stringformat:'s' == dt.document_type_id|stringformat:'s' %}is-active{% elif current == 'expense_create' and dt.document_type_id == 1 %}is-active{% endif %}"
+                       href="{% url 'expenses:expense_create_by_type' dt.document_type_id %}">
+                        <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-file-plus"/></svg></span>
+                        <span>{{ dt.document_type_name }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="precision-section">
+        <ul class="precision-nav">
+            <li>
+                <a class="precision-link {% if current == 'approval_list' or current == 'approval_detail' %}is-active{% endif %}" href="{% url 'expenses:approval_list' %}" title="承認待ち{% if pending_approval_count %}（{{ pending_approval_count }}件）{% endif %}">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-inbox"/></svg></span>
+                    <span>承認待ち</span>
+                    {% if pending_approval_count %}
+                    <span class="sidebar-badge">{{ pending_approval_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="precision-section">
+        <ul class="precision-nav">
+            <li>
+                <a class="precision-link {% if current == 'feedback_list' or current == 'feedback_create' or current == 'feedback_detail' or current == 'feedback_edit' %}is-active{% endif %}" href="{% url 'expenses:feedback_list' %}" title="改善要望">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-message-square"/></svg></span>
+                    <span>改善要望</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="precision-section">
+        <div class="precision-section-label">管理者設定</div>
+        <ul class="precision-nav">
+            {% if request.user|has_role:'admin' %}
+            <li>
+                <a class="precision-link {% if current == 'settings_mail' %}is-active{% endif %}" href="{% url 'expenses:settings_mail' %}" title="メール設定">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-mail"/></svg></span>
+                    <span>メール設定</span>
+                </a>
+            </li>
+            <li>
+                <a class="precision-link {% if current == 'settings_master_home' or current == 'settings_master_list' or current == 'settings_master_create' or current == 'settings_master_edit' %}is-active{% endif %}" href="{% url 'expenses:settings_master_home' %}" title="マスタ設定">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-database"/></svg></span>
+                    <span>マスタ設定</span>
+                </a>
+            </li>
+            {% endif %}
+            <li>
+                <a class="precision-link {% if current == 'settings_approval_admin' %}is-active{% endif %}" href="{% url 'expenses:settings_approval_admin' %}" title="承認管理">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-shield-check"/></svg></span>
+                    <span>承認管理</span>
+                </a>
+            </li>
+            {% if request.user|has_role:'admin' %}
+            <li>
+                <a class="precision-link {% if current == 'settings_data_view_home' or current == 'settings_data_view_browse' %}is-active{% endif %}" href="{% url 'expenses:settings_data_view_home' %}" title="データ参照">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-eye"/></svg></span>
+                    <span>データ参照</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if request.user|has_role:'admin' or request.user|has_role:'keiri' or request.user|has_role:'approver' %}
+            <li>
+                <a class="precision-link {% if current == 'settlement_menu' or current == 'settlement_classify' or current == 'settlement_cash' or current == 'settlement_transfer' or current == 'settlement_corp_card' or current == 'settlement_payroll' or current == 'settlement_auto_debit' or current == 'settlement_list' %}is-active{% endif %}" href="{% url 'expenses:settlement_menu' %}" title="精算処理{% if settlement_pending_count %}（{{ settlement_pending_count }}件）{% endif %}">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-badge-check"/></svg></span>
+                    <span>精算処理</span>
+                    {% if settlement_pending_count %}<span class="sidebar-badge">{{ settlement_pending_count }}</span>{% endif %}
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <div class="precision-section">
+        <div class="precision-section-label">固定資産</div>
+        <ul class="precision-nav">
+            <li>
+                <a class="precision-link {% if current == 'asset_home' %}is-active{% endif %}" href="{% url 'expenses:asset_home' %}" title="固定資産トップ">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-building-2"/></svg></span>
+                    <span>トップ</span>
+                </a>
+            </li>
+            <li>
+                <a class="precision-link {% if current == 'asset_list' %}is-active{% endif %}" href="{% url 'expenses:asset_list' %}" title="取得報告書一覧">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-clipboard-list"/></svg></span>
+                    <span>取得報告書一覧</span>
+                </a>
+            </li>
+            {% if can_manage_assets %}
+            <li>
+                <a class="precision-link {% if current == 'assets_sync_info' %}is-active{% endif %}" href="{% url 'expenses:assets_sync_info' %}" title="MDB同期について">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-refresh-cw"/></svg></span>
+                    <span>MDB同期について</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+
+    {% if can_view_china_export %}
+    <div class="precision-section">
+        <div class="precision-section-label">各部報告</div>
+        <ul class="precision-nav">
+            <li>
+                <a class="precision-link {% if current == 'china_export_list' %}is-active{% endif %}" href="{% url 'expenses:china_export_list' %}" title="中国輸出実績報告">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-globe"/></svg></span>
+                    <span>中国輸出実績報告</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if can_view_china_invoice %}
+    <div class="precision-section">
+        <div class="precision-section-label">中国輸出Invoice管理</div>
+        <ul class="precision-nav">
+            {% if can_register_china_invoice %}
+            <li>
+                <a class="precision-link {% if current == 'china_invoice_report' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_report_upload' %}" title="Invoice報告">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-file-plus"/></svg></span>
+                    <span>Invoice報告</span>
+                </a>
+            </li>
+            {% endif %}
+            <li>
+                <a class="precision-link {% if current == 'china_invoice_list' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_list' %}" title="輸出実績一覧">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-list"/></svg></span>
+                    <span>輸出実績一覧</span>
+                </a>
+            </li>
+            {% if can_confirm_china_invoice_accounting %}
+            <li>
+                <a class="precision-link {% if current == 'china_invoice_accounting' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_accounting' %}" title="経理確認">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-circle-check"/></svg></span>
+                    <span>経理確認</span>
+                </a>
+            </li>
+            <li>
+                <a class="precision-link {% if current == 'china_invoice_month_close' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_month_close' %}" title="月締め">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-calendar-check"/></svg></span>
+                    <span>月締め</span>
+                </a>
+            </li>
+            {% endif %}
+            {% if can_confirm_china_invoice_china_side %}
+            <li>
+                <a class="precision-link {% if current == 'china_invoice_china_check' %}is-active{% endif %}" href="{% url 'expenses:china_invoice_china_check' %}" title="中国側確認">
+                    <span class="precision-ico" aria-hidden="true"><svg class="lu"><use href="#lu-globe"/></svg></span>
+                    <span>中国側確認</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="precision-user">
+        <div class="precision-user-row" title="{{ user.user_name }}{% if user.bumon_cd %}（{{ user.bumon_cd.bumon_name }}）{% endif %}">
+            <div class="precision-avatar" aria-hidden="true">{{ user.user_name|default:"?"|slice:":1" }}</div>
+            <div class="precision-user-text">
+                <div class="precision-user-name">{{ user.user_name }}</div>
+                <div class="precision-user-sub">{{ user.bumon_cd.bumon_name|default:"" }}</div>
+            </div>
+        </div>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="precision-logout" title="ログアウト">
+                <svg class="lu lu-sm" aria-hidden="true"><use href="#lu-log-out"/></svg>
+                <span>ログアウト</span>
+            </button>
+        </form>
+    </div>
+</nav>
+{% endwith %}
+{% endif %}

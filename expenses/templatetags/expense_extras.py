@@ -82,6 +82,10 @@ def status_badge_class(status_cd):
         'CANCEL':   'status-pill status-pill-cancelled',
         'FNS':      'status-pill status-pill-approved',
         'DRAFT':    'status-pill status-pill-draft',
+        # 精算完了（指定口座支払い / 現金精算 / 給与振込）
+        'BAN':      'status-pill status-pill-settled',
+        'PAY':      'status-pill status-pill-settled',
+        'SAL':      'status-pill status-pill-settled',
     }
     return mapping.get(status_cd or '', 'status-pill status-pill-draft')
 

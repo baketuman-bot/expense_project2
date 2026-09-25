@@ -144,6 +144,14 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 5. フォーム保存時に `mobile_upload_id` をPOSTしてGCSからファイルを取得・添付保存
 6. `expense_form.html` / `travel_expense_form.html` の両方に同じロジックを実装している（片方だけ直して不整合にならないよう注意）
 
+## サイドバー・アイコン・申請一覧
+
+- **アイコンは Lucide（ISC）を `_lucide_sprite.html` のインラインSVGスプライトで提供**（CDN不使用）。`<svg class="lu"><use href="#lu-house"/></svg>` で参照。サイドバー本体は `_sidebar.html`（`base.html` から include）
+- **サイドバーは full / rail の2モード**（`localStorage.sidebarMode`、旧 `sidebarHidden=1` は rail として引き継ぐ）。`body.sidebar-rail` でアイコンのみ64px幅。レール時は `title` 属性がツールチップ、申請種別グループはホバー/フォーカスで `.is-flyout`（`position:fixed`、base.html 末尾のJSで位置決め）を付けてフライアウト表示する。Bootstrap collapse の `.show` はレール時に無視される
+- **Djangoの `{# #}` コメントは1行限定。** 複数行コメントを `{# #}` で書くと本文としてページに出力される（`{% comment %}` を使う）
+- **申請一覧（`expense_list`）は状態タブ `?tab=`**（all/draft/wait/return/done/other、`EXPENSE_LIST_TABS`）。`done` は他タブに属さない全ステータス（FNS + 精算系 BAN/PAY/SAL/*_INPRO/*_PRE）。タブ件数はキーワード・期間の絞り込み後、タブ適用前で集計。行の進行テキスト（「2／3 段・次は 部長」等）は `_expense_list_row_info()`、次の承認者は `T_DocumentApprover` の未処理最小ステップから取る。旧 `?status=<status_name>` も互換で残している
+- ステータスピルの承認待ち系（`status-pill-pending` / `status-pill-mid-approved`）は決裁状況カードと同じ琥珀色。精算完了（BAN/PAY/SAL）は `status-pill-settled`
+
 ## 改善要望 (Feedback)
 
 全ユーザーが要望を登録・閲覧でき、`is_superuser=True` のユーザーのみ回答・状況を更新できる。

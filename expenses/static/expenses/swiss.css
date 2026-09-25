@@ -180,7 +180,6 @@ body.no-sidebar .precision-topbar{ display:none; }
   overflow-y:auto;
 }
 body.no-sidebar .precision-sidebar{display:none;}
-body.sidebar-hidden .precision-sidebar{ display:none; }
 
 /* Sidebar header */
 .precision-brand{
@@ -391,7 +390,6 @@ body.sidebar-hidden .precision-sidebar{ display:none; }
   background:var(--panel);
 }
 body.has-sidebar .precision-main{ margin-left:var(--precision-sidebar-width); }
-body.sidebar-hidden.has-sidebar .precision-main{ margin-left:0; }
 .precision-shell{ max-width:1200px; margin:0 auto; }
 
 /* ===== Display font (Zen Kaku Gothic New) ===== */
@@ -1508,3 +1506,151 @@ label.required::after {
 }
 .ab-comment-return{ border-left-color:#c2740a; }
 .ab-comment-reject{ border-left-color:#b91c1c; }
+
+
+/* =====================================================
+   Lucide アイコン共通（_lucide_sprite.html）
+   ===================================================== */
+svg.lu{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; vertical-align:-3px; }
+svg.lu.lu-sm{ width:15px; height:15px; vertical-align:-2px; }
+.precision-ico svg.lu{ width:18px; height:18px; vertical-align:0; }
+.precision-mark svg.lu{ width:20px; height:20px; }
+.precision-group-toggle svg.grp-ico{ width:17px; height:17px; }
+.precision-chevron-icon{ width:12px; height:12px; stroke-width:2.5; }
+.page-title .pt-ico svg.lu{ width:18px; height:18px; vertical-align:0; }
+.precision-flyout-title{ display:none; }
+.precision-logout{ display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+
+/* =====================================================
+   サイドバー レール表示（body.sidebar-rail: アイコンのみ 64px）
+   ===================================================== */
+@media (min-width:769px){
+  body.sidebar-rail{ --precision-sidebar-width:64px; }
+  body.sidebar-rail .precision-sidebar{ padding:12px 0; }
+  body.sidebar-rail .precision-brand{ padding:4px 0 12px; justify-content:center; }
+  body.sidebar-rail .precision-brand a,
+  body.sidebar-rail .precision-section-label,
+  body.sidebar-rail .precision-link > span:not(.precision-ico),
+  body.sidebar-rail .precision-group-text,
+  body.sidebar-rail .precision-chevron-icon,
+  body.sidebar-rail .precision-user-text,
+  body.sidebar-rail .precision-logout span{ display:none; }
+  body.sidebar-rail .precision-nav{ padding:0 8px; }
+  body.sidebar-rail .precision-link{ justify-content:center; padding:10px 0; position:relative; }
+  body.sidebar-rail .precision-ico{ width:22px; height:22px; }
+  body.sidebar-rail .precision-ico svg.lu{ width:22px; height:22px; }
+  /* 件数バッジはアイコン右上に重ねる（上の span:not(.precision-ico) の非表示より後に置いて上書き） */
+  body.sidebar-rail .precision-link > span.sidebar-badge{
+    display:inline-flex; position:absolute; top:3px; right:4px; min-width:16px; height:16px; padding:0 4px; font-size:10px; border-radius:8px; margin:0;
+  }
+  body.sidebar-rail .precision-section{ margin-top:8px; padding-top:6px; }
+  body.sidebar-rail .precision-group-toggle{ width:calc(100% - 16px); margin:0 8px; padding:10px 0; justify-content:center; }
+  body.sidebar-rail .precision-group-label{ gap:0; }
+  body.sidebar-rail .precision-group-toggle svg.grp-ico{ width:22px; height:22px; }
+  body.sidebar-rail .precision-user{ padding:10px 8px 4px; align-items:center; }
+  body.sidebar-rail .precision-user-row{ padding:4px 0; justify-content:center; }
+  body.sidebar-rail .precision-logout{ width:40px; height:36px; padding:0; margin:0 auto; }
+  body.sidebar-rail .precision-logout svg.lu{ width:18px; height:18px; }
+  /* グループ（申請種別）: レールでは通常の折りたたみを使わず、JSが付ける .is-flyout で右側にパネル表示 */
+  body.sidebar-rail .precision-section.has-group .collapse:not(.is-flyout){ display:none !important; }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout{
+    display:block !important; position:fixed; z-index:1300; min-width:240px; max-width:320px;
+    background:#fff; border:1px solid var(--line); border-radius:0 8px 8px 0;
+    box-shadow:0 8px 24px rgba(17,24,39,.14); padding:6px 6px 8px;
+  }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout .precision-flyout-title{
+    display:block; padding:6px 12px 8px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--muted);
+  }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout .precision-nav{ padding:0; }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout .precision-link{ justify-content:flex-start; padding:8px 12px; gap:10px; }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout .precision-link > span{ display:inline; }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout .precision-ico{ width:18px; height:18px; }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout .precision-ico svg.lu{ width:18px; height:18px; }
+  body.sidebar-rail .precision-section.has-group .collapse.is-flyout .precision-link > span:not(.precision-ico){ display:inline; }
+}
+
+/* =====================================================
+   経費申請一覧（expense_list.html）
+   ===================================================== */
+.xl-title-sub{ font-size:12px; color:var(--sub); font-weight:400; margin-left:4px; font-family:inherit; }
+.xl-toolbar{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; border-bottom:1px solid var(--line); margin-bottom:6px; }
+.xl-tabs{ display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; margin-bottom:-1px; }
+.xl-tabs::-webkit-scrollbar{ display:none; }
+.xl-tab{
+  font-size:13.5px; color:var(--sub); padding:8px 12px 10px; border-bottom:2px solid transparent; text-decoration:none;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.xl-tab:hover{ color:var(--primary); }
+.xl-tab-n{ min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--panel); color:var(--sub); font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums; }
+.xl-tab[aria-selected="true"]{ color:var(--primary); font-weight:700; border-bottom-color:var(--primary); }
+.xl-tab[aria-selected="true"] .xl-tab-n{ background:var(--primary-soft); color:var(--primary); }
+.xl-tab:focus-visible{ outline:2px solid var(--primary); outline-offset:-2px; }
+.xl-search{ display:flex; align-items:center; gap:10px; padding-bottom:8px; flex-wrap:wrap; }
+.xl-search-box{ display:flex; align-items:center; gap:6px; height:32px; padding:0 10px; border:1px solid var(--line-strong); border-radius:6px; background:#fff; color:var(--muted); min-width:260px; }
+.xl-search-box:focus-within{ border-color:var(--primary); box-shadow:0 0 0 2px var(--primary-soft); }
+.xl-search-box input{ border:0; outline:0; background:transparent; font:inherit; font-size:13px; color:var(--ink); width:100%; }
+.xl-more{ border:0; background:none; font:inherit; font-size:12px; color:var(--sub); display:inline-flex; align-items:center; gap:4px; cursor:pointer; padding:4px 6px; border-radius:4px; white-space:nowrap; }
+.xl-more:hover,.xl-more.is-on{ color:var(--primary); background:var(--primary-soft); }
+.xl-date{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--sub); }
+.xl-date.show{ display:flex; }
+.xl-date label{ display:inline-flex; align-items:center; gap:6px; margin:0; }
+.xl-date .form-control-sm{ width:150px; }
+.xl-chips{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--sub); margin:6px 0 10px; }
+.xl-chip{ display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 8px; border-radius:11px; background:var(--primary-soft); color:var(--primary); border:1px solid #bfdbfe; text-decoration:none; }
+.xl-chip-clear{ font-size:12px; color:var(--sub); text-decoration:underline; }
+
+.xl-list{ background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+.xl-row{
+  position:relative; display:grid; grid-template-columns:44px minmax(0,1fr) 130px 140px 110px 36px; gap:14px; align-items:center;
+  padding:12px 14px; border-top:1px solid var(--line);
+}
+.xl-row:first-child{ border-top:0; }
+.xl-row:hover{ background:var(--panel); }
+.xl-row:has(.xl-title:focus-visible){ outline:2px solid var(--primary); outline-offset:-2px; }
+.xl-tile{ width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+.xl-tile svg.lu{ width:20px; height:20px; vertical-align:0; }
+.xl-tile-PAY{ background:#e6ecfa; color:#17307a; }
+.xl-tile-TRV{ background:#dff4f8; color:#0e7490; }
+.xl-tile-REC{ background:#fce7f3; color:#9d174d; }
+.xl-tile-AST{ background:#e5e7eb; color:#374151; }
+.xl-tile-LON{ background:#fef3c7; color:#92400e; }
+.xl-body{ min-width:0; }
+.xl-title{ display:block; font-weight:700; font-size:14.5px; color:var(--ink); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.xl-title:hover{ color:var(--primary); }
+.xl-title:focus-visible{ outline:none; }
+.xl-sub{ font-size:12px; color:var(--sub); display:flex; gap:10px; flex-wrap:wrap; margin-top:2px; }
+.xl-id{ font-variant-numeric:tabular-nums; }
+.xl-prog{ font-weight:500; }
+.xl-prog-wait{ color:#c2740a; }
+.xl-prog-ok{ color:#047857; }
+.xl-prog-ng{ color:#c2410c; }
+.xl-amt{ text-align:right; font-weight:700; font-size:15px; color:#065f46; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.xl-when{ text-align:right; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.xl-when small{ display:block; font-size:11px; color:var(--muted); }
+.xl-status{ display:flex; justify-content:flex-start; }
+.xl-act{ display:flex; justify-content:center; align-items:center; position:relative; z-index:2; }
+.xl-chev{ color:var(--muted); width:18px; height:18px; }
+.xl-del{ padding:2px 6px; line-height:1; }
+.xl-foot{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding:10px 2px; }
+@media (max-width:820px){
+  .xl-row{ grid-template-columns:40px minmax(0,1fr) auto; grid-template-rows:auto auto; gap:6px 12px; padding:12px; }
+  .xl-tile{ width:40px; height:40px; grid-row:span 2; }
+  .xl-amt{ grid-column:3; grid-row:1; }
+  .xl-when{ display:none; }
+  .xl-status{ grid-column:3; grid-row:2; justify-content:flex-end; }
+  .xl-act{ display:none; }
+  .xl-search-box{ min-width:0; flex:1; }
+}
+
+/* ステータスピル: 承認待ち系（申請中 / 承認中）は決裁状況カードと同じ琥珀色に統一。精算完了はネイビー系 */
+.status-pill-pending,
+.status-pill-mid-approved{
+  color:#92400e;
+  background:#fff3d6;
+  border-color:#f2c56b;
+}
+.status-pill-settled{
+  color:#17307a;
+  background:#eff3fb;
+  border-color:#bfdbfe;
+}
