@@ -1,0 +1,17 @@
+{# 印影。stamp={'top','date','name'}、state=done/src → 丸印（日付印）、return/reject/cancel → 角印。tilt は傾きのバリエーション（1..n） #}
+{% if state == 'return' or state == 'reject' or state == 'cancel' %}
+<div class="ab-sq ab-sq-{{ state }}">
+    <span class="ab-sq-w">{% if state == 'return' %}差戻{% elif state == 'reject' %}却下{% else %}取消{% endif %}</span>
+    <span class="ab-sq-s">{{ stamp.date }}</span>
+    <span class="ab-sq-s">{{ stamp.name }}</span>
+</div>
+{% else %}
+<svg class="ab-stamp ab-tilt-{{ tilt|default:1 }}" viewBox="0 0 100 100" role="img" aria-label="{{ stamp.top }} {{ stamp.date }} {{ stamp.name }}">
+    <circle class="ab-stamp-ring" cx="50" cy="50" r="45"/>
+    <line class="ab-stamp-rule" x1="12" y1="36" x2="88" y2="36"/>
+    <line class="ab-stamp-rule" x1="12" y1="62" x2="88" y2="62"/>
+    <text class="ab-stamp-t1" x="50" y="29"{% if stamp.top|length > 4 %} textLength="72" lengthAdjust="spacingAndGlyphs"{% endif %}>{{ stamp.top }}</text>
+    <text class="ab-stamp-t2" x="50" y="53">{{ stamp.date }}</text>
+    <text class="ab-stamp-t3" x="50" y="83"{% if stamp.name|length > 3 %} textLength="76" lengthAdjust="spacingAndGlyphs"{% endif %}>{{ stamp.name }}</text>
+</svg>
+{% endif %}

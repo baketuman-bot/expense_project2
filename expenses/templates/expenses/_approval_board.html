@@ -1,0 +1,124 @@
+{# 決裁状況（プログレスバー + 印鑑式承認欄）と承認ルート。データは expenses.approval_board.build_approval_board #}
+{% if approval_board %}
+{% with board=approval_board %}
+<!-- 決裁状況 + 承認欄 -->
+<div class="card mb-4">
+    <div class="card-header card-header-navy d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-stamp me-2" style="color:#fff !important;"></i>決裁状況</h5>
+        <small class="ab-head-note">右が起案、左へ進むほど上位の承認</small>
+    </div>
+    <div class="card-body">
+        <div class="ab-grid">
+            <div class="ab-summary">
+                <div class="ab-label">決裁の状況</div>
+                <div class="ab-title ab-title-{{ board.state }}">{{ board.title }}</div>
+                <div class="ab-seg">
+                    {% for seg in board.segments %}<span class="ab-seg-{{ seg.state }}" style="--pct:{{ seg.pct }}%"></span>{% endfor %}
+                </div>
+                <div class="ab-seg-cap">
+                    {% for seg in board.segments %}<span>{{ seg.label }}</span>{% endfor %}
+                </div>
+                <div class="ab-meta">
+                    {% if board.state == 'wait' %}
+                        <b>{{ board.current }}／{{ board.total }} 段</b> 承認済み{% if board.next_label %}・次は <b>{{ board.next_label }}</b>{% endif %}
+                    {% elif board.state == 'done' %}
+                        <b>{{ board.current }}／{{ board.total }} 段</b> 承認済み{% if board.completed_text %}・{{ board.completed_text }}{% endif %}
+                    {% elif board.state == 'return' %}
+                        <b>{{ board.current }}／{{ board.total }} 段</b> 承認済み・申請者が修正して再申請できます
+                    {% elif board.state == 'reject' %}
+                        <b>{{ board.current }}／{{ board.total }} 段</b> 承認済み・この申請は終了しました
+                    {% elif board.state == 'cancel' %}
+                        申請者が取り消しました
+                    {% else %}
+                        まだ提出されていません
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="ab-stampbox-wrap">
+                <table class="ab-stampbox" aria-label="承認欄">
+                    <thead>
+                        <tr>
+                            {% for col in board.columns %}
+                            <th><span class="ab-role">{{ col.role }}</span><span class="ab-post">{% if col.cap %}{{ col.cap }}{% else %}&nbsp;{% endif %}</span></th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            {% for col in board.columns %}
+                            <td class="ab-cell{% if col.state == 'now' %} ab-cell-now{% endif %}">
+                                {% if col.stamp %}
+                                    {% include "expenses/_approval_stamp.html" with stamp=col.stamp state=col.state tilt=forloop.counter %}
+                                {% elif col.state == 'now' %}
+                                    <div class="ab-hole ab-hole-now">承認待ち</div>
+                                    <div class="ab-mini" style="--pct:{{ col.pct }}%"></div>
+                                {% elif col.state == 'draft' %}
+                                    <div class="ab-hole">未提出</div>
+                                {% else %}
+                                    <div class="ab-hole">未着手</div>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            {% for col in board.columns %}
+                            <td class="ab-name">{% if col.user_name %}{{ col.user_name }}{% else %}&nbsp;{% endif %}{% if col.date_text %}<span class="ab-dt">{{ col.date_text }}</span>{% endif %}</td>
+                            {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 承認ルート -->
+{% if board.route %}
+<div class="card mb-4">
+    <div class="card-header card-header-navy d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="card-title mb-0" style="color:#fff !important;"><i class="fas fa-stream me-2" style="color:#fff !important;"></i>承認ルート</h5>
+        <small class="ab-head-note">履歴 ＋ 承認予定者</small>
+    </div>
+    <div class="card-body">
+        <ol class="ab-route">
+            {% for r in board.route %}
+            <li class="ab-r-{{ r.state }}">
+                <div class="ab-node ab-node-{{ r.state }}">
+                    {% if r.state == 'done' %}<i class="fas fa-check"></i>
+                    {% elif r.state == 'src' %}起
+                    {% elif r.state == 'reject' %}<i class="fas fa-times"></i>
+                    {% elif r.state == 'return' %}<i class="fas fa-undo"></i>
+                    {% elif r.state == 'cancel' %}<i class="fas fa-ban"></i>
+                    {% elif r.step_order %}{{ r.step_order }}
+                    {% else %}<i class="fas fa-clock"></i>{% endif %}
+                </div>
+                <div>
+                    <div class="ab-r-head">
+                        <span class="ab-r-title">{{ r.title }}</span>
+                        <span class="ab-pill ab-pill-{{ r.state }}">{{ r.pill }}</span>
+                    </div>
+                    <div class="ab-person">
+                        <div class="ab-avatar">{{ r.user_name|slice:":1" }}</div>
+                        <div>
+                            <div class="ab-nm">{{ r.user_name }}</div>
+                            <div class="ab-sb">{{ r.post_name }}{% if r.post_name and r.datetime_text %}・{% endif %}{{ r.datetime_text }}</div>
+                        </div>
+                    </div>
+                    {% if r.elapsed_text %}
+                    <div class="ab-elapsed"><div class="ab-bar{% if r.state == 'done' %} ab-bar-ok{% endif %}" style="--pct:{{ r.pct }}%"></div><span>{{ r.elapsed_text }}</span></div>
+                    {% endif %}
+                    {% if r.comment %}
+                    <div class="ab-comment ab-comment-{{ r.state }}">{{ r.comment|linebreaksbr }}</div>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+</div>
+{% endif %}
+{% endwith %}
+{% else %}
+{% include "expenses/_approval_timeline.html" %}
+{% endif %}

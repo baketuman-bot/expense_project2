@@ -74,6 +74,11 @@ DRA(下書き) → SUB(申請済) → APP(承認中/各ステップ) → FNS(最
 
 **連続ステップ自動承認:** 同一ユーザーが連続する複数ステップを担当している場合、手前ステップの承認時に後続ステップも自動承認される（`approval_detail` の APPROVED ブランチでwhileループ）。自動承認時は `comment='（連続ステップ自動承認）'` で記録し、次承認者へのメール通知はスキップ。**対象外**: `role='approver'`（全件特権ロール、無限ループ防止）および `is_superuser=True`。
 
+**決裁状況・承認欄（印鑑）・承認ルート表示:** `expense_detail` / `approval_detail` の承認表示は `expenses/approval_board.py` の `build_approval_board()`（純粋関数、DBアクセスなし）が組み立てた dict を `_approval_board.html` が描画する。`views._build_approval_board()` がステップ定義を取得して呼び出し、None のとき（テンプレート無し・例外）は旧タイムライン `_approval_timeline.html` にフォールバック。
+- 承認欄の列は「最終段（決裁）→ … → 1段目 → 申請者」の順（右が起案）。印影は上段=役職名 `post_name`（`一般社員` は `担当` に言い換え: `STAMP_POST_ALIASES`）・中段=`YY.M.D`・下段=姓（`user_name` の空白区切り先頭）
+- 「現サイクル」= 最後の INPRO（提出/再提出）アクション以降。差戻し→再提出後は前サイクルの承認・差戻しを承認欄に反映しない（承認ルート履歴には残す）
+- 表示上の段数は `step_order` の値ではなく並び順（本番は 1,2,5 のような飛び番）。`settings_approval_detail` は旧タイムラインのまま
+
 ### Database Models
 
 **マスタ (M_) / トランザクション (T_) / ビュー (V_, unmanaged)** の3系統。全モデルは `models.py`（~850行）に定義。

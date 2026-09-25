@@ -1381,3 +1381,130 @@ label.required::after {
     width: 100%;
 }
 .drop-zone__files li { padding: 1px 0; }
+
+
+/* =====================================================
+   決裁状況・承認欄（印鑑）・承認ルート  (_approval_board.html)
+   ===================================================== */
+.ab-head-note{ color:#fff !important; opacity:.85; font-weight:400; font-size:12px; }
+
+.ab-grid{ display:grid; grid-template-columns:minmax(240px,1fr) auto; gap:20px 32px; align-items:center; }
+@media (max-width:820px){ .ab-grid{ grid-template-columns:1fr; } }
+
+.ab-label{ font-size:12px; color:var(--sub); letter-spacing:.04em; }
+.ab-title{ font-size:22px; font-weight:700; margin:2px 0 10px; line-height:1.3; color:var(--ink); }
+.ab-title-done{ color:#047857; }
+.ab-title-return{ color:#c2740a; }
+.ab-title-reject{ color:#b91c1c; }
+.ab-title-cancel,.ab-title-draft{ color:var(--sub); }
+.ab-meta{ font-size:13px; color:var(--sub); margin-top:8px; }
+.ab-meta b{ color:var(--ink); font-weight:500; }
+
+/* セグメント式プログレスバー: 1段 = 1セグメント */
+.ab-seg{ display:flex; gap:4px; height:10px; }
+.ab-seg span{ flex:1; border-radius:3px; background:var(--line); position:relative; overflow:hidden; }
+.ab-seg .ab-seg-done{ background:#047857; }
+.ab-seg .ab-seg-now{ background:#fff3d6; border:1px solid #f2c56b; }
+.ab-seg .ab-seg-now::after{ content:""; position:absolute; inset:0; width:var(--pct,0%); background:#c2740a; border-radius:2px; }
+.ab-seg .ab-seg-return{ background:#c2740a; }
+.ab-seg .ab-seg-reject{ background:#b91c1c; }
+.ab-seg-cap{ display:flex; gap:4px; font-size:11px; color:var(--muted); margin-top:4px; }
+.ab-seg-cap span{ flex:1; text-align:center; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* 承認欄テーブル */
+.ab-stampbox-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; justify-self:end; max-width:100%; }
+.ab-stampbox{ border-collapse:collapse; table-layout:fixed; }
+.ab-stampbox th,.ab-stampbox td{ border:1px solid var(--line-strong); text-align:center; width:104px; vertical-align:middle; }
+.ab-stampbox th{ background:var(--panel); font-weight:500; padding:6px 4px; line-height:1.3; }
+.ab-stampbox .ab-role{ font-size:13px; color:var(--ink); display:block; }
+.ab-stampbox .ab-post{ font-size:11px; color:var(--sub); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ab-stampbox td.ab-cell{ height:112px; padding:6px 4px; position:relative; }
+.ab-stampbox td.ab-cell-now{ background:#fff8e6; }
+.ab-stampbox td.ab-name{ padding:6px 4px; font-size:12px; line-height:1.35; }
+.ab-stampbox .ab-dt{ display:block; font-size:11px; color:var(--sub); font-variant-numeric:tabular-nums; }
+.ab-mini{ position:absolute; left:8px; right:8px; bottom:6px; height:4px; background:var(--line); border-radius:2px; overflow:hidden; }
+.ab-mini::after{ content:""; position:absolute; inset:0; width:var(--pct,0%); background:#c2740a; }
+
+/* 丸印（日付印） */
+.ab-stamp{ width:82px; height:82px; display:block; margin:0 auto; opacity:.92; mix-blend-mode:multiply; }
+.ab-tilt-1{ transform:rotate(-5deg); }
+.ab-tilt-2{ transform:rotate(3deg); }
+.ab-tilt-3{ transform:rotate(-2deg); }
+.ab-tilt-4{ transform:rotate(4deg); }
+.ab-tilt-5{ transform:rotate(-4deg); }
+.ab-stamp-ring{ fill:none; stroke:#c9321f; stroke-width:2.4; }
+.ab-stamp-rule{ stroke:#c9321f; stroke-width:1.4; }
+.ab-stamp text{ fill:#c9321f; font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic UI",sans-serif; text-anchor:middle; font-weight:700; }
+.ab-stamp-t1{ font-size:11px; font-weight:500; }
+.ab-stamp-t2{ font-size:12px; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
+.ab-stamp-t3{ font-size:19px; }
+
+/* 待ち・未着手の空欄 */
+.ab-hole{
+  width:82px; height:82px; border-radius:50%; margin:0 auto; display:flex; align-items:center; justify-content:center;
+  border:2px dashed #b4b9c4; color:var(--muted); font-size:12px; font-weight:500;
+}
+.ab-hole-now{ border-color:#c2740a; color:#c2740a; animation:ab-pulse 2.4s ease-in-out infinite; }
+@keyframes ab-pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(194,116,10,0); } 50%{ box-shadow:0 0 0 6px rgba(194,116,10,.16); } }
+@media (prefers-reduced-motion:reduce){ .ab-hole-now{ animation:none; } }
+
+/* 差戻し・却下・取消の角印 */
+.ab-sq{
+  width:82px; height:82px; margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  border:2.4px solid #c2740a; color:#c2740a; border-radius:6px; transform:rotate(-4deg); font-weight:700;
+  opacity:.92; mix-blend-mode:multiply;
+}
+.ab-sq-reject{ border-color:#b91c1c; color:#b91c1c; }
+.ab-sq-cancel{ border-color:#6b7280; color:#6b7280; }
+.ab-sq-w{ font-size:20px; line-height:1.1; letter-spacing:.1em; }
+.ab-sq-s{ font-size:10px; font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
+
+/* 承認ルート（縦タイムライン） */
+.ab-route{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+.ab-route li{ display:grid; grid-template-columns:36px 1fr; gap:0 14px; position:relative; padding-bottom:22px; }
+.ab-route li:last-child{ padding-bottom:0; }
+.ab-route li:not(:last-child)::before{ content:""; position:absolute; left:17px; top:36px; bottom:0; width:2px; background:var(--line-strong); }
+.ab-route li.ab-r-done:not(:last-child)::before{ background:#047857; }
+.ab-route li.ab-r-now:not(:last-child)::before{ background:repeating-linear-gradient(to bottom,#c2740a 0,#c2740a 4px,transparent 4px,transparent 8px); }
+.ab-node{
+  width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:14px; border:2px solid var(--line-strong); color:var(--muted); background:var(--bg);
+  position:relative; z-index:1; font-variant-numeric:tabular-nums;
+}
+.ab-node-done{ background:#047857; border-color:#047857; color:#fff; }
+.ab-node-now{ background:#c2740a; border-color:#c2740a; color:#fff; }
+.ab-node-return{ background:#c2740a; border-color:#c2740a; color:#fff; }
+.ab-node-reject{ background:#b91c1c; border-color:#b91c1c; color:#fff; }
+.ab-node-cancel{ background:#6b7280; border-color:#6b7280; color:#fff; }
+.ab-node-src{ background:var(--primary); border-color:var(--primary); color:#fff; }
+.ab-r-head{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-height:36px; }
+.ab-r-title{ font-weight:700; font-size:14px; }
+.ab-pill{
+  display:inline-flex; align-items:center; gap:5px; height:20px; padding:0 9px; border-radius:999px;
+  font-size:11px; font-weight:500; line-height:1; border:1px solid transparent;
+}
+.ab-pill::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.ab-pill-done{ color:#047857; background:#d1fae5; }
+.ab-pill-now{ color:#c2740a; background:#fff3d6; border-color:#f2c56b; }
+.ab-pill-wait{ color:var(--sub); background:var(--panel); }
+.ab-pill-return{ color:#c2740a; background:#fff3d6; }
+.ab-pill-reject{ color:#b91c1c; background:#fee2e2; }
+.ab-pill-cancel{ color:#374151; background:#e5e7eb; }
+.ab-pill-src{ color:var(--primary); background:var(--primary-soft); }
+.ab-person{ display:flex; align-items:center; gap:10px; margin-top:6px; }
+.ab-avatar{
+  width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; color:#fff; background:var(--primary);
+}
+.ab-nm{ font-weight:500; font-size:14px; }
+.ab-sb{ font-size:12px; color:var(--sub); font-variant-numeric:tabular-nums; }
+.ab-elapsed{ display:flex; align-items:center; gap:10px; margin-top:8px; font-size:12px; color:var(--sub); }
+.ab-elapsed .ab-bar{ flex:1; max-width:260px; height:6px; border-radius:3px; background:var(--line); overflow:hidden; position:relative; }
+.ab-elapsed .ab-bar::after{ content:""; position:absolute; inset:0; width:var(--pct,0%); background:#c2740a; }
+.ab-elapsed .ab-bar-ok::after{ background:#047857; }
+.ab-comment{
+  margin-top:8px; padding:8px 12px; border-left:3px solid var(--line-strong); background:var(--panel);
+  border-radius:0 var(--precision-radius) var(--precision-radius) 0; font-size:13px; max-width:60ch;
+}
+.ab-comment-return{ border-left-color:#c2740a; }
+.ab-comment-reject{ border-left-color:#b91c1c; }

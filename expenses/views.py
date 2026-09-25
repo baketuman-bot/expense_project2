@@ -242,6 +242,23 @@ def ringi_title_api(request):
     return JsonResponse({'found': True, 'title': row[0] or ''})
 
 
+def _build_approval_board(expense, workflow_actions, pending_approvers, progress):
+    """決裁状況・承認欄（印鑑）・承認ルートの表示データを組み立てる。
+
+    ステップ定義が取れない／例外時は None を返し、テンプレート側は旧タイムライン表示にフォールバックする。
+    """
+    from .approval_board import build_approval_board
+    try:
+        tpl = getattr(expense.document_type, 'workflow_template_id', None)
+        if not tpl:
+            return None
+        steps = list(tpl.steps.select_related('approver_post').order_by('step_order'))
+        return build_approval_board(expense, workflow_actions, pending_approvers, steps, progress=progress)
+    except Exception:
+        logger.warning("approval board build failed", exc_info=True)
+        return None
+
+
 def _build_expense_detail_context(expense):
     """申請詳細画面・印刷帳票で共通のコンテキストを構築する。
 
@@ -300,6 +317,7 @@ def _build_expense_detail_context(expense):
         "currency_name": currency_name,
         "dynamic_fields_display": dynamic_fields_display,
         "progress": progress,
+        "approval_board": _build_approval_board(expense, workflow_actions, pending_approvers, progress),
         "is_travel": is_travel,
         "is_asset": _is_asset_doc_type(expense.document_type),
         "travel_route_details": travel_route_details,
@@ -3690,6 +3708,7 @@ def approval_detail(request, pk):
         "form": form,
         "workflow_actions": workflow_actions,
         "pending_approvers": pending_approvers,
+        "approval_board": _build_approval_board(expense, workflow_actions, pending_approvers, progress),
         "dynamic_fields_display": dynamic_fields_display,
         "progress": progress,
         "is_travel": is_travel,
