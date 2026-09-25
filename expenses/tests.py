@@ -840,6 +840,35 @@ class ApprovalDetailAssetLayoutTest(AssetDetailFixtureMixin, TestCase):
         self.assertIn('>経費明細<', content)
 
 
+class SidebarToggleButtonTest(AssetDetailFixtureMixin, TestCase):
+    """ヘッダーのサイドバー切替ボタンは、サイドバーを描画する画面にだけ出すことを確認する。
+
+    approval_detail はフル幅表示のため {% block sidebar %} を空にしている。ボタンだけ残すと
+    押しても見た目が変わらず（body クラスと localStorage だけ切り替わる）、次に開いた画面で
+    サイドバーが意図と逆のモードになる。
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_expense_detail_renders_sidebar_and_toggle(self):
+        from django.urls import reverse
+        response = self.client.get(reverse('expenses:expense_detail', args=[self.normal_document.pk]))
+        content = response.content.decode('utf-8')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('class="precision-sidebar"', content)
+        self.assertIn('id="sidebarToggleBtn"', content)
+
+    def test_approval_detail_without_sidebar_hides_toggle(self):
+        from django.urls import reverse
+        response = self.client.get(reverse('expenses:approval_detail', args=[self.normal_document.pk]))
+        content = response.content.decode('utf-8')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('class="precision-sidebar"', content)
+        self.assertNotIn('id="sidebarToggleBtn"', content)
+
+
 class SettingsApprovalDetailAssetLayoutTest(AssetDetailFixtureMixin, TestCase):
     """settings_approval_detail.html の固定資産レイアウト出し分けを確認する"""
 

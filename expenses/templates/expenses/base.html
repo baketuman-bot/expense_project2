@@ -40,6 +40,8 @@
             <div class="corp-seg corp-seg--charcoal"></div>
         </div>
         <div class="corp-banner-content">
+            {# サイドバー切替ボタン。{% block sidebar %} を空にする画面では合わせて空にすること（押しても何も変わらないため） #}
+            {% block sidebar_toggle %}
             <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn"
                     aria-label="サイドメニューをアイコン表示に切替" aria-pressed="false" title="サイドメニューの表示切替">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -47,6 +49,7 @@
                     <path d="M9 3v18"></path>
                 </svg>
             </button>
+            {% endblock %}
             <div class="corp-banner-brand">
                 <a href="{% url 'expenses:home' %}">
                     <img src="{% static 'expenses/img/idc_logo_color_h192.png' %}" alt="IDC" class="corp-banner-logo">

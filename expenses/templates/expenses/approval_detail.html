@@ -4,7 +4,9 @@
 
 {% block title %}承認処理 | {% endblock %}
 
+{# フル幅表示のためサイドバーを描画しない。ヘッダーの切替ボタンも押しても効かないので出さない #}
 {% block sidebar %}{% endblock %}
+{% block sidebar_toggle %}{% endblock %}
 
 {% block extra_css %}
 <style>
